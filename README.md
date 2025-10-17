@@ -12,7 +12,8 @@ FastMediaSorter is a lightweight Android application designed for browsing and d
 - 🎬 Configurable slideshow with countdown timer
 - 🎮 Invisible touch zones for distraction-free viewing
 - 🔄 Image rotation with ABC/Random ordering
-- 📱 Optimized for both phones and tablets
+- � File sorting: Copy/Move images to 10 configurable destinations
+- �📱 Optimized for both phones and tablets
 
 ## Quick Start
 
@@ -45,9 +46,19 @@ FastMediaSorter is a lightweight Android application designed for browsing and d
 ### Connection Management
 - Connect to SMB servers over local network
 - Save multiple SMB connection configurations
-- SQLite database for persistent storage
+- SQLite database for persistent storage (Room v2)
 - Auto-load last used connection on startup
 - Anonymous and authenticated access support
+- Dual purpose: Slideshow source or Sort destination
+
+### Sort Destinations (0-9)
+- Configure up to 10 sort destinations from saved connections
+- Each destination has:
+  - **Sort order** (0-9) - position in button list
+  - **Sort name** - short display name (max 20 chars)
+  - **Unique color** - 10 distinct colors for visual identification
+- Automatic reordering when destinations added/removed
+- Used by both Copy and Move operations in Sort screen
 
 ### Slideshow
 - Automatic image slideshow with configurable interval (default: 10 seconds)
@@ -121,8 +132,8 @@ APK file: `app/build/outputs/apk/release/fastmediasorter.apk`
 ## Usage
 
 ### Main Screen
-- **Sort** button - (Coming soon) Sort options
-- **⚙️ Settings** - View touch control zones diagram and help
+- **Sort** button - Open file sorting mode for selected connection
+- **⚙️ Settings** - Configure slideshow help and sort destinations
 - **Slideshow** - Start slideshow with current settings
 - **Interval** - Set seconds between images
 - Tap saved connection to load its settings
@@ -138,9 +149,29 @@ APK file: `app/build/outputs/apk/release/fastmediasorter.apk`
 - Device rotation preserved - slideshow continues
 
 ### Settings Screen
-- Visual guide showing all touch control zones
-- Color-coded areas with descriptions
+- **Slideshow tab** - Visual guide showing all touch control zones with color-coded areas
+- **Sort to.. tab** - Configure up to 10 sort destinations (0-9)
+  - Add destination: Select connection + enter short name (max 20 chars)
+  - Reorder destinations: Move Up/Down buttons
+  - Delete destination: Remove from list
+  - Each destination gets unique color for easy identification
 - Contact information: sza@ukr.net 2025
+
+### Sort Screen
+- **Navigation**: Left/right touch zones (50/50 split) with infinite cycling
+- **File info**: Displays filename, size (KB), and modification date
+- **Connection name**: Shows current connection at top of screen
+- **Copy to..**: 10 colored buttons for copying current image to destinations
+  - File remains in source folder
+  - Auto-advance to next image on success
+  - Error handling: Already exists, same folder, network/security errors
+- **Move to..**: 10 colored buttons for moving current image to destinations
+  - File deleted from source after successful copy
+  - Removed from current list, auto-load next image
+  - Error handling: Copy errors + delete permission errors
+- **Progress indicator**: "Copying..." or "Moving..." overlay during operations
+- **Counter**: Shows current position (e.g., "5 / 23")
+- **Back button**: Return to main screen
 
 ## Technical Details
 
@@ -148,12 +179,12 @@ APK file: `app/build/outputs/apk/release/fastmediasorter.apk`
 - **Target SDK**: Android 14 (API 34)
 - **Minimum SDK**: Android 9 (API 28)
 - **Build System**: Gradle 8.13 with KSP
-- **Database**: Room 2.6.1 (SQLite)
-- **SMB Library**: jCIFS-ng 2.1.10
+- **Database**: Room 2.6.1 (SQLite, version 2 with sort fields)
+- **SMB Library**: jCIFS-ng 2.1.10 (SMB 2/3 support)
 - **Image Loading**: Glide 4.16.0
-- **UI**: Material Design 3, ConstraintLayout, RecyclerView
-- **Async**: Kotlin Coroutines 1.7.3
-- **Architecture**: MVVM with Repository pattern
+- **UI**: Material Design 3, ConstraintLayout, RecyclerView, TabLayout, ViewPager2
+- **Async**: Kotlin Coroutines 1.7.3 with lifecycle-aware scopes
+- **Architecture**: MVVM with Repository pattern, LiveData/Flow reactivity
 
 ## Project Structure
 
@@ -161,20 +192,26 @@ APK file: `app/build/outputs/apk/release/fastmediasorter.apk`
 app/src/main/java/com/sza/fastmediasorter/
 ├── MainActivity.kt - connection management, compact UI
 ├── data/
-│   ├── ConnectionConfig.kt - Room entity (unique by folderAddress)
-│   ├── ConnectionConfigDao.kt - database DAO with Flow
-│   ├── AppDatabase.kt - Room database singleton
-│   └── ConnectionRepository.kt - repository pattern
+│   ├── ConnectionConfig.kt - Room entity v2 (sortOrder, sortName fields)
+│   ├── ConnectionConfigDao.kt - database DAO with Flow, sort queries
+│   ├── AppDatabase.kt - Room database v2 with migration
+│   └── ConnectionRepository.kt - CRUD + sort destination management
 ├── network/
-│   ├── SmbClient.kt - jCIFS-ng wrapper (SMB 2/3 support)
+│   ├── SmbClient.kt - jCIFS-ng wrapper with copy/move operations
 │   └── ImageRepository.kt - image loading and caching
 ├── ui/
-│   ├── ConnectionViewModel.kt - MVVM for connections
-│   ├── ConnectionAdapter.kt - RecyclerView adapter
+│   ├── ConnectionViewModel.kt - MVVM for connections & destinations
+│   ├── ConnectionAdapter.kt - RecyclerView adapter for connections
 │   ├── slideshow/
 │   │   └── SlideshowActivity.kt - fullscreen with touch zones
-│   └── settings/
-│       └── SettingsActivity.kt - help screen with touch diagram
+│   ├── settings/
+│   │   ├── SettingsActivity.kt - TabLayout with 2 tabs
+│   │   ├── SlideshowHelpFragment.kt - touch zones diagram
+│   │   ├── SortHelpFragment.kt - sort destinations management
+│   │   ├── SortDestinationAdapter.kt - RecyclerView for destinations
+│   │   └── AddSortDestinationDialog.kt - add destination dialog
+│   └── sort/
+│       └── SortActivity.kt - image sorting with copy/move operations
 └── utils/
     └── PreferenceManager.kt - SharedPreferences wrapper
 
@@ -183,12 +220,17 @@ res/
 │   ├── ic_settings.xml - gear icon
 │   ├── ic_save.xml - save icon
 │   ├── ic_back.xml - back arrow
-│   └── touch_zones_scheme.xml - control zones diagram
+│   └── touch_zones_scheme.xml - control zones diagram with labels
 └── layout/
     ├── activity_main.xml - compact 4-button layout
     ├── activity_slideshow.xml - invisible touch zones
-    ├── activity_settings.xml - help screen
-    └── item_connection.xml - connection list item
+    ├── activity_settings.xml - TabLayout + ViewPager2
+    ├── activity_sort.xml - fullscreen with Copy/Move buttons
+    ├── fragment_slideshow_help.xml - touch zones visualization
+    ├── fragment_sort_help.xml - destinations list with add button
+    ├── item_connection.xml - connection list item
+    ├── item_sort_destination.xml - destination with up/down/delete
+    └── dialog_add_sort_destination.xml - add destination dialog
 ```
 
 ## Screenshots & Assets

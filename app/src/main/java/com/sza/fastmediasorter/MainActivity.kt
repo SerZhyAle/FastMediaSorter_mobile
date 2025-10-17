@@ -81,13 +81,15 @@ class MainActivity : AppCompatActivity() {
         // Start slideshow activity
         val intent = Intent(this, SlideshowActivity::class.java)
         startActivity(intent)
-        finish()
     }
     
     private fun setupRecyclerView() {
         adapter = ConnectionAdapter(
             onItemClick = { config ->
                 loadConfig(config)
+            },
+            onItemDoubleClick = { config ->
+                loadConfigAndStartSlideshow(config)
             },
             onDeleteClick = { config ->
                 viewModel.deleteConfig(config)
@@ -149,8 +151,25 @@ class MainActivity : AppCompatActivity() {
         }
         
         binding.sortButton.setOnClickListener {
-            // TODO: Sort functionality
-            Toast.makeText(this, "Sort - Coming soon", Toast.LENGTH_SHORT).show()
+            currentConfigId?.let { configId ->
+                // Check if sort destinations are configured
+                lifecycleScope.launch {
+                    val destinations = viewModel.getSortDestinationsCount()
+                    if (destinations == 0) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Set destinations first",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } else {
+                        val intent = Intent(this@MainActivity, com.sza.fastmediasorter.ui.sort.SortActivity::class.java)
+                        intent.putExtra("configId", configId)
+                        startActivity(intent)
+                    }
+                }
+            } ?: run {
+                Toast.makeText(this, "Please select a connection first", Toast.LENGTH_SHORT).show()
+            }
         }
         
         binding.settingsButton.setOnClickListener {

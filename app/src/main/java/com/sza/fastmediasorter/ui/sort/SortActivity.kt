@@ -1,0 +1,460 @@
+package com.sza.fastmediasorter.ui.sort
+
+import android.os.Bundle
+import android.view.View
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
+import com.sza.fastmediasorter.data.ConnectionConfig
+import com.sza.fastmediasorter.databinding.ActivitySortBinding
+import com.sza.fastmediasorter.network.SmbClient
+import com.sza.fastmediasorter.ui.ConnectionViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+class SortActivity : AppCompatActivity() {
+    private lateinit var binding: ActivitySortBinding
+    private lateinit var viewModel: ConnectionViewModel
+    private lateinit var smbClient: SmbClient
+    
+    private var currentConfig: ConnectionConfig? = null
+    private var imageFiles = listOf<String>()
+    private var currentIndex = 0
+    private var sortDestinations = listOf<ConnectionConfig>()
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivitySortBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        
+        supportActionBar?.hide()
+        
+        viewModel = ViewModelProvider(this)[ConnectionViewModel::class.java]
+        
+        val configId = intent.getLongExtra("configId", -1)
+        if (configId == -1L) {
+            finish()
+            return
+        }
+        
+        setupTouchAreas()
+        setupBackButton()
+        setupObservers()
+        
+        lifecycleScope.launch {
+            loadConnection(configId)
+        }
+    }
+    
+    private fun setupObservers() {
+        // Observe sort destinations
+        viewModel.sortDestinations.observe(this) { destinations ->
+            sortDestinations = destinations
+            setupSortButtons()
+        }
+    }
+    
+    private fun setupTouchAreas() {
+        binding.previousArea.setOnClickListener {
+            if (imageFiles.isEmpty()) return@setOnClickListener
+            
+            currentIndex = if (currentIndex > 0) {
+                currentIndex - 1
+            } else {
+                imageFiles.size - 1  // Jump to last
+            }
+            loadImage()
+        }
+        
+        binding.nextArea.setOnClickListener {
+            if (imageFiles.isEmpty()) return@setOnClickListener
+            
+            currentIndex = if (currentIndex < imageFiles.size - 1) {
+                currentIndex + 1
+            } else {
+                0  // Jump to first
+            }
+            loadImage()
+        }
+    }
+    
+    private fun setupBackButton() {
+        binding.backButton.setOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
+        }
+    }
+    
+
+    
+    private fun setupSortButtons() {
+        val copyButtons = listOf(
+            binding.sortButton0, binding.sortButton1, binding.sortButton2,
+            binding.sortButton3, binding.sortButton4, binding.sortButton5,
+            binding.sortButton6, binding.sortButton7, binding.sortButton8,
+            binding.sortButton9
+        )
+        
+        val moveButtons = listOf(
+            binding.moveButton0, binding.moveButton1, binding.moveButton2,
+            binding.moveButton3, binding.moveButton4, binding.moveButton5,
+            binding.moveButton6, binding.moveButton7, binding.moveButton8,
+            binding.moveButton9
+        )
+        
+        // Color shades for buttons
+        val colors = listOf(
+            android.graphics.Color.parseColor("#5C6BC0"), // Indigo
+            android.graphics.Color.parseColor("#42A5F5"), // Blue
+            android.graphics.Color.parseColor("#26C6DA"), // Cyan
+            android.graphics.Color.parseColor("#66BB6A"), // Green
+            android.graphics.Color.parseColor("#9CCC65"), // Light Green
+            android.graphics.Color.parseColor("#FFCA28"), // Amber
+            android.graphics.Color.parseColor("#FFA726"), // Orange
+            android.graphics.Color.parseColor("#EF5350"), // Red
+            android.graphics.Color.parseColor("#AB47BC"), // Purple
+            android.graphics.Color.parseColor("#EC407A")  // Pink
+        )
+        
+        // Hide all buttons first
+        copyButtons.forEach { it.visibility = View.GONE }
+        moveButtons.forEach { it.visibility = View.GONE }
+        
+        // Show and configure buttons for active destinations
+        sortDestinations.forEachIndexed { index, config ->
+            if (index < copyButtons.size) {
+                val copyButton = copyButtons[index]
+                copyButton.text = config.sortName
+                copyButton.setBackgroundColor(colors[index])
+                copyButton.setTextColor(android.graphics.Color.BLACK)
+                copyButton.visibility = View.VISIBLE
+                copyButton.setOnClickListener {
+                    copyToDestination(config)
+                }
+                
+                val moveButton = moveButtons[index]
+                moveButton.text = config.sortName
+                moveButton.setBackgroundColor(colors[index])
+                moveButton.setTextColor(android.graphics.Color.BLACK)
+                moveButton.visibility = View.VISIBLE
+                moveButton.setOnClickListener {
+                    moveToDestination(config)
+                }
+            }
+        }
+    }
+    
+    private fun copyToDestination(destination: ConnectionConfig) {
+        if (imageFiles.isEmpty()) return
+        
+        val currentImageUrl = imageFiles[currentIndex]
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            // Show progress
+            withContext(Dispatchers.Main) {
+                binding.progressText.text = "Copying..."
+                binding.copyProgressLayout.visibility = View.VISIBLE
+            }
+            
+            try {
+                val result = smbClient.copyFile(
+                    currentImageUrl,
+                    destination.serverAddress,
+                    destination.folderPath
+                )
+                
+                withContext(Dispatchers.Main) {
+                    // Hide progress
+                    binding.copyProgressLayout.visibility = View.GONE
+                    
+                    val message = when (result) {
+                        is SmbClient.CopyResult.Success -> "File copied"
+                        is SmbClient.CopyResult.AlreadyExists -> "File already exists"
+                        is SmbClient.CopyResult.SameFolder -> "Same folder"
+                        is SmbClient.CopyResult.NetworkError -> "Network error: ${result.message}"
+                        is SmbClient.CopyResult.SecurityError -> "Security error: ${result.message}"
+                        is SmbClient.CopyResult.UnknownError -> "Error: ${result.message}"
+                    }
+                    
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        message,
+                        if (result is SmbClient.CopyResult.Success) 
+                            android.widget.Toast.LENGTH_SHORT 
+                        else 
+                            android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    
+                    // Jump to next image on success
+                    if (result is SmbClient.CopyResult.Success) {
+                        if (imageFiles.isNotEmpty()) {
+                            currentIndex = if (currentIndex < imageFiles.size - 1) {
+                                currentIndex + 1
+                            } else {
+                                0  // Jump to first
+                            }
+                            loadImage()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    // Hide progress
+                    binding.copyProgressLayout.visibility = View.GONE
+                    
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Unexpected error: ${e.message}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+    
+    private fun moveToDestination(destination: ConnectionConfig) {
+        if (imageFiles.isEmpty()) return
+        
+        val currentImageUrl = imageFiles[currentIndex]
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            // Show progress
+            withContext(Dispatchers.Main) {
+                binding.progressText.text = "Moving..."
+                binding.copyProgressLayout.visibility = View.VISIBLE
+            }
+            
+            try {
+                val result = smbClient.moveFile(
+                    currentImageUrl,
+                    destination.serverAddress,
+                    destination.folderPath
+                )
+                
+                withContext(Dispatchers.Main) {
+                    // Hide progress
+                    binding.copyProgressLayout.visibility = View.GONE
+                    
+                    val message = when (result) {
+                        is SmbClient.MoveResult.Success -> "File moved"
+                        is SmbClient.MoveResult.AlreadyExists -> "File already exists"
+                        is SmbClient.MoveResult.SameFolder -> "Same folder"
+                        is SmbClient.MoveResult.NetworkError -> "Network error: ${result.message}"
+                        is SmbClient.MoveResult.SecurityError -> "Security error: ${result.message}"
+                        is SmbClient.MoveResult.DeleteError -> "Delete error: ${result.message}"
+                        is SmbClient.MoveResult.UnknownError -> "Error: ${result.message}"
+                    }
+                    
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        message,
+                        if (result is SmbClient.MoveResult.Success) 
+                            android.widget.Toast.LENGTH_SHORT 
+                        else 
+                            android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    
+                    // Remove from list and load next on success
+                    if (result is SmbClient.MoveResult.Success) {
+                        if (imageFiles.isNotEmpty()) {
+                            // Remove current file from list
+                            imageFiles = imageFiles.toMutableList().apply {
+                                removeAt(currentIndex)
+                            }
+                            
+                            // Check if list is now empty
+                            if (imageFiles.isEmpty()) {
+                                android.widget.Toast.makeText(
+                                    this@SortActivity,
+                                    "No more images",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                                return@withContext
+                            }
+                            
+                            // Adjust index if we removed the last item
+                            if (currentIndex >= imageFiles.size) {
+                                currentIndex = imageFiles.size - 1
+                            }
+                            
+                            // Load image at current index (which is now the next file)
+                            loadImage()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    // Hide progress
+                    binding.copyProgressLayout.visibility = View.GONE
+                    
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Unexpected error: ${e.message}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+    
+    private suspend fun loadConnection(configId: Long) {
+        // Get config from database directly
+        val database = com.sza.fastmediasorter.data.AppDatabase.getDatabase(applicationContext)
+        val config = withContext(Dispatchers.IO) {
+            database.connectionConfigDao().getConfigById(configId)
+        }
+        
+        if (config == null) {
+            withContext(Dispatchers.Main) {
+                android.widget.Toast.makeText(
+                    this@SortActivity,
+                    "Connection not found",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+                finish()
+            }
+            return
+        }
+        
+        currentConfig = config
+        smbClient = SmbClient()
+        
+        withContext(Dispatchers.Main) {
+            // Display connection name and folder address
+            binding.connectionNameText.text = "${config.name} - ${config.serverAddress}\\${config.folderPath}"
+        }
+        
+        // Connect to SMB
+        val connected = withContext(Dispatchers.IO) {
+            smbClient.connect(config.serverAddress, config.username, config.password)
+        }
+        
+        if (!connected) {
+            withContext(Dispatchers.Main) {
+                android.widget.Toast.makeText(
+                    this@SortActivity,
+                    "Failed to connect to ${config.serverAddress}",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+                finish()
+            }
+            return
+        }
+        
+        withContext(Dispatchers.Main) {
+            android.widget.Toast.makeText(
+                this@SortActivity,
+                "Connected. Loading images...",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+        
+        loadImages()
+    }
+    
+    private fun loadImages() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                currentConfig?.let { config ->
+                    val files = smbClient.getImageFiles(config.serverAddress, config.folderPath)
+                    imageFiles = files.sorted() // ABC order
+                    
+                    withContext(Dispatchers.Main) {
+                        if (imageFiles.isNotEmpty()) {
+                            currentIndex = 0
+                            loadImage()
+                        } else {
+                            android.widget.Toast.makeText(
+                                this@SortActivity,
+                                "No images found in folder",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Error loading images: ${e.message}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+    
+    private fun loadImage() {
+        if (imageFiles.isEmpty()) return
+        
+        val imageUrl = imageFiles[currentIndex]
+        updateImageCounter()
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val imageBytes = smbClient.downloadImage(imageUrl)
+                val fileInfo = smbClient.getFileInfo(imageUrl)
+                
+                withContext(Dispatchers.Main) {
+                    if (imageBytes != null) {
+                        Glide.with(this@SortActivity)
+                            .load(imageBytes)
+                            .into(binding.imageView)
+                        
+                        // Update file info
+                        updateFileInfo(fileInfo)
+                    } else {
+                        android.widget.Toast.makeText(
+                            this@SortActivity,
+                            "Failed to load image: $imageUrl",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Error: ${e.message}",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+    
+    private fun updateFileInfo(fileInfo: SmbClient.FileInfo?) {
+        if (fileInfo == null) {
+            binding.fileInfoText.text = "File info unavailable"
+            return
+        }
+        
+        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+        val dateStr = dateFormat.format(java.util.Date(fileInfo.modifiedDate))
+        
+        binding.fileInfoText.text = "${fileInfo.name}  ${fileInfo.sizeKB} KB  $dateStr"
+    }
+    
+    private fun updateImageCounter() {
+        val total = imageFiles.size
+        val current = currentIndex + 1
+        binding.imageCounterText.text = "$current / $total"
+    }
+    
+
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            smbClient.disconnect()
+        } catch (e: Exception) {
+            // Ignore disconnect errors on destroy
+        }
+    }
+}

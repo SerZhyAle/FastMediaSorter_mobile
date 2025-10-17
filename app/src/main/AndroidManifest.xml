@@ -38,6 +38,13 @@
             android:name=".ui.settings.SettingsActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity" />
+            
+        <activity
+            android:name=".ui.sort.SortActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize"
+            android:theme="@style/Theme.FastMediaSorter.Fullscreen"
+            android:parentActivityName=".MainActivity" />
 
     </application>
 

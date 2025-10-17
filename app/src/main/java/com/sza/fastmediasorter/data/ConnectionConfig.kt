@@ -13,5 +13,7 @@ data class ConnectionConfig(
     val password: String,
     val folderPath: String,
     val interval: Int = 10,
-    val lastUsed: Long = 0
+    val lastUsed: Long = 0,
+    val sortOrder: Int? = null,
+    val sortName: String? = null
 )

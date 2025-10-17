@@ -199,6 +199,12 @@ class SlideshowActivity : AppCompatActivity() {
             currentIndex = (currentIndex + 1) % images.size
             lifecycleScope.launch {
                 loadCurrentImage()
+                
+                // Show interval after manual next
+                if (!isPaused) {
+                    val interval = preferenceManager.getInterval()
+                    showTimerText("$interval", 1000)
+                }
             }
             // Reset timer on manual next
             elapsedTime = 0
@@ -352,10 +358,9 @@ class SlideshowActivity : AppCompatActivity() {
     }
     
     override fun onBackPressed() {
-        super.onBackPressed()
         slideshowJob?.cancel()
         // Clear session when user manually exits
         preferenceManager.clearLastSession()
-        finish()
+        super.onBackPressed()
     }
 }

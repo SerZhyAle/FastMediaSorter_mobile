@@ -13,11 +13,13 @@ import kotlinx.coroutines.launch
 class ConnectionViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: ConnectionRepository
     val allConfigs: LiveData<List<ConnectionConfig>>
+    val sortDestinations: LiveData<List<ConnectionConfig>>
     
     init {
         val dao = AppDatabase.getDatabase(application).connectionConfigDao()
         repository = ConnectionRepository(dao)
         allConfigs = repository.allConfigs.asLiveData()
+        sortDestinations = repository.sortDestinations.asLiveData()
     }
     
     fun insertConfig(config: ConnectionConfig) = viewModelScope.launch {
@@ -54,5 +56,22 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
         val server = parts[0]
         val folder = parts.drop(1).joinToString("\\")
         return repository.getConfigByFolderAddress(server, folder)
+    }
+    
+    // Sort destinations methods
+    fun addSortDestination(configId: Long, sortName: String) = viewModelScope.launch {
+        repository.addSortDestination(configId, sortName)
+    }
+    
+    fun removeSortDestination(configId: Long) = viewModelScope.launch {
+        repository.removeSortDestination(configId)
+    }
+    
+    fun moveSortDestination(config: ConnectionConfig, direction: Int) = viewModelScope.launch {
+        repository.moveSortDestination(config, direction)
+    }
+    
+    suspend fun getSortDestinationsCount(): Int {
+        return repository.getSortDestinationsCount()
     }
 }

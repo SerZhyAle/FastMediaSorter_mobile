@@ -34,4 +34,17 @@ interface ConnectionConfigDao {
     
     @Query("UPDATE connection_configs SET lastUsed = :timestamp WHERE id = :id")
     suspend fun updateLastUsed(id: Long, timestamp: Long)
+    
+    // Sort destinations queries
+    @Query("SELECT * FROM connection_configs WHERE sortOrder IS NOT NULL ORDER BY sortOrder ASC")
+    fun getSortDestinations(): Flow<List<ConnectionConfig>>
+    
+    @Query("UPDATE connection_configs SET sortOrder = :order, sortName = :name WHERE id = :id")
+    suspend fun updateSortDestination(id: Long, order: Int?, name: String?)
+    
+    @Query("UPDATE connection_configs SET sortOrder = NULL, sortName = NULL WHERE id = :id")
+    suspend fun removeSortDestination(id: Long)
+    
+    @Query("SELECT MAX(sortOrder) FROM connection_configs WHERE sortOrder IS NOT NULL")
+    suspend fun getMaxSortOrder(): Int?
 }
