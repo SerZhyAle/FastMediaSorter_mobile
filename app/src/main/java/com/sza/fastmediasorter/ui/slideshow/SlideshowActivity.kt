@@ -129,6 +129,8 @@ class SlideshowActivity : AppCompatActivity() {
             binding.imageView.setImageBitmap(rotatedBitmap)
             binding.imageView.rotation = 0f
         }
+        // Auto-pause on rotation
+        isPaused = true
     }
     
     private fun rotateBitmap(source: Bitmap, degrees: Float): Bitmap {
@@ -147,6 +149,8 @@ class SlideshowActivity : AppCompatActivity() {
             lifecycleScope.launch {
                 loadCurrentImage()
             }
+            // Auto-pause when going to previous
+            isPaused = true
         }
     }
     
