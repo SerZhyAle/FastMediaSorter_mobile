@@ -2,9 +2,23 @@ package com.sza.fastmediasorter.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 
 class PreferenceManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+    private val encryptedPrefs: SharedPreferences by lazy {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            "secure_prefs",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
     
     companion object {
         private const val KEY_SERVER_ADDRESS = "server_address"
@@ -23,19 +37,38 @@ class PreferenceManager(context: Context) {
         private const val KEY_CONFIRM_DELETE = "confirm_delete"
     }
     
+    init {
+        migratePasswordsToEncrypted()
+    }
+    
+    private fun migratePasswordsToEncrypted() {
+        val oldPassword = prefs.getString(KEY_PASSWORD, null)
+        val oldDefaultPassword = prefs.getString(KEY_DEFAULT_PASSWORD, null)
+        
+        if (oldPassword != null && !encryptedPrefs.contains(KEY_PASSWORD)) {
+            encryptedPrefs.edit().putString(KEY_PASSWORD, oldPassword).apply()
+            prefs.edit().remove(KEY_PASSWORD).apply()
+        }
+        
+        if (oldDefaultPassword != null && !encryptedPrefs.contains(KEY_DEFAULT_PASSWORD)) {
+            encryptedPrefs.edit().putString(KEY_DEFAULT_PASSWORD, oldDefaultPassword).apply()
+            prefs.edit().remove(KEY_DEFAULT_PASSWORD).apply()
+        }
+    }
+    
     fun saveConnectionSettings(server: String, username: String, password: String, folder: String) {
         prefs.edit().apply {
             putString(KEY_SERVER_ADDRESS, server)
             putString(KEY_USERNAME, username)
-            putString(KEY_PASSWORD, password)
             putString(KEY_FOLDER_PATH, folder)
             apply()
         }
+        encryptedPrefs.edit().putString(KEY_PASSWORD, password).apply()
     }
     
     fun getServerAddress(): String = prefs.getString(KEY_SERVER_ADDRESS, "") ?: ""
     fun getUsername(): String = prefs.getString(KEY_USERNAME, "") ?: ""
-    fun getPassword(): String = prefs.getString(KEY_PASSWORD, "") ?: ""
+    fun getPassword(): String = encryptedPrefs.getString(KEY_PASSWORD, "") ?: ""
     fun getFolderPath(): String = prefs.getString(KEY_FOLDER_PATH, "") ?: ""
     fun getInterval(): Int = prefs.getInt(KEY_INTERVAL, 10)
     
@@ -76,10 +109,10 @@ class PreferenceManager(context: Context) {
     fun getDefaultUsername(): String = prefs.getString(KEY_DEFAULT_USERNAME, "") ?: ""
     
     fun setDefaultPassword(password: String) {
-        prefs.edit().putString(KEY_DEFAULT_PASSWORD, password).apply()
+        encryptedPrefs.edit().putString(KEY_DEFAULT_PASSWORD, password).apply()
     }
     
-    fun getDefaultPassword(): String = prefs.getString(KEY_DEFAULT_PASSWORD, "") ?: ""
+    fun getDefaultPassword(): String = encryptedPrefs.getString(KEY_DEFAULT_PASSWORD, "") ?: ""
     
     // Allow Move operations
     fun setAllowMove(allow: Boolean) {
