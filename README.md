@@ -24,7 +24,10 @@ Android app for slideshow of images from SMB network shares.
   - **Left third** - Previous image
   - **Center third** - Pause/Resume slideshow
   - **Right third** - Next image
-- **Bottom 12.5%** - Free area
+- **Bottom 12.5% of screen** (divided into 2 equal horizontal zones):
+  - **Left half** - Rotate image 90° counter-clockwise
+  - **Right half** - Rotate image 90° clockwise
+  - Rotation persists for all subsequent images until changed
 
 ### UI Features
 - Material Design 3

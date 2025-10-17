@@ -27,6 +27,7 @@ class SlideshowActivity : AppCompatActivity() {
     private var currentIndex = 0
     private var slideshowJob: Job? = null
     private var isPaused = false
+    private var imageRotation = 0f
     
     companion object {
         private const val KEY_CURRENT_INDEX = "current_index"
@@ -81,6 +82,7 @@ class SlideshowActivity : AppCompatActivity() {
             val screenHeight = binding.controlsLayout.height
             val controlHeight = (screenHeight * 0.75).toInt()
             val topMargin = (screenHeight * 0.125).toInt()
+            val bottomMargin = (screenHeight * 0.125).toInt()
             
             val controlLayoutParams = binding.controlsLayout.layoutParams as FrameLayout.LayoutParams
             controlLayoutParams.height = controlHeight
@@ -90,6 +92,10 @@ class SlideshowActivity : AppCompatActivity() {
             val backLayoutParams = binding.backButton.layoutParams as FrameLayout.LayoutParams
             backLayoutParams.height = topMargin
             binding.backButton.layoutParams = backLayoutParams
+            
+            val rotationLayoutParams = binding.rotationLayout.layoutParams as FrameLayout.LayoutParams
+            rotationLayoutParams.height = bottomMargin
+            binding.rotationLayout.layoutParams = rotationLayoutParams
         }
         
         binding.previousButton.setOnClickListener {
@@ -103,6 +109,19 @@ class SlideshowActivity : AppCompatActivity() {
         binding.nextButton.setOnClickListener {
             skipToNextImage()
         }
+        
+        binding.rotateLeftButton.setOnClickListener {
+            rotateImage(-90f)
+        }
+        
+        binding.rotateRightButton.setOnClickListener {
+            rotateImage(90f)
+        }
+    }
+    
+    private fun rotateImage(degrees: Float) {
+        imageRotation = (imageRotation + degrees) % 360
+        binding.imageView.rotation = imageRotation
     }
     
     private fun togglePause() {
@@ -170,6 +189,7 @@ class SlideshowActivity : AppCompatActivity() {
             imageData?.let { data ->
                 val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size)
                 binding.imageView.setImageBitmap(bitmap)
+                binding.imageView.rotation = imageRotation
             }
         } catch (e: Exception) {
             e.printStackTrace()
