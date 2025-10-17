@@ -28,12 +28,60 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         
+        // Hide action bar
+        supportActionBar?.hide()
+        
         preferenceManager = PreferenceManager(this)
+        
+        // Try to auto-resume last session
+        if (tryAutoResumeSession()) {
+            return
+        }
         
         setupRecyclerView()
         loadLastUsedConfig()
         setupClickListeners()
         observeConnections()
+    }
+    
+    private fun tryAutoResumeSession(): Boolean {
+        val lastFolderAddress = preferenceManager.getLastFolderAddress()
+        if (lastFolderAddress.isEmpty()) {
+            return false
+        }
+        
+        lifecycleScope.launch {
+            // Try to load config by folder address
+            val config = viewModel.getConfigByFolderAddress(lastFolderAddress)
+            if (config != null) {
+                // Config exists, try to restore session
+                loadConfigAndStartSlideshow(config)
+            } else {
+                // Config not found, clear last session
+                preferenceManager.clearLastSession()
+            }
+        }
+        
+        return true
+    }
+    
+    private fun loadConfigAndStartSlideshow(config: ConnectionConfig) {
+        // Set connection settings
+        preferenceManager.saveConnectionSettings(
+            config.serverAddress,
+            config.username,
+            config.password,
+            config.folderPath
+        )
+        preferenceManager.setInterval(config.interval)
+        
+        // Update last used timestamp
+        viewModel.updateLastUsed(config.id)
+        
+        // Start slideshow activity
+        val intent = Intent(this, SlideshowActivity::class.java)
+        startActivity(intent)
+        finish()
     }
     
     private fun setupRecyclerView() {
@@ -50,6 +98,7 @@ class MainActivity : AppCompatActivity() {
         binding.connectionsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = this@MainActivity.adapter
+            isNestedScrollingEnabled = true
         }
     }
     
@@ -81,7 +130,7 @@ class MainActivity : AppCompatActivity() {
             saveConnection()
         }
         
-        binding.connectButton.setOnClickListener {
+        binding.slideshowButton.setOnClickListener {
             val folderAddress = binding.folderAddressInput.text.toString().trim()
             val username = binding.usernameInput.text.toString().trim()
             val password = binding.passwordInput.text.toString().trim()
@@ -97,6 +146,16 @@ class MainActivity : AppCompatActivity() {
             saveSettings(server, username, password, folder, interval)
             currentConfigId?.let { viewModel.updateLastUsed(it) }
             startSlideshow()
+        }
+        
+        binding.sortButton.setOnClickListener {
+            // TODO: Sort functionality
+            Toast.makeText(this, "Sort - Coming soon", Toast.LENGTH_SHORT).show()
+        }
+        
+        binding.settingsButton.setOnClickListener {
+            val intent = Intent(this, com.sza.fastmediasorter.ui.settings.SettingsActivity::class.java)
+            startActivity(intent)
         }
     }
     
@@ -193,6 +252,6 @@ class MainActivity : AppCompatActivity() {
     
     private fun showLoading(show: Boolean) {
         binding.progressBar.visibility = if (show) View.VISIBLE else View.GONE
-        binding.connectButton.isEnabled = !show
+        binding.slideshowButton.isEnabled = !show
     }
 }

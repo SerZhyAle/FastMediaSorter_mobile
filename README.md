@@ -1,6 +1,44 @@
 # FastMediaSorter Mobile
 
-Android app for slideshow of images from SMB network shares.
+Android app for viewing images from SMB network shares with automatic slideshow and intuitive touch controls.
+
+## Overview
+
+FastMediaSorter is a lightweight Android application designed for browsing and displaying photos stored on network-attached storage (NAS), Windows shares, or Samba servers. Perfect for creating digital photo frames, presentations, or quick access to network photo collections.
+
+**Key Features:**
+- 📡 Direct SMB/CIFS network access (no file copying required)
+- 💾 Multiple connection profiles with auto-resume
+- 🎬 Configurable slideshow with countdown timer
+- 🎮 Invisible touch zones for distraction-free viewing
+- 🔄 Image rotation with ABC/Random ordering
+- 📱 Optimized for both phones and tablets
+
+## Quick Start
+
+1. **Connect to Network Share:**
+   - Enter folder address: `192.168.1.100\Photos`
+   - Provide credentials (or leave empty for guest access)
+   - Set slideshow interval (5-60 seconds)
+
+2. **Start Slideshow:**
+   - Tap **Slideshow** button
+   - View images in fullscreen mode
+
+3. **Touch Controls During Slideshow:**
+
+```
+┌─────────────────────────────┐
+│  BACK   │   ABC/RND toggle  │ ← Top 12.5%
+├─────────────────────────────┤
+│         │        │          │
+│  PREV   │ PAUSE  │   NEXT   │ ← Middle 75%
+│         │        │          │
+├─────────────────────────────┤
+│  ROTATE │      ROTATE       │ ← Bottom 12.5%
+│   LEFT  │       RIGHT       │
+└─────────────────────────────┘
+```
 
 ## Features
 
@@ -19,22 +57,36 @@ Android app for slideshow of images from SMB network shares.
 - State preservation on screen rotation
 
 ### Touch Controls (Invisible Zones)
-- **Top 12.5% of screen** - Back to connection selection
+- **Top 12.5% of screen** (divided into 2 equal horizontal zones):
+  - **Left half** - Back to connection selection
+  - **Right half** - Toggle ABC ⇄ Random order
 - **Middle 75% of screen** (divided into 3 equal horizontal zones):
-  - **Left third** - Previous image
+  - **Left third** - Previous image (auto-pause enabled)
   - **Center third** - Pause/Resume slideshow
-  - **Right third** - Next image
+  - **Right third** - Next image (timer reset)
 - **Bottom 12.5% of screen** (divided into 2 equal horizontal zones):
   - **Left half** - Rotate image 90° counter-clockwise
   - **Right half** - Rotate image 90° clockwise
   - Rotation persists for all subsequent images until changed
 
+### Slideshow Features
+- Configurable interval: 5-60 seconds (default: 10)
+- Countdown timer: shows "in 3/2/1" for last 3 seconds
+- Shows interval number on resume for 1 second
+- Auto-pause on: rotation, previous image, manual back
+- Timer reset on: next image click
+- ABC ordering: alphabetically by filename
+- Random ordering: shuffled on toggle, remembers mode between sessions
+- Session auto-resume: starts from last viewed image on app relaunch
+
 ### UI Features
-- Material Design 3
-- Vertical scroll support for landscape orientation
-- RecyclerView with saved connections list
-- Delete saved connections
+- Material Design 3 with adaptive icons
+- Compact layout without ActionBar (maximized space)
+- Icon-based buttons (Settings ⚙️, Save 💾)
+- RecyclerView with up to 5 visible connections (scrollable)
+- Touch zone visualization in Settings screen
 - Fullscreen slideshow without visible controls
+- Vertical scroll support for landscape orientation
 
 ## Requirements
 
@@ -59,30 +111,36 @@ APK file: `app/build/outputs/apk/release/fastmediasorter.apk`
 
 ## Setup
 
-1. Enter connection name (optional, for saving)
-2. Enter SMB server address (e.g., `192.168.1.100` or `//server/share`)
-3. Provide username and password (leave empty for anonymous access)
-4. Enter path to images folder (e.g., `Photos/Vacation`)
-5. Set slide interval in seconds (default: 10)
-6. Click **Save** to store connection
-7. Click **Connect** to start slideshow
+1. Enter folder address (combined format): `192.168.1.100\Photos\Vacation`
+2. Provide username and password (leave empty for anonymous/guest access)
+3. Enter connection name (optional - auto-generated from address if empty)
+4. Set slide interval in seconds (5-60, default: 10)
+5. Click **💾 Save** to store connection for future use
+6. Click **Slideshow** to start viewing
 
 ## Usage
 
 ### Main Screen
-- View list of saved connections
-- Tap connection to load settings
-- Delete connection by clicking delete icon
-- Create new connection or modify existing
+- **Sort** button - (Coming soon) Sort options
+- **⚙️ Settings** - View touch control zones diagram and help
+- **Slideshow** - Start slideshow with current settings
+- **Interval** - Set seconds between images
+- Tap saved connection to load its settings
+- Delete connection by clicking trash icon (🗑️)
 
 ### Slideshow Screen
-- Tap anywhere to skip to next image (also resets timer)
-- Use invisible zones for navigation:
-  - Top area - return to main screen
-  - Left side - previous image
-  - Center - pause/resume
-  - Right side - next image
-- Rotate device - slideshow continues with current image
+- Touch zones control everything (see diagram in Settings)
+- Tap **right zone** - next image + timer reset (doesn't resume if paused)
+- Tap **center zone** - pause/resume (shows interval on resume)
+- Tap **left zone** - previous image + auto-pause
+- Top right zone - toggle between ABC (alphabetic) and RND (random) order
+- Bottom zones - rotate current image ±90°
+- Device rotation preserved - slideshow continues
+
+### Settings Screen
+- Visual guide showing all touch control zones
+- Color-coded areas with descriptions
+- Contact information: sza@ukr.net 2025
 
 ## Technical Details
 
@@ -101,24 +159,69 @@ APK file: `app/build/outputs/apk/release/fastmediasorter.apk`
 
 ```
 app/src/main/java/com/sza/fastmediasorter/
-├── MainActivity.kt - main screen with connection management
+├── MainActivity.kt - connection management, compact UI
 ├── data/
-│   ├── ConnectionConfig.kt - Room entity
-│   ├── ConnectionConfigDao.kt - database DAO
-│   ├── AppDatabase.kt - Room database
+│   ├── ConnectionConfig.kt - Room entity (unique by folderAddress)
+│   ├── ConnectionConfigDao.kt - database DAO with Flow
+│   ├── AppDatabase.kt - Room database singleton
 │   └── ConnectionRepository.kt - repository pattern
 ├── network/
-│   ├── SmbClient.kt - SMB client with jCIFS-ng
-│   └── ImageRepository.kt - image loading
+│   ├── SmbClient.kt - jCIFS-ng wrapper (SMB 2/3 support)
+│   └── ImageRepository.kt - image loading and caching
 ├── ui/
-│   ├── ConnectionViewModel.kt - ViewModel for saved connections
+│   ├── ConnectionViewModel.kt - MVVM for connections
 │   ├── ConnectionAdapter.kt - RecyclerView adapter
-│   └── slideshow/
-│       └── SlideshowActivity.kt - fullscreen slideshow
+│   ├── slideshow/
+│   │   └── SlideshowActivity.kt - fullscreen with touch zones
+│   └── settings/
+│       └── SettingsActivity.kt - help screen with touch diagram
 └── utils/
-    └── PreferenceManager.kt - legacy preferences (migration to Room)
+    └── PreferenceManager.kt - SharedPreferences wrapper
+
+res/
+├── drawable/
+│   ├── ic_settings.xml - gear icon
+│   ├── ic_save.xml - save icon
+│   ├── ic_back.xml - back arrow
+│   └── touch_zones_scheme.xml - control zones diagram
+└── layout/
+    ├── activity_main.xml - compact 4-button layout
+    ├── activity_slideshow.xml - invisible touch zones
+    ├── activity_settings.xml - help screen
+    └── item_connection.xml - connection list item
 ```
+
+## Screenshots & Assets
+
+- `store_assets/screenshots/` - Google Play screenshots
+- `store_assets/feature_graphic/fms.png` - 1024x500 banner
+- `store_assets/touch_zones_guide.svg` - full color touch zones diagram
+- `PRIVACY_POLICY.md` - privacy policy for Google Play
+
+## Release Build
+
+Configured for Google Play Store publication:
+- Keystore signing (fastmediasorter.keystore)
+- ProGuard/R8 code shrinking and obfuscation
+- Release APK/AAB output name: `fastmediasorter.apk`
+
+```bash
+./gradlew bundleRelease
+```
+
+Output: `app/build/outputs/bundle/release/app-release.aab`
+
+## Privacy
+
+- **No data collection**: All settings stored locally on device
+- **No internet access**: Only local network (SMB) access
+- **No analytics or tracking**
+- Full privacy policy: [PRIVACY_POLICY.md](PRIVACY_POLICY.md)
 
 ## License
 
 MIT License
+
+## Contact
+
+sza@ukr.net - 2025

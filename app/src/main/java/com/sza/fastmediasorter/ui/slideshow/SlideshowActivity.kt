@@ -26,11 +26,14 @@ class SlideshowActivity : AppCompatActivity() {
     private lateinit var preferenceManager: PreferenceManager
     
     private var images: List<String> = emptyList()
+    private var sortedImages: List<String> = emptyList()
     private var currentIndex = 0
     private var slideshowJob: Job? = null
     private var isPaused = false
     private var imageRotation = 0f
     private var currentBitmap: Bitmap? = null
+    private var elapsedTime = 0
+    private var isShuffleMode = false
     
     companion object {
         private const val KEY_CURRENT_INDEX = "current_index"
@@ -57,6 +60,8 @@ class SlideshowActivity : AppCompatActivity() {
                 loadImages()
             }
         } else {
+            // Try to restore last session index
+            currentIndex = preferenceManager.getLastImageIndex()
             loadImages()
         }
     }
@@ -71,10 +76,6 @@ class SlideshowActivity : AppCompatActivity() {
         
         binding.imageView.setOnClickListener {
             skipToNextImage()
-        }
-        
-        binding.backButton.setOnClickListener {
-            onBackPressed()
         }
         
         setupControlAreas()
@@ -92,13 +93,21 @@ class SlideshowActivity : AppCompatActivity() {
             controlLayoutParams.topMargin = topMargin
             binding.controlsLayout.layoutParams = controlLayoutParams
             
-            val backLayoutParams = binding.backButton.layoutParams as FrameLayout.LayoutParams
-            backLayoutParams.height = topMargin
-            binding.backButton.layoutParams = backLayoutParams
+            val topLayoutParams = binding.topLayout.layoutParams as FrameLayout.LayoutParams
+            topLayoutParams.height = topMargin
+            binding.topLayout.layoutParams = topLayoutParams
             
             val rotationLayoutParams = binding.rotationLayout.layoutParams as FrameLayout.LayoutParams
             rotationLayoutParams.height = bottomMargin
             binding.rotationLayout.layoutParams = rotationLayoutParams
+        }
+        
+        binding.backButton.setOnClickListener {
+            onBackPressed()
+        }
+        
+        binding.shuffleButton.setOnClickListener {
+            toggleShuffleMode()
         }
         
         binding.previousButton.setOnClickListener {
@@ -144,8 +153,34 @@ class SlideshowActivity : AppCompatActivity() {
         
         // Show interval when resuming
         if (!isPaused) {
-            showTimerText("${preferenceManager.getInterval()}", 1000)
+            val interval = preferenceManager.getInterval()
+            showTimerText("$interval", 1000)
         }
+    }
+    
+    private fun toggleShuffleMode() {
+        isShuffleMode = !isShuffleMode
+        preferenceManager.setShuffleMode(isShuffleMode)
+        
+        val currentImagePath = if (images.isNotEmpty() && currentIndex < images.size) {
+            images[currentIndex]
+        } else null
+        
+        if (isShuffleMode) {
+            // Switch to random
+            images = sortedImages.shuffled()
+            showTimerText("RND", 1000)
+        } else {
+            // Switch to ABC - continue from current file
+            images = sortedImages
+            currentImagePath?.let { path ->
+                currentIndex = images.indexOf(path).takeIf { it >= 0 } ?: 0
+            }
+            showTimerText("ABC", 1000)
+        }
+        
+        // Skip to next image in new order
+        skipToNextImage()
     }
     
     private fun skipToPreviousImage() {
@@ -165,6 +200,8 @@ class SlideshowActivity : AppCompatActivity() {
             lifecycleScope.launch {
                 loadCurrentImage()
             }
+            // Reset timer on manual next
+            elapsedTime = 0
         }
     }
     
@@ -174,14 +211,31 @@ class SlideshowActivity : AppCompatActivity() {
         lifecycleScope.launch {
             imageRepository.loadImages()
                 .onSuccess { imageList ->
-                    images = imageList
+                    // Save sorted list
+                    sortedImages = imageList.sorted()
+                    
+                    // Load shuffle mode preference
+                    isShuffleMode = preferenceManager.isShuffleMode()
+                    
+                    // Apply current mode
+                    images = if (isShuffleMode) {
+                        sortedImages.shuffled()
+                    } else {
+                        sortedImages
+                    }
+                    
                     if (images.isNotEmpty()) {
+                        // Validate currentIndex
+                        if (currentIndex >= images.size) {
+                            currentIndex = 0
+                        }
                         startSlideshow()
                     } else {
                         showError("No images found")
                     }
                 }
                 .onFailure { error ->
+                    preferenceManager.clearLastSession()
                     showError("Loading error: ${error.message}")
                 }
             
@@ -197,22 +251,23 @@ class SlideshowActivity : AppCompatActivity() {
                     
                     if (!isPaused) {
                         // Show interval after image load (1 second)
-                        showTimerText("${preferenceManager.getInterval()}", 1000)
+                        val interval = preferenceManager.getInterval()
+                        showTimerText("$interval", 1000)
                     }
                     
                     val interval = preferenceManager.getInterval()
-                    var elapsed = 0
+                    elapsedTime = 0
                     
-                    while (elapsed < interval) {
+                    while (elapsedTime < interval) {
                         delay(1000L)
-                        elapsed++
+                        elapsedTime++
                         
                         if (isPaused) {
                             // Wait while paused
                             continue
                         }
                         
-                        val remaining = interval - elapsed
+                        val remaining = interval - elapsedTime
                         
                         // Show countdown for last 3 seconds
                         if (remaining in 1..3) {
@@ -256,10 +311,18 @@ class SlideshowActivity : AppCompatActivity() {
                     binding.imageView.setImageBitmap(bitmap)
                 }
                 binding.imageView.rotation = 0f
+                
+                // Save last session state
+                saveSessonState()
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+    
+    private fun saveSessonState() {
+        val folderAddress = "${preferenceManager.getServerAddress()}\\${preferenceManager.getFolderPath()}"
+        preferenceManager.saveLastSession(folderAddress, currentIndex)
     }
     
     private fun showError(message: String) {
@@ -291,6 +354,8 @@ class SlideshowActivity : AppCompatActivity() {
     override fun onBackPressed() {
         super.onBackPressed()
         slideshowJob?.cancel()
+        // Clear session when user manually exits
+        preferenceManager.clearLastSession()
         finish()
     }
 }

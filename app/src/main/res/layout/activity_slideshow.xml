@@ -34,12 +34,28 @@
         android:visibility="gone"
         tools:text="in 3" />
 
-    <View
-        android:id="@+id/backButton"
+    <LinearLayout
+        android:id="@+id/topLayout"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_gravity="top"
-        android:background="@android:color/transparent" />
+        android:orientation="horizontal">
+
+        <View
+            android:id="@+id/backButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@android:color/transparent" />
+
+        <View
+            android:id="@+id/shuffleButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@android:color/transparent" />
+
+    </LinearLayout>
 
     <LinearLayout
         android:id="@+id/controlsLayout"

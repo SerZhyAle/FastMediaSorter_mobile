@@ -47,4 +47,12 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     suspend fun getConfigByFolderAddress(server: String, folder: String): ConnectionConfig? {
         return repository.getConfigByFolderAddress(server, folder)
     }
+    
+    suspend fun getConfigByFolderAddress(folderAddress: String): ConnectionConfig? {
+        val parts = folderAddress.split("\\")
+        if (parts.size < 2) return null
+        val server = parts[0]
+        val folder = parts.drop(1).joinToString("\\")
+        return repository.getConfigByFolderAddress(server, folder)
+    }
 }

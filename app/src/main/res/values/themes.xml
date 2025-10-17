@@ -3,6 +3,10 @@
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_variant</item>
         <item name="colorSecondary">@color/secondary</item>
+        <!-- Disable splash screen on Android 12+ -->
+        <item name="android:windowSplashScreenBackground" tools:targetApi="31">@color/primary</item>
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="31">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenAnimationDuration" tools:targetApi="31">0</item>
     </style>
     
     <style name="Theme.FastMediaSorter.Fullscreen" parent="Theme.FastMediaSorter">
