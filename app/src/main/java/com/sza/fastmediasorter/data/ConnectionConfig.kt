@@ -15,5 +15,8 @@ data class ConnectionConfig(
     val interval: Int = 10,
     val lastUsed: Long = 0,
     val sortOrder: Int? = null,
-    val sortName: String? = null
+    val sortName: String? = null,
+    val type: String = "SMB",
+    val localUri: String? = null,
+    val localDisplayName: String? = null
 )

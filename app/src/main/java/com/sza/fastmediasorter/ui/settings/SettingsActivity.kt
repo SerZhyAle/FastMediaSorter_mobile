@@ -241,6 +241,12 @@ class SettingsFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var preferenceManager: PreferenceManager
     
+    private val requestPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        updateMediaAccessButton()
+    }
+    
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentSettingsBinding.inflate(inflater, container, false)
         return binding.root
@@ -266,6 +272,12 @@ class SettingsFragment : Fragment() {
         
         // Load confirm delete setting
         binding.confirmDeleteCheckbox.isChecked = preferenceManager.isConfirmDelete()
+        
+        // Setup media access button
+        updateMediaAccessButton()
+        binding.requestMediaAccessButton.setOnClickListener {
+            requestMediaPermission()
+        }
         
         // Save on focus loss
         binding.defaultUsernameInput.setOnFocusChangeListener { _, hasFocus ->
@@ -299,6 +311,21 @@ class SettingsFragment : Fragment() {
         binding.confirmDeleteCheckbox.setOnCheckedChangeListener { _, isChecked ->
             preferenceManager.setConfirmDelete(isChecked)
         }
+    }
+    
+    private fun updateMediaAccessButton() {
+        val hasPermission = com.sza.fastmediasorter.network.LocalStorageClient.hasMediaPermission(requireContext())
+        binding.requestMediaAccessButton.isEnabled = !hasPermission
+        binding.requestMediaAccessButton.text = if (hasPermission) "Media Access Granted ✓" else "Grant Media Access"
+    }
+    
+    private fun requestMediaPermission() {
+        val permission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            android.Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        requestPermissionLauncher.launch(permission)
     }
     
     private fun saveDefaultUsername() {

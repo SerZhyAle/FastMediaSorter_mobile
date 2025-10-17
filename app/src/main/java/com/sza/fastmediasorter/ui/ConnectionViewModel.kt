@@ -58,6 +58,10 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
         return repository.getConfigByFolderAddress(server, folder)
     }
     
+    suspend fun getConfigById(id: Long): ConnectionConfig? {
+        return repository.getConfigById(id)
+    }
+    
     // Sort destinations methods
     fun addSortDestination(configId: Long, sortName: String) = viewModelScope.launch {
         repository.addSortDestination(configId, sortName)
