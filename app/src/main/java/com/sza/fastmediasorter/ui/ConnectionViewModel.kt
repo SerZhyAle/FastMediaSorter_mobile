@@ -39,4 +39,8 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     suspend fun getLastUsedConfig(): ConnectionConfig? {
         return repository.getLastUsedConfig()
     }
+    
+    suspend fun getConfigByName(name: String): ConnectionConfig? {
+        return repository.getConfigByName(name)
+    }
 }

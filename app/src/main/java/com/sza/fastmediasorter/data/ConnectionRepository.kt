@@ -10,6 +10,10 @@ class ConnectionRepository(private val dao: ConnectionConfigDao) {
         return dao.getConfigById(id)
     }
     
+    suspend fun getConfigByName(name: String): ConnectionConfig? {
+        return dao.getConfigByName(name)
+    }
+    
     suspend fun getLastUsedConfig(): ConnectionConfig? {
         return dao.getLastUsedConfig()
     }

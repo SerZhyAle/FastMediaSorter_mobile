@@ -117,22 +117,40 @@ class MainActivity : AppCompatActivity() {
             return
         }
         
-        val config = ConnectionConfig(
-            id = 0,
-            name = name,
-            serverAddress = server,
-            username = username,
-            password = password,
-            folderPath = folder,
-            interval = interval,
-            lastUsed = System.currentTimeMillis()
-        )
-        
-        viewModel.insertConfig(config)
-        
-        Toast.makeText(this, R.string.connection_saved, Toast.LENGTH_SHORT).show()
-        currentConfigId = null
-        clearInputs()
+        lifecycleScope.launch {
+            val existingConfig = viewModel.getConfigByName(name)
+            
+            if (existingConfig != null) {
+                // Update existing connection with same name
+                val config = existingConfig.copy(
+                    serverAddress = server,
+                    username = username,
+                    password = password,
+                    folderPath = folder,
+                    interval = interval,
+                    lastUsed = System.currentTimeMillis()
+                )
+                viewModel.updateConfig(config)
+                Toast.makeText(this@MainActivity, "Connection updated", Toast.LENGTH_SHORT).show()
+            } else {
+                // Create new connection
+                val config = ConnectionConfig(
+                    id = 0,
+                    name = name,
+                    serverAddress = server,
+                    username = username,
+                    password = password,
+                    folderPath = folder,
+                    interval = interval,
+                    lastUsed = System.currentTimeMillis()
+                )
+                viewModel.insertConfig(config)
+                Toast.makeText(this@MainActivity, R.string.connection_saved, Toast.LENGTH_SHORT).show()
+            }
+            
+            currentConfigId = null
+            clearInputs()
+        }
     }
     
     private fun clearInputs() {
