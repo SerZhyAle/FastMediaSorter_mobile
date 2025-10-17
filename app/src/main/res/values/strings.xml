@@ -4,6 +4,7 @@
     <string name="slideshow">Slideshow</string>
     <string name="connect">Connect</string>
     <string name="server_address">Server Address</string>
+    <string name="folder_address">Folder Address (e.g. 192.168.1.100\\photos)</string>
     <string name="username">Username</string>
     <string name="password">Password</string>
     <string name="folder_path">Folder Path</string>

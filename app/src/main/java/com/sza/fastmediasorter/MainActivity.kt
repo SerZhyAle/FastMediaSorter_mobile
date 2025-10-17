@@ -68,11 +68,11 @@ class MainActivity : AppCompatActivity() {
     
     private fun loadConfig(config: ConnectionConfig) {
         currentConfigId = config.id
-        binding.nameInput.setText(config.name)
-        binding.serverInput.setText(config.serverAddress)
+        val folderAddress = "${config.serverAddress}\\${config.folderPath}"
+        binding.folderAddressInput.setText(folderAddress)
         binding.usernameInput.setText(config.username)
         binding.passwordInput.setText(config.password)
-        binding.folderInput.setText(config.folderPath)
+        binding.nameInput.setText(config.name)
         binding.intervalInput.setText(config.interval.toString())
     }
     
@@ -82,16 +82,17 @@ class MainActivity : AppCompatActivity() {
         }
         
         binding.connectButton.setOnClickListener {
-            val server = binding.serverInput.text.toString().trim()
+            val folderAddress = binding.folderAddressInput.text.toString().trim()
             val username = binding.usernameInput.text.toString().trim()
             val password = binding.passwordInput.text.toString().trim()
-            val folder = binding.folderInput.text.toString().trim()
             val interval = binding.intervalInput.text.toString().toIntOrNull() ?: 10
             
-            if (server.isEmpty() || folder.isEmpty()) {
-                Toast.makeText(this, "Please fill in required fields", Toast.LENGTH_SHORT).show()
+            if (folderAddress.isEmpty()) {
+                Toast.makeText(this, "Please enter folder address", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
+            
+            val (server, folder) = parseFolderAddress(folderAddress)
             
             saveSettings(server, username, password, folder, interval)
             currentConfigId?.let { viewModel.updateLastUsed(it) }
@@ -99,34 +100,43 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    private fun parseFolderAddress(folderAddress: String): Pair<String, String> {
+        // Parse "192.168.1.100\photos" or "//server/share/folder"
+        val normalized = folderAddress.replace("/", "\\").trimStart('\\')
+        val parts = normalized.split("\\", limit = 2)
+        val server = parts[0]
+        val folder = if (parts.size > 1) parts[1] else ""
+        return Pair(server, folder)
+    }
+    
     private fun saveConnection() {
-        val name = binding.nameInput.text.toString().trim()
-        val server = binding.serverInput.text.toString().trim()
+        val folderAddress = binding.folderAddressInput.text.toString().trim()
         val username = binding.usernameInput.text.toString().trim()
         val password = binding.passwordInput.text.toString().trim()
-        val folder = binding.folderInput.text.toString().trim()
+        var name = binding.nameInput.text.toString().trim()
         val interval = binding.intervalInput.text.toString().toIntOrNull() ?: 10
         
-        if (name.isEmpty()) {
-            Toast.makeText(this, R.string.enter_connection_name, Toast.LENGTH_SHORT).show()
+        if (folderAddress.isEmpty()) {
+            Toast.makeText(this, "Please enter folder address", Toast.LENGTH_SHORT).show()
             return
         }
         
-        if (server.isEmpty() || folder.isEmpty()) {
-            Toast.makeText(this, "Please fill in required fields", Toast.LENGTH_SHORT).show()
-            return
+        // If name is empty, use folder address as name
+        if (name.isEmpty()) {
+            name = folderAddress
         }
+        
+        val (server, folder) = parseFolderAddress(folderAddress)
         
         lifecycleScope.launch {
-            val existingConfig = viewModel.getConfigByName(name)
+            val existingConfig = viewModel.getConfigByFolderAddress(server, folder)
             
             if (existingConfig != null) {
-                // Update existing connection with same name
+                // Update existing connection with same folder address
                 val config = existingConfig.copy(
-                    serverAddress = server,
+                    name = name,
                     username = username,
                     password = password,
-                    folderPath = folder,
                     interval = interval,
                     lastUsed = System.currentTimeMillis()
                 )
@@ -154,11 +164,10 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun clearInputs() {
-        binding.nameInput.setText("")
-        binding.serverInput.setText("")
+        binding.folderAddressInput.setText("")
         binding.usernameInput.setText("")
         binding.passwordInput.setText("")
-        binding.folderInput.setText("")
+        binding.nameInput.setText("")
         binding.intervalInput.setText("10")
     }
     

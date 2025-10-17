@@ -14,6 +14,9 @@ interface ConnectionConfigDao {
     @Query("SELECT * FROM connection_configs WHERE name = :name LIMIT 1")
     suspend fun getConfigByName(name: String): ConnectionConfig?
     
+    @Query("SELECT * FROM connection_configs WHERE serverAddress = :server AND folderPath = :folder LIMIT 1")
+    suspend fun getConfigByFolderAddress(server: String, folder: String): ConnectionConfig?
+    
     @Query("SELECT * FROM connection_configs ORDER BY lastUsed DESC LIMIT 1")
     suspend fun getLastUsedConfig(): ConnectionConfig?
     

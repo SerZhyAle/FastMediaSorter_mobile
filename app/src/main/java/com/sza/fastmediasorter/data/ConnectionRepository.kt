@@ -14,6 +14,10 @@ class ConnectionRepository(private val dao: ConnectionConfigDao) {
         return dao.getConfigByName(name)
     }
     
+    suspend fun getConfigByFolderAddress(server: String, folder: String): ConnectionConfig? {
+        return dao.getConfigByFolderAddress(server, folder)
+    }
+    
     suspend fun getLastUsedConfig(): ConnectionConfig? {
         return dao.getLastUsedConfig()
     }
