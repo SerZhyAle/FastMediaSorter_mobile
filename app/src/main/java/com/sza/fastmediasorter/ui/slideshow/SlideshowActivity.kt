@@ -1,7 +1,9 @@
 package com.sza.fastmediasorter.ui.slideshow
 
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.os.Bundle
 import android.view.View
 import android.widget.FrameLayout
@@ -28,6 +30,7 @@ class SlideshowActivity : AppCompatActivity() {
     private var slideshowJob: Job? = null
     private var isPaused = false
     private var imageRotation = 0f
+    private var currentBitmap: Bitmap? = null
     
     companion object {
         private const val KEY_CURRENT_INDEX = "current_index"
@@ -121,7 +124,17 @@ class SlideshowActivity : AppCompatActivity() {
     
     private fun rotateImage(degrees: Float) {
         imageRotation = (imageRotation + degrees) % 360
-        binding.imageView.rotation = imageRotation
+        currentBitmap?.let { bitmap ->
+            val rotatedBitmap = rotateBitmap(bitmap, imageRotation)
+            binding.imageView.setImageBitmap(rotatedBitmap)
+            binding.imageView.rotation = 0f
+        }
+    }
+    
+    private fun rotateBitmap(source: Bitmap, degrees: Float): Bitmap {
+        val matrix = Matrix()
+        matrix.postRotate(degrees)
+        return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
     }
     
     private fun togglePause() {
@@ -188,8 +201,15 @@ class SlideshowActivity : AppCompatActivity() {
             
             imageData?.let { data ->
                 val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size)
-                binding.imageView.setImageBitmap(bitmap)
-                binding.imageView.rotation = imageRotation
+                currentBitmap = bitmap
+                
+                if (imageRotation != 0f) {
+                    val rotatedBitmap = rotateBitmap(bitmap, imageRotation)
+                    binding.imageView.setImageBitmap(rotatedBitmap)
+                } else {
+                    binding.imageView.setImageBitmap(bitmap)
+                }
+                binding.imageView.rotation = 0f
             }
         } catch (e: Exception) {
             e.printStackTrace()
