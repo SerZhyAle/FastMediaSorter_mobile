@@ -118,7 +118,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         val config = ConnectionConfig(
-            id = currentConfigId ?: 0,
+            id = 0,
             name = name,
             serverAddress = server,
             username = username,
@@ -128,11 +128,7 @@ class MainActivity : AppCompatActivity() {
             lastUsed = System.currentTimeMillis()
         )
         
-        if (currentConfigId != null && currentConfigId != 0L) {
-            viewModel.updateConfig(config)
-        } else {
-            viewModel.insertConfig(config)
-        }
+        viewModel.insertConfig(config)
         
         Toast.makeText(this, R.string.connection_saved, Toast.LENGTH_SHORT).show()
         currentConfigId = null
