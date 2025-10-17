@@ -11,4 +11,11 @@
     <string name="connection_failed">Connection failed</string>
     <string name="no_images_found">No images found</string>
     <string name="loading">Loading...</string>
+    <string name="saved_connections">Saved Connections</string>
+    <string name="connection_name">Connection Name</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="enter_connection_name">Please enter connection name</string>
+    <string name="connection_saved">Connection saved</string>
+    <string name="connection_deleted">Connection deleted</string>
 </resources>

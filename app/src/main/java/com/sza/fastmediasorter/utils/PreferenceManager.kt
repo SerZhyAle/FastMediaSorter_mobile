@@ -28,7 +28,7 @@ class PreferenceManager(context: Context) {
     fun getUsername(): String = prefs.getString(KEY_USERNAME, "") ?: ""
     fun getPassword(): String = prefs.getString(KEY_PASSWORD, "") ?: ""
     fun getFolderPath(): String = prefs.getString(KEY_FOLDER_PATH, "") ?: ""
-    fun getInterval(): Int = prefs.getInt(KEY_INTERVAL, 5)
+    fun getInterval(): Int = prefs.getInt(KEY_INTERVAL, 10)
     
     fun setInterval(interval: Int) {
         prefs.edit().putInt(KEY_INTERVAL, interval).apply()
