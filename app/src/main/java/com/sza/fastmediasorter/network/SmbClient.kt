@@ -18,13 +18,19 @@ class SmbClient {
                 val props = Properties().apply {
                     setProperty("jcifs.smb.client.minVersion", "SMB202")
                     setProperty("jcifs.smb.client.maxVersion", "SMB311")
+                    setProperty("jcifs.resolveOrder", "DNS")
+                    setProperty("jcifs.smb.client.responseTimeout", "30000")
                 }
                 
                 val config = PropertyConfiguration(props)
                 val baseContext = BaseContext(config)
                 
-                val auth = NtlmPasswordAuthenticator(username, password)
-                context = baseContext.withCredentials(auth)
+                context = if (username.isNotEmpty() && password.isNotEmpty()) {
+                    val auth = NtlmPasswordAuthenticator(null, username, password)
+                    baseContext.withCredentials(auth)
+                } else {
+                    baseContext.withAnonymousCredentials()
+                }
                 
                 true
             } catch (e: Exception) {
@@ -37,7 +43,17 @@ class SmbClient {
     suspend fun getImageFiles(serverAddress: String, folderPath: String): List<String> {
         return withContext(Dispatchers.IO) {
             try {
-                val smbUrl = "smb://$serverAddress/$folderPath/"
+                val cleanServer = serverAddress.trim()
+                    .removePrefix("smb://")
+                    .removePrefix("\\\\")
+                    .replace("\\", "/")
+                
+                val cleanFolder = folderPath.trim()
+                    .removePrefix("/")
+                    .removePrefix("\\")
+                    .replace("\\", "/")
+                
+                val smbUrl = "smb://$cleanServer/$cleanFolder/"
                 val smbFile = SmbFile(smbUrl, context)
                 
                 if (!smbFile.exists() || !smbFile.isDirectory()) {
@@ -68,11 +84,20 @@ class SmbClient {
         return withContext(Dispatchers.IO) {
             try {
                 val smbFile = SmbFile(imageUrl, context)
+                
+                if (!smbFile.exists() || !smbFile.isFile()) {
+                    return@withContext null
+                }
+                
                 smbFile.inputStream.use { it.readBytes() }
             } catch (e: Exception) {
                 e.printStackTrace()
                 null
             }
         }
+    }
+    
+    fun disconnect() {
+        context = null
     }
 }
