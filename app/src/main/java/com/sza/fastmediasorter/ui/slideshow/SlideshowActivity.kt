@@ -56,11 +56,11 @@ class SlideshowActivity : AppCompatActivity() {
                     if (images.isNotEmpty()) {
                         startSlideshow()
                     } else {
-                        showError("Изображения не найдены")
+                        showError("No images found")
                     }
                 }
                 .onFailure { error ->
-                    showError("Ошибка загрузки: ${error.message}")
+                    showError("Loading error: ${error.message}")
                 }
             
             binding.progressBar.visibility = View.GONE

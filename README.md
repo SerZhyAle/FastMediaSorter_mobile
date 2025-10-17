@@ -1,55 +1,55 @@
 # FastMediaSorter Mobile
 
-Android приложение для слайдшоу изображений с SMB сервера.
+Android app for slideshow of images from SMB server.
 
-## Возможности
+## Features
 
-- Подключение к SMB серверам по сети
-- Автоматическое слайдшоу изображений
-- Настройка интервала переключения
-- Поддержка форматов: JPG, PNG, GIF, BMP, WebP
-- Полноэкранный режим для слайдшоу
+- Connect to SMB servers over network
+- Automatic image slideshow
+- Configurable slide interval
+- Supports: JPG, PNG, GIF, BMP, WebP
+- Fullscreen slideshow mode
 
-## Требования
+## Requirements
 
-- Android 9.0 (API 28) или выше
-- Доступ к локальной сети
-- SMB сервер с изображениями
+- Android 9.0 (API 28) or higher
+- Local network access
+- SMB server with images
 
-## Сборка APK
+## Build APK
 
 ```bash
 ./gradlew assembleRelease
 ```
 
-APK файл будет создан в `app/build/outputs/apk/release/`
+APK file will be created in `app/build/outputs/apk/release/`
 
-## Настройка
+## Setup
 
-1. Введите адрес SMB сервера (например: `192.168.1.100`)
-2. Укажите логин и пароль (при необходимости)
-3. Введите путь к папке с изображениями
-4. Установите интервал переключения в секундах
-5. Нажмите "Подключиться"
+1. Enter SMB server address (e.g., `192.168.1.100`)
+2. Provide username and password (if required)
+3. Enter path to images folder
+4. Set slide interval in seconds
+5. Click "Connect"
 
-## Технические детали
+## Technical Details
 
-- **Язык**: Kotlin
-- **Минимальная версия Android**: API 28 (Android 9)
-- **SMB библиотека**: jCIFS-ng 2.1.10
+- **Language**: Kotlin
+- **Minimum Android Version**: API 28 (Android 9)
+- **SMB Library**: jCIFS-ng 2.1.10
 - **UI**: Material Design 3
-- **Асинхронность**: Kotlin Coroutines
+- **Async**: Kotlin Coroutines
 
-## Разработка
+## Development
 
-Проект использует стандартную структуру Android приложения:
+Project uses standard Android app structure:
 
-- `MainActivity` - главный экран с настройками
-- `SlideshowActivity` - экран слайдшоу
-- `SmbClient` - клиент для работы с SMB
-- `ImageRepository` - репозиторий для загрузки изображений
-- `PreferenceManager` - управление настройками
+- `MainActivity` - main screen with settings
+- `SlideshowActivity` - slideshow screen
+- `SmbClient` - SMB client
+- `ImageRepository` - repository for image loading
+- `PreferenceManager` - settings management
 
-## Лицензия
+## License
 
 MIT License

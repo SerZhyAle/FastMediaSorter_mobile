@@ -44,7 +44,7 @@ class MainActivity : AppCompatActivity() {
             val interval = binding.intervalInput.text.toString().toIntOrNull() ?: 5
             
             if (server.isEmpty() || folder.isEmpty()) {
-                Toast.makeText(this, "Заполните обязательные поля", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Please fill in required fields", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             
@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
                 val intent = Intent(this@MainActivity, SlideshowActivity::class.java)
                 startActivity(intent)
             } catch (e: Exception) {
-                Toast.makeText(this@MainActivity, "Ошибка: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
                 showLoading(false)
             }

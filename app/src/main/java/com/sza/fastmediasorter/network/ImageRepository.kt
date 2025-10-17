@@ -15,17 +15,17 @@ class ImageRepository(private val smbClient: SmbClient, private val preferenceMa
                 val folderPath = preferenceManager.getFolderPath()
                 
                 if (serverAddress.isEmpty() || folderPath.isEmpty()) {
-                    return@withContext Result.failure(Exception("Настройки подключения не заданы"))
+                    return@withContext Result.failure(Exception("Connection settings not configured"))
                 }
                 
                 val connected = smbClient.connect(serverAddress, username, password)
                 if (!connected) {
-                    return@withContext Result.failure(Exception("Не удалось подключиться к серверу"))
+                    return@withContext Result.failure(Exception("Failed to connect to server"))
                 }
                 
                 val images = smbClient.getImageFiles(serverAddress, folderPath)
                 if (images.isEmpty()) {
-                    return@withContext Result.failure(Exception("Изображения не найдены"))
+                    return@withContext Result.failure(Exception("No images found"))
                 }
                 
                 Result.success(images)
