@@ -29,5 +29,5 @@
     <string name="local_folders">Local Folders</string>
     <string name="network">Network</string>
     <string name="add_custom_folder">+ Add Custom Folder</string>
-    <string name="no_media_permission">Media access permission required. Go to Settings to grant access.</string>
+    <string name="no_media_permission">Media access permission required. Go to Settings to grant access and restart application.</string>
 </resources>

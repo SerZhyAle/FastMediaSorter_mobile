@@ -68,9 +68,7 @@ val standardFolders = mapOf(
 )
 standardFolders.forEach { (folderName, _) ->
 val count = counts[folderName] ?: 0
-if (count > 0) {
 folders[folderName] = Pair(null, count)
-}
 }
 }
 } catch (e: Exception) {

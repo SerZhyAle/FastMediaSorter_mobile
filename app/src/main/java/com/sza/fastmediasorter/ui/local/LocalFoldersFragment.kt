@@ -97,7 +97,6 @@ val iconMap = mapOf(
 )
 standardFolders.forEach { (name, pair) ->
 val count = pair.second
-if (count > 0) {
 folders.add(
 LocalFolder(
 name = name,
@@ -106,7 +105,6 @@ count = count,
 isCustom = false
 )
 )
-}
 }
 adapter.notifyDataSetChanged()
 }
