@@ -28,6 +28,9 @@
     <string name="touch_zones_hint">Tap corresponding areas during slideshow to control playback</string>
     <string name="local_folders">Local Folders</string>
     <string name="network">Network</string>
+    <string name="scan_folders">SCAN</string>
     <string name="add_custom_folder">+ Add Custom Folder</string>
     <string name="no_media_permission">Media access permission required. Go to Settings to grant access and restart application.</string>
+    <string name="scanning_folders">Scanning folders...</string>
+    <string name="scan_complete">Scan complete. Found %d folders</string>
 </resources>

@@ -14,12 +14,14 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     private val repository: ConnectionRepository
     val allConfigs: LiveData<List<ConnectionConfig>>
     val sortDestinations: LiveData<List<ConnectionConfig>>
+    val localCustomFolders: LiveData<List<ConnectionConfig>>
     
     init {
         val dao = AppDatabase.getDatabase(application).connectionConfigDao()
         repository = ConnectionRepository(dao)
         allConfigs = repository.allConfigs.asLiveData()
         sortDestinations = repository.sortDestinations.asLiveData()
+        localCustomFolders = repository.localCustomFolders.asLiveData()
     }
     
     fun insertConfig(config: ConnectionConfig) = viewModelScope.launch {
@@ -77,5 +79,10 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     
     suspend fun getSortDestinationsCount(): Int {
         return repository.getSortDestinationsCount()
+    }
+    
+    // Local folders methods
+    fun addLocalCustomFolder(folderName: String, folderUri: String) = viewModelScope.launch {
+        repository.addLocalCustomFolder(folderName, folderUri)
     }
 }

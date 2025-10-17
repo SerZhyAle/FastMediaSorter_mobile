@@ -86,4 +86,28 @@ class ConnectionRepository(private val dao: ConnectionConfigDao) {
     suspend fun getSortDestinationsCount(): Int {
         return dao.getSortDestinations().first().size
     }
+    
+    // Local folders methods
+    val localCustomFolders: Flow<List<ConnectionConfig>> = dao.getLocalCustomFolders()
+    
+    suspend fun addLocalCustomFolder(folderName: String, folderUri: String): Long {
+        val existing = dao.getLocalFolderByName(folderName)
+        if (existing != null) {
+            return existing.id
+        }
+        val config = ConnectionConfig(
+            id = 0,
+            name = folderName,
+            serverAddress = "",
+            username = "",
+            password = "",
+            folderPath = "",
+            interval = 10,
+            lastUsed = System.currentTimeMillis(),
+            type = "LOCAL_CUSTOM",
+            localUri = folderUri,
+            localDisplayName = folderName
+        )
+        return dao.insertConfig(config)
+    }
 }

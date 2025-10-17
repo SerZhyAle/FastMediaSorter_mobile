@@ -49,6 +49,26 @@ binding.viewPager.post {
 val networkFragment = supportFragmentManager.findFragmentByTag("f1") as? NetworkFragment
 networkFragment?.let { setupNetworkFragmentCallbacks(it) }
 }
+binding.intervalInput.setOnFocusChangeListener { _, hasFocus ->
+if (!hasFocus) {
+saveIntervalIfConfigSelected()
+}
+}
+}
+
+private fun saveIntervalIfConfigSelected() {
+currentConfigId?.let { configId ->
+val interval = binding.intervalInput.text.toString().toIntOrNull()
+if (interval != null && interval in 1..300) {
+lifecycleScope.launch {
+val config = viewModel.getConfigById(configId)
+if (config != null && config.interval != interval) {
+val updatedConfig = config.copy(interval = interval)
+viewModel.updateConfig(updatedConfig)
+}
+}
+}
+}
 }
 
 private fun setupNetworkFragmentCallbacks(fragment: NetworkFragment) {
@@ -133,5 +153,10 @@ startActivity(intent)
 private fun showLoading(show: Boolean) {
 binding.progressBar.visibility = if (show) View.VISIBLE else View.GONE
 binding.slideshowButton.isEnabled = !show
+}
+
+override fun onPause() {
+super.onPause()
+saveIntervalIfConfigSelected()
 }
 }

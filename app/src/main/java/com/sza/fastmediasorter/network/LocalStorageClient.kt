@@ -77,6 +77,33 @@ e.printStackTrace()
 return@withContext folders
 }
 
+suspend fun scanAllImageFolders(): Map<String, Int> = withContext(Dispatchers.IO) {
+val folders = mutableMapOf<String, Int>()
+val projection = arrayOf(
+MediaStore.Images.Media._ID,
+MediaStore.Images.Media.BUCKET_DISPLAY_NAME
+)
+val sortOrder = "${MediaStore.Images.Media.BUCKET_DISPLAY_NAME} ASC"
+try {
+context.contentResolver.query(
+MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+projection,
+null,
+null,
+sortOrder
+)?.use { cursor ->
+val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
+while (cursor.moveToNext()) {
+val bucket = cursor.getString(bucketColumn) ?: continue
+folders[bucket] = (folders[bucket] ?: 0) + 1
+}
+}
+} catch (e: Exception) {
+e.printStackTrace()
+}
+return@withContext folders
+}
+
 suspend fun downloadImage(uri: Uri): ByteArray? = withContext(Dispatchers.IO) {
 try {
 context.contentResolver.openInputStream(uri)?.use { input ->

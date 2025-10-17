@@ -47,4 +47,11 @@ interface ConnectionConfigDao {
     
     @Query("SELECT MAX(sortOrder) FROM connection_configs WHERE sortOrder IS NOT NULL")
     suspend fun getMaxSortOrder(): Int?
+    
+    // Local folders queries
+    @Query("SELECT * FROM connection_configs WHERE type = 'LOCAL_CUSTOM' ORDER BY localDisplayName ASC")
+    fun getLocalCustomFolders(): Flow<List<ConnectionConfig>>
+    
+    @Query("SELECT * FROM connection_configs WHERE type = 'LOCAL_CUSTOM' AND localDisplayName = :name LIMIT 1")
+    suspend fun getLocalFolderByName(name: String): ConnectionConfig?
 }

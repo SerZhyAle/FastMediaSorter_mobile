@@ -8,13 +8,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.sza.fastmediasorter.R
 import com.sza.fastmediasorter.network.LocalStorageClient
+import com.sza.fastmediasorter.ui.ConnectionViewModel
 import kotlinx.coroutines.launch
 
 data class LocalFolder(
@@ -26,11 +29,14 @@ val isCustom: Boolean = false
 
 class LocalFoldersFragment : Fragment() {
 private lateinit var rvLocalFolders: RecyclerView
+private lateinit var btnScanFolders: Button
 private lateinit var btnAddCustomFolder: Button
 private lateinit var tvNoPermission: TextView
 private lateinit var localClient: LocalStorageClient
 private lateinit var adapter: LocalFolderAdapter
 private val folders = mutableListOf<LocalFolder>()
+private val viewModel: ConnectionViewModel by activityViewModels()
+private val standardFolderNames = setOf("Camera", "Screenshots", "Pictures", "Download")
 
 private val pickFolderLauncher = registerForActivityResult(
 ActivityResultContracts.OpenDocumentTree()
@@ -54,6 +60,7 @@ return inflater.inflate(R.layout.fragment_local_folders, container, false)
 override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 super.onViewCreated(view, savedInstanceState)
 rvLocalFolders = view.findViewById(R.id.rvLocalFolders)
+btnScanFolders = view.findViewById(R.id.btnScanFolders)
 btnAddCustomFolder = view.findViewById(R.id.btnAddCustomFolder)
 tvNoPermission = view.findViewById(R.id.tvNoPermission)
 localClient = LocalStorageClient(requireContext())
@@ -66,6 +73,9 @@ if (isDoubleClick) {
 }
 rvLocalFolders.layoutManager = LinearLayoutManager(requireContext())
 rvLocalFolders.adapter = adapter
+btnScanFolders.setOnClickListener {
+scanAllFolders()
+}
 btnAddCustomFolder.setOnClickListener {
 pickFolderLauncher.launch(null)
 }
@@ -76,11 +86,14 @@ private fun checkPermissionAndLoadFolders() {
 if (LocalStorageClient.hasMediaPermission(requireContext())) {
 tvNoPermission.visibility = View.GONE
 rvLocalFolders.visibility = View.VISIBLE
+btnScanFolders.visibility = View.VISIBLE
 btnAddCustomFolder.visibility = View.VISIBLE
 loadStandardFolders()
+loadCustomFolders()
 } else {
 tvNoPermission.visibility = View.VISIBLE
 rvLocalFolders.visibility = View.GONE
+btnScanFolders.visibility = View.GONE
 btnAddCustomFolder.visibility = View.GONE
 }
 }
@@ -107,6 +120,44 @@ isCustom = false
 )
 }
 adapter.notifyDataSetChanged()
+}
+}
+
+private fun loadCustomFolders() {
+viewModel.localCustomFolders.observe(viewLifecycleOwner) { customConfigs ->
+val customFolders = customConfigs.map { config ->
+LocalFolder(
+name = config.localDisplayName ?: "Unknown",
+icon = "📁",
+count = 0, // TODO: count images
+isCustom = true
+)
+}
+folders.addAll(customFolders)
+adapter.notifyDataSetChanged()
+}
+}
+
+private fun scanAllFolders() {
+lifecycleScope.launch {
+Toast.makeText(requireContext(), R.string.scanning_folders, Toast.LENGTH_SHORT).show()
+try {
+val allFolders = localClient.scanAllImageFolders()
+var newFoldersCount = 0
+allFolders.forEach { (folderName, count) ->
+if (count > 0 && folderName !in standardFolderNames) {
+viewModel.addLocalCustomFolder(folderName, "")
+newFoldersCount++
+}
+}
+Toast.makeText(
+requireContext(),
+getString(R.string.scan_complete, newFoldersCount),
+Toast.LENGTH_LONG
+).show()
+} catch (e: Exception) {
+Toast.makeText(requireContext(), "Scan failed: ${e.message}", Toast.LENGTH_LONG).show()
+}
 }
 }
 }
