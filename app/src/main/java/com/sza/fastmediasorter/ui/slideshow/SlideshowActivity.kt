@@ -141,6 +141,11 @@ class SlideshowActivity : AppCompatActivity() {
     
     private fun togglePause() {
         isPaused = !isPaused
+        
+        // Show interval when resuming
+        if (!isPaused) {
+            showTimerText("${preferenceManager.getInterval()}", 1000)
+        }
     }
     
     private fun skipToPreviousImage() {
@@ -189,11 +194,48 @@ class SlideshowActivity : AppCompatActivity() {
             while (true) {
                 if (images.isNotEmpty()) {
                     loadCurrentImage()
-                    delay(preferenceManager.getInterval() * 1000L)
+                    
+                    if (!isPaused) {
+                        // Show interval after image load (1 second)
+                        showTimerText("${preferenceManager.getInterval()}", 1000)
+                    }
+                    
+                    val interval = preferenceManager.getInterval()
+                    var elapsed = 0
+                    
+                    while (elapsed < interval) {
+                        delay(1000L)
+                        elapsed++
+                        
+                        if (isPaused) {
+                            // Wait while paused
+                            continue
+                        }
+                        
+                        val remaining = interval - elapsed
+                        
+                        // Show countdown for last 3 seconds
+                        if (remaining in 1..3) {
+                            showTimerText("in $remaining", 0)
+                        }
+                    }
+                    
                     if (!isPaused) {
                         currentIndex = (currentIndex + 1) % images.size
                     }
                 }
+            }
+        }
+    }
+    
+    private fun showTimerText(text: String, hideAfterMs: Long) {
+        lifecycleScope.launch {
+            binding.timerText.text = text
+            binding.timerText.visibility = View.VISIBLE
+            
+            if (hideAfterMs > 0) {
+                delay(hideAfterMs)
+                binding.timerText.visibility = View.GONE
             }
         }
     }
