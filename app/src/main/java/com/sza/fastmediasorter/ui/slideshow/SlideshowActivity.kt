@@ -1,8 +1,10 @@
 package com.sza.fastmediasorter.ui.slideshow
 
+import android.content.res.Configuration
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -24,6 +26,12 @@ class SlideshowActivity : AppCompatActivity() {
     private var images: List<String> = emptyList()
     private var currentIndex = 0
     private var slideshowJob: Job? = null
+    private var isPaused = false
+    
+    companion object {
+        private const val KEY_CURRENT_INDEX = "current_index"
+        private const val KEY_IMAGES = "images"
+    }
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,7 +42,19 @@ class SlideshowActivity : AppCompatActivity() {
         imageRepository = ImageRepository(SmbClient(), preferenceManager)
         
         setupFullscreen()
-        loadImages()
+        
+        if (savedInstanceState != null) {
+            currentIndex = savedInstanceState.getInt(KEY_CURRENT_INDEX, 0)
+            val imagesList = savedInstanceState.getStringArrayList(KEY_IMAGES)
+            if (imagesList != null && imagesList.isNotEmpty()) {
+                images = imagesList
+                startSlideshow()
+            } else {
+                loadImages()
+            }
+        } else {
+            loadImages()
+        }
     }
     
     private fun setupFullscreen() {
@@ -44,6 +64,67 @@ class SlideshowActivity : AppCompatActivity() {
             or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         )
         supportActionBar?.hide()
+        
+        binding.imageView.setOnClickListener {
+            skipToNextImage()
+        }
+        
+        binding.backButton.setOnClickListener {
+            onBackPressed()
+        }
+        
+        setupControlAreas()
+    }
+    
+    private fun setupControlAreas() {
+        binding.controlsLayout.post {
+            val screenHeight = binding.controlsLayout.height
+            val controlHeight = (screenHeight * 0.75).toInt()
+            val topMargin = (screenHeight * 0.125).toInt()
+            
+            val controlLayoutParams = binding.controlsLayout.layoutParams as FrameLayout.LayoutParams
+            controlLayoutParams.height = controlHeight
+            controlLayoutParams.topMargin = topMargin
+            binding.controlsLayout.layoutParams = controlLayoutParams
+            
+            val backLayoutParams = binding.backButton.layoutParams as FrameLayout.LayoutParams
+            backLayoutParams.height = topMargin
+            binding.backButton.layoutParams = backLayoutParams
+        }
+        
+        binding.previousButton.setOnClickListener {
+            skipToPreviousImage()
+        }
+        
+        binding.pauseButton.setOnClickListener {
+            togglePause()
+        }
+        
+        binding.nextButton.setOnClickListener {
+            skipToNextImage()
+        }
+    }
+    
+    private fun togglePause() {
+        isPaused = !isPaused
+    }
+    
+    private fun skipToPreviousImage() {
+        if (images.isNotEmpty()) {
+            currentIndex = if (currentIndex > 0) currentIndex - 1 else images.size - 1
+            lifecycleScope.launch {
+                loadCurrentImage()
+            }
+        }
+    }
+    
+    private fun skipToNextImage() {
+        if (images.isNotEmpty()) {
+            currentIndex = (currentIndex + 1) % images.size
+            lifecycleScope.launch {
+                loadCurrentImage()
+            }
+        }
     }
     
     private fun loadImages() {
@@ -73,7 +154,9 @@ class SlideshowActivity : AppCompatActivity() {
                 if (images.isNotEmpty()) {
                     loadCurrentImage()
                     delay(preferenceManager.getInterval() * 1000L)
-                    currentIndex = (currentIndex + 1) % images.size
+                    if (!isPaused) {
+                        currentIndex = (currentIndex + 1) % images.size
+                    }
                 }
             }
         }
@@ -96,6 +179,22 @@ class SlideshowActivity : AppCompatActivity() {
     private fun showError(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
         finish()
+    }
+    
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt(KEY_CURRENT_INDEX, currentIndex)
+        outState.putStringArrayList(KEY_IMAGES, ArrayList(images))
+    }
+    
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        setupFullscreen()
+        if (images.isNotEmpty()) {
+            lifecycleScope.launch {
+                loadCurrentImage()
+            }
+        }
     }
     
     override fun onDestroy() {

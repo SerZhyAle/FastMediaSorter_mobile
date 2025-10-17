@@ -45,12 +45,14 @@ Android app for slideshow of images from SMB network shares.
 ./gradlew assembleDebug
 ```
 
-APK file: `app/build/outputs/apk/debug/app-debug.apk`
+APK file: `app/build/outputs/apk/debug/fastmediasorter.apk`
 
 For release build:
 ```bash
 ./gradlew assembleRelease
 ```
+
+APK file: `app/build/outputs/apk/release/fastmediasorter.apk`
 
 ## Setup
 
