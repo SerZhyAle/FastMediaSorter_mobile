@@ -10,7 +10,9 @@ import com.sza.fastmediasorter.data.ConnectionConfig
 import com.sza.fastmediasorter.databinding.ActivitySortBinding
 import com.sza.fastmediasorter.network.SmbClient
 import com.sza.fastmediasorter.ui.ConnectionViewModel
+import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -19,11 +21,17 @@ class SortActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySortBinding
     private lateinit var viewModel: ConnectionViewModel
     private lateinit var smbClient: SmbClient
+    private lateinit var preferenceManager: PreferenceManager
     
     private var currentConfig: ConnectionConfig? = null
     private var imageFiles = listOf<String>()
     private var currentIndex = 0
     private var sortDestinations = listOf<ConnectionConfig>()
+    
+    // Preloading optimization
+    private var nextImageData: ByteArray? = null
+    private var nextImageIndex: Int = -1
+    private var preloadJob: Job? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,6 +41,7 @@ class SortActivity : AppCompatActivity() {
         supportActionBar?.hide()
         
         viewModel = ViewModelProvider(this)[ConnectionViewModel::class.java]
+        preferenceManager = PreferenceManager(this)
         
         val configId = intent.getLongExtra("configId", -1)
         if (configId == -1L) {
@@ -103,6 +112,33 @@ class SortActivity : AppCompatActivity() {
             binding.moveButton6, binding.moveButton7, binding.moveButton8,
             binding.moveButton9
         )
+        
+        // Check if move is allowed
+        val allowMove = preferenceManager.isAllowMove()
+        
+        // Check if copy is allowed
+        val allowCopy = preferenceManager.isAllowCopy()
+        
+        // Check if delete is allowed
+        val allowDelete = preferenceManager.isAllowDelete()
+        
+        // Hide/show copy section
+        binding.copyToLabel.visibility = if (allowCopy) View.VISIBLE else View.GONE
+        binding.buttonsRow1.visibility = if (allowCopy) View.VISIBLE else View.GONE
+        binding.buttonsRow2.visibility = if (allowCopy) View.VISIBLE else View.GONE
+        
+        // Hide/show move section
+        binding.moveToLabel.visibility = if (allowMove) View.VISIBLE else View.GONE
+        binding.moveButtonsRow1.visibility = if (allowMove) View.VISIBLE else View.GONE
+        binding.moveButtonsRow2.visibility = if (allowMove) View.VISIBLE else View.GONE
+        
+        // Hide/show delete button
+        binding.deleteButton.visibility = if (allowDelete) View.VISIBLE else View.GONE
+        
+        // Setup delete button click listener
+        binding.deleteButton.setOnClickListener {
+            deleteCurrentImage()
+        }
         
         // Color shades for buttons
         val colors = listOf(
@@ -328,9 +364,19 @@ class SortActivity : AppCompatActivity() {
             binding.connectionNameText.text = "${config.name} - ${config.serverAddress}\\${config.folderPath}"
         }
         
+        // Use default credentials if not set
+        var username = config.username
+        var password = config.password
+        if (username.isEmpty()) {
+            username = preferenceManager.getDefaultUsername()
+        }
+        if (password.isEmpty()) {
+            password = preferenceManager.getDefaultPassword()
+        }
+        
         // Connect to SMB
         val connected = withContext(Dispatchers.IO) {
-            smbClient.connect(config.serverAddress, config.username, config.password)
+            smbClient.connect(config.serverAddress, username, password)
         }
         
         if (!connected) {
@@ -392,39 +438,72 @@ class SortActivity : AppCompatActivity() {
     private fun loadImage() {
         if (imageFiles.isEmpty()) return
         
+        // Cancel any ongoing preload
+        preloadJob?.cancel()
+        
         val imageUrl = imageFiles[currentIndex]
         updateImageCounter()
         
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val imageBytes = smbClient.downloadImage(imageUrl)
-                val fileInfo = smbClient.getFileInfo(imageUrl)
-                
-                withContext(Dispatchers.Main) {
-                    if (imageBytes != null) {
+        // Check if we have preloaded this image
+        if (nextImageIndex == currentIndex && nextImageData != null) {
+            // Use preloaded data
+            val imageBytes = nextImageData
+            nextImageData = null
+            nextImageIndex = -1
+            
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val fileInfo = smbClient.getFileInfo(imageUrl)
+                    
+                    withContext(Dispatchers.Main) {
                         Glide.with(this@SortActivity)
                             .load(imageBytes)
                             .into(binding.imageView)
                         
-                        // Update file info
                         updateFileInfo(fileInfo)
-                    } else {
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                
+                // Start preloading next image
+                preloadNextImage()
+            }
+        } else {
+            // Load normally
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val imageBytes = smbClient.downloadImage(imageUrl)
+                    val fileInfo = smbClient.getFileInfo(imageUrl)
+                    
+                    withContext(Dispatchers.Main) {
+                        if (imageBytes != null) {
+                            Glide.with(this@SortActivity)
+                                .load(imageBytes)
+                                .into(binding.imageView)
+                            
+                            updateFileInfo(fileInfo)
+                        } else {
+                            android.widget.Toast.makeText(
+                                this@SortActivity,
+                                "Failed to load image: $imageUrl",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    withContext(Dispatchers.Main) {
                         android.widget.Toast.makeText(
                             this@SortActivity,
-                            "Failed to load image: $imageUrl",
+                            "Error: ${e.message}",
                             android.widget.Toast.LENGTH_SHORT
                         ).show()
                     }
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(
-                        this@SortActivity,
-                        "Error: ${e.message}",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
+                
+                // Start preloading next image
+                preloadNextImage()
             }
         }
     }
@@ -447,10 +526,118 @@ class SortActivity : AppCompatActivity() {
         binding.imageCounterText.text = "$current / $total"
     }
     
+    private fun preloadNextImage() {
+        if (imageFiles.isEmpty()) return
+        
+        val nextIndex = if (currentIndex < imageFiles.size - 1) {
+            currentIndex + 1
+        } else {
+            0 // Loop to first
+        }
+        
+        preloadJob = lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val nextImageUrl = imageFiles[nextIndex]
+                val imageBytes = smbClient.downloadImage(nextImageUrl)
+                
+                if (imageBytes != null) {
+                    nextImageData = imageBytes
+                    nextImageIndex = nextIndex
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // Silently fail preload
+            }
+        }
+    }
+    
+    private fun deleteCurrentImage() {
+        if (imageFiles.isEmpty()) return
+        
+        val currentImageUrl = imageFiles[currentIndex]
+        
+        // Check if confirmation is required
+        if (preferenceManager.isConfirmDelete()) {
+            // Show confirmation dialog
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Delete Image")
+                .setMessage("Are you sure you want to delete this image?")
+                .setPositiveButton("Delete") { _, _ ->
+                    performDelete(currentImageUrl)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        } else {
+            // Delete without confirmation
+            performDelete(currentImageUrl)
+        }
+    }
+    
+    private fun performDelete(imageUrl: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                binding.progressText.text = "Deleting..."
+                binding.copyProgressLayout.visibility = View.VISIBLE
+            }
+            
+            try {
+                val deleted = smbClient.deleteFile(imageUrl)
+                
+                withContext(Dispatchers.Main) {
+                    binding.copyProgressLayout.visibility = View.GONE
+                    
+                    if (deleted) {
+                        android.widget.Toast.makeText(
+                            this@SortActivity,
+                            "File deleted",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        
+                        // Remove from list and load next
+                        imageFiles = imageFiles.toMutableList().apply {
+                            remove(imageUrl)
+                        }
+                        
+                        if (imageFiles.isEmpty()) {
+                            android.widget.Toast.makeText(
+                                this@SortActivity,
+                                "No more images",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                            return@withContext
+                        }
+                        
+                        if (currentIndex >= imageFiles.size) {
+                            currentIndex = imageFiles.size - 1
+                        }
+                        
+                        loadImage()
+                    } else {
+                        android.widget.Toast.makeText(
+                            this@SortActivity,
+                            "Failed to delete file",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    binding.copyProgressLayout.visibility = View.GONE
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Error: ${e.message}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
 
     
     override fun onDestroy() {
         super.onDestroy()
+        preloadJob?.cancel()
         try {
             smbClient.disconnect()
         } catch (e: Exception) {

@@ -10,9 +10,17 @@ class ImageRepository(private val smbClient: SmbClient, private val preferenceMa
         return withContext(Dispatchers.IO) {
             try {
                 val serverAddress = preferenceManager.getServerAddress()
-                val username = preferenceManager.getUsername()
-                val password = preferenceManager.getPassword()
+                var username = preferenceManager.getUsername()
+                var password = preferenceManager.getPassword()
                 val folderPath = preferenceManager.getFolderPath()
+                
+                // Use default credentials if not set
+                if (username.isEmpty()) {
+                    username = preferenceManager.getDefaultUsername()
+                }
+                if (password.isEmpty()) {
+                    password = preferenceManager.getDefaultPassword()
+                }
                 
                 if (serverAddress.isEmpty() || folderPath.isEmpty()) {
                     return@withContext Result.failure(Exception("Connection settings not configured"))

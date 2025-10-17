@@ -35,6 +35,11 @@ class SlideshowActivity : AppCompatActivity() {
     private var elapsedTime = 0
     private var isShuffleMode = false
     
+    // Preloading optimization
+    private var nextImageData: ByteArray? = null
+    private var nextImageIndex: Int = -1
+    private var lastLoadTime: Long = 0
+    
     companion object {
         private const val KEY_CURRENT_INDEX = "current_index"
         private const val KEY_IMAGES = "images"
@@ -179,6 +184,10 @@ class SlideshowActivity : AppCompatActivity() {
             showTimerText("ABC", 1000)
         }
         
+        // Clear preloaded data on shuffle mode change
+        nextImageData = null
+        nextImageIndex = -1
+        
         // Skip to next image in new order
         skipToNextImage()
     }
@@ -186,6 +195,9 @@ class SlideshowActivity : AppCompatActivity() {
     private fun skipToPreviousImage() {
         if (images.isNotEmpty()) {
             currentIndex = if (currentIndex > 0) currentIndex - 1 else images.size - 1
+            // Clear preloaded data on manual navigation
+            nextImageData = null
+            nextImageIndex = -1
             lifecycleScope.launch {
                 loadCurrentImage()
             }
@@ -196,14 +208,34 @@ class SlideshowActivity : AppCompatActivity() {
     
     private fun skipToNextImage() {
         if (images.isNotEmpty()) {
-            currentIndex = (currentIndex + 1) % images.size
-            lifecycleScope.launch {
-                loadCurrentImage()
-                
-                // Show interval after manual next
-                if (!isPaused) {
-                    val interval = preferenceManager.getInterval()
-                    showTimerText("$interval", 1000)
+            val targetIndex = (currentIndex + 1) % images.size
+            
+            // Check if target image is already preloaded
+            if (nextImageIndex == targetIndex && nextImageData != null) {
+                // Use preloaded data - instant switch
+                currentIndex = targetIndex
+                lifecycleScope.launch {
+                    loadCurrentImage()
+                    
+                    // Show interval after manual next
+                    if (!isPaused) {
+                        val interval = preferenceManager.getInterval()
+                        showTimerText("$interval", 1000)
+                    }
+                }
+            } else {
+                // Not preloaded - clear cache and load normally
+                currentIndex = targetIndex
+                nextImageData = null
+                nextImageIndex = -1
+                lifecycleScope.launch {
+                    loadCurrentImage()
+                    
+                    // Show interval after manual next
+                    if (!isPaused) {
+                        val interval = preferenceManager.getInterval()
+                        showTimerText("$interval", 1000)
+                    }
                 }
             }
             // Reset timer on manual next
@@ -253,7 +285,10 @@ class SlideshowActivity : AppCompatActivity() {
         slideshowJob = lifecycleScope.launch {
             while (true) {
                 if (images.isNotEmpty()) {
+                    val loadStartTime = System.currentTimeMillis()
                     loadCurrentImage()
+                    val loadDuration = (System.currentTimeMillis() - loadStartTime) / 1000
+                    lastLoadTime = loadDuration
                     
                     if (!isPaused) {
                         // Show interval after image load (1 second)
@@ -263,6 +298,9 @@ class SlideshowActivity : AppCompatActivity() {
                     
                     val interval = preferenceManager.getInterval()
                     elapsedTime = 0
+                    
+                    // Preload next image if interval > 2x load time
+                    var preloadStarted = false
                     
                     while (elapsedTime < interval) {
                         delay(1000L)
@@ -275,6 +313,15 @@ class SlideshowActivity : AppCompatActivity() {
                         
                         val remaining = interval - elapsedTime
                         
+                        // Start preloading if interval allows and not started yet
+                        if (!preloadStarted && interval > loadDuration * 2 && remaining > loadDuration + 1) {
+                            preloadStarted = true
+                            val nextIndex = (currentIndex + 1) % images.size
+                            lifecycleScope.launch {
+                                preloadNextImage(nextIndex)
+                            }
+                        }
+                        
                         // Show countdown for last 3 seconds
                         if (remaining in 1..3) {
                             showTimerText("in $remaining", 0)
@@ -282,7 +329,15 @@ class SlideshowActivity : AppCompatActivity() {
                     }
                     
                     if (!isPaused) {
-                        currentIndex = (currentIndex + 1) % images.size
+                        val nextIndex = (currentIndex + 1) % images.size
+                        // Check if next image is preloaded - if not, start loading now
+                        if (nextImageIndex != nextIndex || nextImageData == null) {
+                            // Not preloaded, load it now to minimize gap
+                            lifecycleScope.launch {
+                                preloadNextImage(nextIndex)
+                            }.join() // Wait for preload to complete
+                        }
+                        currentIndex = nextIndex
                     }
                 }
             }
@@ -304,7 +359,16 @@ class SlideshowActivity : AppCompatActivity() {
     private suspend fun loadCurrentImage() {
         try {
             val imageUrl = images[currentIndex]
-            val imageData = imageRepository.downloadImage(imageUrl)
+            
+            // Use preloaded data if available for current index
+            val imageData = if (nextImageIndex == currentIndex && nextImageData != null) {
+                val preloaded = nextImageData
+                nextImageData = null // Clear after use
+                nextImageIndex = -1
+                preloaded
+            } else {
+                imageRepository.downloadImage(imageUrl)
+            }
             
             imageData?.let { data ->
                 val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size)
@@ -323,6 +387,22 @@ class SlideshowActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+    
+    private suspend fun preloadNextImage(nextIndex: Int) {
+        try {
+            if (nextIndex < images.size) {
+                val imageUrl = images[nextIndex]
+                val imageData = imageRepository.downloadImage(imageUrl)
+                
+                // Store preloaded data
+                nextImageData = imageData
+                nextImageIndex = nextIndex
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Silently fail preloading
         }
     }
     

@@ -9,11 +9,13 @@ FastMediaSorter is a lightweight Android application designed for browsing and d
 **Key Features:**
 - 📡 Direct SMB/CIFS network access (no file copying required)
 - 💾 Multiple connection profiles with auto-resume
-- 🎬 Configurable slideshow with countdown timer
+- 🎬 Configurable slideshow with countdown timer (1-300 seconds)
 - 🎮 Invisible touch zones for distraction-free viewing
 - 🔄 Image rotation with ABC/Random ordering
-- � File sorting: Copy/Move images to 10 configurable destinations
-- �📱 Optimized for both phones and tablets
+- 📦 File sorting: Copy/Move/Delete images to 10 configurable destinations
+- ⚡ Image preloading for instant transitions (slideshow and sort)
+- ⚙️ Flexible settings: default credentials, operation permissions
+- � Optimized for both phones and tablets
 
 ## Quick Start
 
@@ -61,7 +63,11 @@ FastMediaSorter is a lightweight Android application designed for browsing and d
 - Used by both Copy and Move operations in Sort screen
 
 ### Slideshow
-- Automatic image slideshow with configurable interval (default: 10 seconds)
+- Automatic image slideshow with configurable interval: **1-300 seconds** (default: 10)
+- **Image preloading optimization**: Background loading of next image for instant transitions
+  - Preload starts when interval > 2× load time
+  - Manual next: instant switch using preloaded image
+  - Auto-advance: seamless transition with preloaded data
 - Fullscreen mode with original image proportions (fitCenter)
 - Supports: JPG, JPEG, PNG, GIF, BMP, WebP
 - Orientation support (portrait and landscape)
@@ -81,7 +87,7 @@ FastMediaSorter is a lightweight Android application designed for browsing and d
   - Rotation persists for all subsequent images until changed
 
 ### Slideshow Features
-- Configurable interval: 5-60 seconds (default: 10)
+- Configurable interval: **1-300 seconds** (default: 10)
 - Countdown timer: shows "in 3/2/1" for last 3 seconds
 - Shows interval number on resume for 1 second
 - Auto-pause on: rotation, previous image, manual back
@@ -89,6 +95,7 @@ FastMediaSorter is a lightweight Android application designed for browsing and d
 - ABC ordering: alphabetically by filename
 - Random ordering: shuffled on toggle, remembers mode between sessions
 - Session auto-resume: starts from last viewed image on app relaunch
+- **Performance**: Preloads next image in background for smooth transitions
 
 ### UI Features
 - Material Design 3 with adaptive icons
@@ -155,21 +162,36 @@ APK file: `app/build/outputs/apk/release/fastmediasorter.apk`
   - Reorder destinations: Move Up/Down buttons
   - Delete destination: Remove from list
   - Each destination gets unique color for easy identification
+- **Settings tab** - Application-wide settings:
+  - **Default Username/Password** - Auto-filled for connections without credentials
+  - **Sorting Settings**:
+    - **Allow to Copy** - Enable/disable Copy buttons (default: ON)
+    - **Allow to Move** - Enable/disable Move buttons (default: OFF)
+    - **Allow to Delete** - Enable/disable Delete button (default: OFF)
+    - **Request user for deletion** - Confirmation dialog before delete (default: ON)
 - Contact information: sza@ukr.net 2025
 
 ### Sort Screen
 - **Navigation**: Left/right touch zones (50/50 split) with infinite cycling
+- **Image preloading**: Background loading of next image for instant navigation
 - **File info**: Displays filename, size (KB), and modification date
 - **Connection name**: Shows current connection at top of screen
-- **Copy to..**: 10 colored buttons for copying current image to destinations
+- **Copy to..**: Up to 10 colored buttons for copying current image to destinations
+  - Visible only if "Allow to Copy" enabled in Settings
   - File remains in source folder
   - Auto-advance to next image on success
   - Error handling: Already exists, same folder, network/security errors
-- **Move to..**: 10 colored buttons for moving current image to destinations
+- **Move to..**: Up to 10 colored buttons for moving current image to destinations
+  - Visible only if "Allow to Move" enabled in Settings
   - File deleted from source after successful copy
   - Removed from current list, auto-load next image
   - Error handling: Copy errors + delete permission errors
-- **Progress indicator**: "Copying..." or "Moving..." overlay during operations
+- **Delete**: Red button for deleting current image
+  - Visible only if "Allow to Delete" enabled in Settings
+  - Optional confirmation dialog ("Request user for deletion" setting)
+  - File permanently deleted from source
+  - Removed from list, auto-load next image
+- **Progress indicator**: "Copying..." / "Moving..." / "Deleting..." overlay during operations
 - **Counter**: Shows current position (e.g., "5 / 23")
 - **Back button**: Return to main screen
 
@@ -197,23 +219,24 @@ app/src/main/java/com/sza/fastmediasorter/
 │   ├── AppDatabase.kt - Room database v2 with migration
 │   └── ConnectionRepository.kt - CRUD + sort destination management
 ├── network/
-│   ├── SmbClient.kt - jCIFS-ng wrapper with copy/move operations
-│   └── ImageRepository.kt - image loading and caching
+│   ├── SmbClient.kt - jCIFS-ng wrapper with copy/move/delete operations
+│   └── ImageRepository.kt - image loading with default credentials fallback
 ├── ui/
 │   ├── ConnectionViewModel.kt - MVVM for connections & destinations
 │   ├── ConnectionAdapter.kt - RecyclerView adapter for connections
 │   ├── slideshow/
-│   │   └── SlideshowActivity.kt - fullscreen with touch zones
+│   │   └── SlideshowActivity.kt - fullscreen with touch zones & preloading
 │   ├── settings/
-│   │   ├── SettingsActivity.kt - TabLayout with 2 tabs
+│   │   ├── SettingsActivity.kt - TabLayout with 3 tabs
 │   │   ├── SlideshowHelpFragment.kt - touch zones diagram
 │   │   ├── SortHelpFragment.kt - sort destinations management
+│   │   ├── SettingsFragment.kt - app settings (credentials, permissions)
 │   │   ├── SortDestinationAdapter.kt - RecyclerView for destinations
 │   │   └── AddSortDestinationDialog.kt - add destination dialog
 │   └── sort/
-│       └── SortActivity.kt - image sorting with copy/move operations
+│       └── SortActivity.kt - image sorting with copy/move/delete & preloading
 └── utils/
-    └── PreferenceManager.kt - SharedPreferences wrapper
+    └── PreferenceManager.kt - SharedPreferences wrapper (credentials, permissions)
 
 res/
 ├── drawable/
@@ -224,10 +247,11 @@ res/
 └── layout/
     ├── activity_main.xml - compact 4-button layout
     ├── activity_slideshow.xml - invisible touch zones
-    ├── activity_settings.xml - TabLayout + ViewPager2
-    ├── activity_sort.xml - fullscreen with Copy/Move buttons
+    ├── activity_settings.xml - TabLayout + ViewPager2 (3 tabs)
+    ├── activity_sort.xml - fullscreen with Copy/Move/Delete buttons
     ├── fragment_slideshow_help.xml - touch zones visualization
     ├── fragment_sort_help.xml - destinations list with add button
+    ├── fragment_settings.xml - credentials + sorting permissions
     ├── item_connection.xml - connection list item
     ├── item_sort_destination.xml - destination with up/down/delete
     └── dialog_add_sort_destination.xml - add destination dialog

@@ -306,6 +306,26 @@ class SmbClient {
         }
     }
     
+    suspend fun deleteFile(fileUrl: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val currentContext = context ?: return@withContext false
+                
+                val smbFile = SmbFile(fileUrl, currentContext)
+                
+                if (!smbFile.exists()) {
+                    return@withContext false
+                }
+                
+                smbFile.delete()
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+        }
+    }
+    
     fun disconnect() {
         context = null
     }

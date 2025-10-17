@@ -22,7 +22,9 @@ import com.sza.fastmediasorter.data.ConnectionConfig
 import com.sza.fastmediasorter.databinding.ActivitySettingsBinding
 import com.sza.fastmediasorter.databinding.FragmentSlideshowHelpBinding
 import com.sza.fastmediasorter.databinding.FragmentSortHelpBinding
+import com.sza.fastmediasorter.databinding.FragmentSettingsBinding
 import com.sza.fastmediasorter.ui.ConnectionViewModel
+import com.sza.fastmediasorter.utils.PreferenceManager
 
 class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
@@ -50,8 +52,9 @@ class SettingsActivity : AppCompatActivity() {
         
         TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, position ->
             tab.text = when (position) {
-                0 -> "Slideshow"
-                1 -> "Sort to.."
+                0 -> "Sort to.."
+                1 -> "Slideshow"
+                2 -> "Settings"
                 else -> ""
             }
         }.attach()
@@ -64,13 +67,14 @@ class SettingsActivity : AppCompatActivity() {
 }
 
 class SettingsPagerAdapter(activity: AppCompatActivity) : FragmentStateAdapter(activity) {
-    override fun getItemCount(): Int = 2
+    override fun getItemCount(): Int = 3
     
     override fun createFragment(position: Int): Fragment {
         return when (position) {
-            0 -> SlideshowHelpFragment()
-            1 -> SortHelpFragment()
-            else -> SlideshowHelpFragment()
+            0 -> SortHelpFragment()
+            1 -> SlideshowHelpFragment()
+            2 -> SettingsFragment()
+            else -> SortHelpFragment()
         }
     }
 }
@@ -224,6 +228,94 @@ class SortHelpFragment : Fragment() {
     
     private fun deleteDestination(config: ConnectionConfig) {
         viewModel.removeSortDestination(config.id)
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}
+
+class SettingsFragment : Fragment() {
+    private var _binding: FragmentSettingsBinding? = null
+    private val binding get() = _binding!!
+    private lateinit var preferenceManager: PreferenceManager
+    
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        _binding = FragmentSettingsBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+    
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        
+        preferenceManager = PreferenceManager(requireContext())
+        
+        // Load default credentials
+        binding.defaultUsernameInput.setText(preferenceManager.getDefaultUsername())
+        binding.defaultPasswordInput.setText(preferenceManager.getDefaultPassword())
+        
+        // Load allow move setting
+        binding.allowMoveCheckbox.isChecked = preferenceManager.isAllowMove()
+        
+        // Load allow copy setting
+        binding.allowCopyCheckbox.isChecked = preferenceManager.isAllowCopy()
+        
+        // Load allow delete setting
+        binding.allowDeleteCheckbox.isChecked = preferenceManager.isAllowDelete()
+        
+        // Load confirm delete setting
+        binding.confirmDeleteCheckbox.isChecked = preferenceManager.isConfirmDelete()
+        
+        // Save on focus loss
+        binding.defaultUsernameInput.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                saveDefaultUsername()
+            }
+        }
+        
+        binding.defaultPasswordInput.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                saveDefaultPassword()
+            }
+        }
+        
+        // Save allow move on change
+        binding.allowMoveCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setAllowMove(isChecked)
+        }
+        
+        // Save allow copy on change
+        binding.allowCopyCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setAllowCopy(isChecked)
+        }
+        
+        // Save allow delete on change
+        binding.allowDeleteCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setAllowDelete(isChecked)
+        }
+        
+        // Save confirm delete on change
+        binding.confirmDeleteCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setConfirmDelete(isChecked)
+        }
+    }
+    
+    private fun saveDefaultUsername() {
+        val username = binding.defaultUsernameInput.text.toString().trim()
+        preferenceManager.setDefaultUsername(username)
+    }
+    
+    private fun saveDefaultPassword() {
+        val password = binding.defaultPasswordInput.text.toString().trim()
+        preferenceManager.setDefaultPassword(password)
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // Save when leaving fragment (tab change, back)
+        saveDefaultUsername()
+        saveDefaultPassword()
     }
     
     override fun onDestroyView() {

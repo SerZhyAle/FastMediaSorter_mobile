@@ -15,6 +15,12 @@ class PreferenceManager(context: Context) {
         private const val KEY_LAST_FOLDER_ADDRESS = "last_folder_address"
         private const val KEY_LAST_IMAGE_INDEX = "last_image_index"
         private const val KEY_SHUFFLE_MODE = "shuffle_mode"
+        private const val KEY_DEFAULT_USERNAME = "default_username"
+        private const val KEY_DEFAULT_PASSWORD = "default_password"
+        private const val KEY_ALLOW_MOVE = "allow_move"
+        private const val KEY_ALLOW_COPY = "allow_copy"
+        private const val KEY_ALLOW_DELETE = "allow_delete"
+        private const val KEY_CONFIRM_DELETE = "confirm_delete"
     }
     
     fun saveConnectionSettings(server: String, username: String, password: String, folder: String) {
@@ -61,4 +67,45 @@ class PreferenceManager(context: Context) {
     }
     
     fun isShuffleMode(): Boolean = prefs.getBoolean(KEY_SHUFFLE_MODE, false)
+    
+    // Default credentials
+    fun setDefaultUsername(username: String) {
+        prefs.edit().putString(KEY_DEFAULT_USERNAME, username).apply()
+    }
+    
+    fun getDefaultUsername(): String = prefs.getString(KEY_DEFAULT_USERNAME, "") ?: ""
+    
+    fun setDefaultPassword(password: String) {
+        prefs.edit().putString(KEY_DEFAULT_PASSWORD, password).apply()
+    }
+    
+    fun getDefaultPassword(): String = prefs.getString(KEY_DEFAULT_PASSWORD, "") ?: ""
+    
+    // Allow Move operations
+    fun setAllowMove(allow: Boolean) {
+        prefs.edit().putBoolean(KEY_ALLOW_MOVE, allow).apply()
+    }
+    
+    fun isAllowMove(): Boolean = prefs.getBoolean(KEY_ALLOW_MOVE, false)
+    
+    // Allow Copy operations
+    fun setAllowCopy(allow: Boolean) {
+        prefs.edit().putBoolean(KEY_ALLOW_COPY, allow).apply()
+    }
+    
+    fun isAllowCopy(): Boolean = prefs.getBoolean(KEY_ALLOW_COPY, true)
+    
+    // Allow Delete operations
+    fun setAllowDelete(allow: Boolean) {
+        prefs.edit().putBoolean(KEY_ALLOW_DELETE, allow).apply()
+    }
+    
+    fun isAllowDelete(): Boolean = prefs.getBoolean(KEY_ALLOW_DELETE, false)
+    
+    // Confirm deletion
+    fun setConfirmDelete(confirm: Boolean) {
+        prefs.edit().putBoolean(KEY_CONFIRM_DELETE, confirm).apply()
+    }
+    
+    fun isConfirmDelete(): Boolean = prefs.getBoolean(KEY_CONFIRM_DELETE, true)
 }

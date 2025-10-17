@@ -33,21 +33,22 @@ class MainActivity : AppCompatActivity() {
         
         preferenceManager = PreferenceManager(this)
         
-        // Try to auto-resume last session
-        if (tryAutoResumeSession()) {
-            return
-        }
-        
+        // Always setup UI first
         setupRecyclerView()
-        loadLastUsedConfig()
         setupClickListeners()
         observeConnections()
+        
+        // Try to auto-resume last session
+        tryAutoResumeSession()
+        
+        // Load last used config if not auto-resuming
+        loadLastUsedConfig()
     }
     
-    private fun tryAutoResumeSession(): Boolean {
+    private fun tryAutoResumeSession() {
         val lastFolderAddress = preferenceManager.getLastFolderAddress()
         if (lastFolderAddress.isEmpty()) {
-            return false
+            return
         }
         
         lifecycleScope.launch {
@@ -61,8 +62,6 @@ class MainActivity : AppCompatActivity() {
                 preferenceManager.clearLastSession()
             }
         }
-        
-        return true
     }
     
     private fun loadConfigAndStartSlideshow(config: ConnectionConfig) {
