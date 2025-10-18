@@ -18,12 +18,19 @@ import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.sza.fastmediasorter.R
 import com.sza.fastmediasorter.data.ConnectionConfig
 import com.sza.fastmediasorter.databinding.ActivitySortBinding
 import com.sza.fastmediasorter.network.LocalStorageClient
 import com.sza.fastmediasorter.network.SmbClient
+import com.sza.fastmediasorter.network.SmbDataSource
+import com.sza.fastmediasorter.network.SmbDataSourceFactory
 import com.sza.fastmediasorter.ui.ConnectionViewModel
+import com.sza.fastmediasorter.utils.MediaUtils
 import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -43,6 +50,10 @@ class SortActivity : AppCompatActivity() {
     private var currentIndex = 0
     private var sortDestinations = listOf<ConnectionConfig>()
     private var isLocalMode = false
+    
+    // Video support
+    private var exoPlayer: ExoPlayer? = null
+    private var isCurrentMediaVideo = false
     
     // Preloading optimization
     private var nextImageData: ByteArray? = null
@@ -92,6 +103,7 @@ class SortActivity : AppCompatActivity() {
             return
         }
         
+        setupExoPlayer()
         setupTouchAreas()
         setupBackButton()
         setupObservers()
@@ -99,6 +111,27 @@ class SortActivity : AppCompatActivity() {
         lifecycleScope.launch {
             loadConnection(configId)
         }
+    }
+    
+    private fun setupExoPlayer() {
+        exoPlayer = ExoPlayer.Builder(this).build()
+        binding.playerView.player = exoPlayer
+        
+        exoPlayer?.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                when (playbackState) {
+                    Player.STATE_BUFFERING -> {
+                        binding.videoLoadingLayout.visibility = View.VISIBLE
+                    }
+                    Player.STATE_READY -> {
+                        binding.videoLoadingLayout.visibility = View.GONE
+                    }
+                    Player.STATE_ENDED -> {
+                        binding.videoLoadingLayout.visibility = View.GONE
+                    }
+                }
+            }
+        })
     }
     
     private fun setupObservers() {
@@ -118,7 +151,7 @@ class SortActivity : AppCompatActivity() {
             } else {
                 imageFiles.size - 1  // Jump to last
             }
-            loadImage()
+            loadMedia()
         }
         
         binding.nextArea.setOnClickListener {
@@ -129,7 +162,7 @@ class SortActivity : AppCompatActivity() {
             } else {
                 0  // Jump to first
             }
-            loadImage()
+            loadMedia()
         }
     }
     
@@ -301,7 +334,7 @@ class SortActivity : AppCompatActivity() {
                             } else {
                                 0  // Jump to first
                             }
-                            loadImage()
+                            loadMedia()
                         }
                     }
                 }
@@ -474,7 +507,7 @@ class SortActivity : AppCompatActivity() {
                         android.widget.Toast.LENGTH_SHORT
                     ).show()
                 } else {
-                    loadImage()
+                    loadMedia()
                 }
             }
         }
@@ -565,8 +598,8 @@ class SortActivity : AppCompatActivity() {
                                 currentIndex = imageFiles.size - 1
                             }
                             
-                            // Load image at current index (which is now the next file)
-                            loadImage()
+                            // Load media at current index (which is now the next file)
+                            loadMedia()
                         }
                     }
                     // For PendingUserConfirmation, the dialog will be shown automatically
@@ -749,11 +782,11 @@ class SortActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         if (imageFiles.isNotEmpty()) {
                             currentIndex = 0
-                            loadImage()
+                            loadMedia()
                         } else {
                             android.widget.Toast.makeText(
                                 this@SortActivity,
-                                "No images found in folder",
+                                "No media found in folder",
                                 android.widget.Toast.LENGTH_LONG
                             ).show()
                         }
@@ -772,14 +805,33 @@ class SortActivity : AppCompatActivity() {
         }
     }
     
-    private fun loadImage() {
+    private fun loadMedia() {
         if (imageFiles.isEmpty()) return
         
         // Cancel any ongoing preload
         preloadJob?.cancel()
         
-        val imageUrl = imageFiles[currentIndex]
+        val mediaUrl = imageFiles[currentIndex]
+        
+        // Determine if current media is video
+        isCurrentMediaVideo = MediaUtils.isVideo(mediaUrl)
+        
+        // Show/hide appropriate view
+        if (isCurrentMediaVideo) {
+            binding.imageView.visibility = View.GONE
+            binding.playerView.visibility = View.VISIBLE
+            loadVideo(mediaUrl)
+        } else {
+            binding.playerView.visibility = View.GONE
+            binding.imageView.visibility = View.VISIBLE
+            loadImage(mediaUrl)
+        }
+        
         updateImageCounter()
+    }
+    
+    private fun loadImage(imageUrl: String) {
+        if (imageFiles.isEmpty()) return
         
         // Check if we have preloaded this image
         if (nextImageIndex == currentIndex && nextImageData != null) {
@@ -910,6 +962,86 @@ class SortActivity : AppCompatActivity() {
                 
                 // Start preloading next image
                 preloadNextImage()
+            }
+        }
+    }
+    
+    private fun loadVideo(videoUrl: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // Get file info for display
+                val fileInfo = if (isLocalMode) {
+                    localStorageClient?.getFileInfo(Uri.parse(videoUrl))?.let {
+                        SmbClient.FileInfo(
+                            name = it.name,
+                            sizeKB = (it.size / 1024),
+                            modifiedDate = it.dateModified
+                        )
+                    }
+                } else {
+                    smbClient.getFileInfo(videoUrl)
+                }
+                
+                withContext(Dispatchers.Main) {
+                    try {
+                        // Stop current playback
+                        exoPlayer?.stop()
+                        exoPlayer?.clearMediaItems()
+                        
+                        if (isLocalMode) {
+                            // Local video - use URI directly
+                            val mediaItem = MediaItem.fromUri(Uri.parse(videoUrl))
+                            exoPlayer?.setMediaItem(mediaItem)
+                            exoPlayer?.prepare()
+                            exoPlayer?.play()
+                        } else {
+                            // SMB video - need to recreate player with custom data source
+                            val smbContext = smbClient.getContext()
+                            if (smbContext != null) {
+                                // Release old player
+                                exoPlayer?.release()
+                                
+                                // Create new player with SmbDataSource
+                                val dataSourceFactory = SmbDataSourceFactory(smbClient)
+                                exoPlayer = ExoPlayer.Builder(this@SortActivity)
+                                    .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory as androidx.media3.datasource.DataSource.Factory))
+                                    .build()
+                                binding.playerView.player = exoPlayer
+                                
+                                val mediaItem = MediaItem.fromUri("smb://$videoUrl")
+                                exoPlayer?.setMediaItem(mediaItem)
+                                exoPlayer?.prepare()
+                                exoPlayer?.play()
+                            } else {
+                                android.widget.Toast.makeText(
+                                    this@SortActivity,
+                                    "SMB connection not available",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                                return@withContext
+                            }
+                        }
+                        
+                        updateFileInfo(fileInfo)
+                        
+                    } catch (e: Exception) {
+                        android.util.Log.e("SortActivity", "Failed to load video: ${e.message}", e)
+                        android.widget.Toast.makeText(
+                            this@SortActivity,
+                            "⚠ Failed to load video: ${e.message}",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Error: ${e.message}",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
     }
@@ -1054,7 +1186,7 @@ class SortActivity : AppCompatActivity() {
                     currentIndex = imageFiles.size - 1
                 }
                 
-                loadImage()
+                loadMedia()
             } else {
                 android.widget.Toast.makeText(
                     this@SortActivity,
@@ -1069,6 +1201,8 @@ class SortActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         preloadJob?.cancel()
+        exoPlayer?.release()
+        exoPlayer = null
         try {
             smbClient.disconnect()
         } catch (e: Exception) {
