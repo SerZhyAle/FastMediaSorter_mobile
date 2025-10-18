@@ -45,7 +45,7 @@
                 android:text="@string/photos_placeholder"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="@android:color/white" />
+                android:textColor="?android:attr/textColorPrimary" />
 
             <TextView
                 android:id="@+id/folderAddressText"
@@ -53,7 +53,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/ip_path_example"
                 android:textSize="12sp"
-                android:textColor="@android:color/darker_gray" />
+                android:textColor="?android:attr/textColorSecondary" />
 
         </LinearLayout>
 
