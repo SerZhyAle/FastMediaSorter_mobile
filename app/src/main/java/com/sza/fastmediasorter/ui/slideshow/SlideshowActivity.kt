@@ -205,10 +205,12 @@ class SlideshowActivity : AppCompatActivity() {
         isPaused = !isPaused
         updatePlayPauseIcon()
         
-        // Show interval when resuming
+        // Show interval when resuming, OFF when paused
         if (!isPaused) {
             val interval = preferenceManager.getInterval()
             showTimerText("$interval", 1000)
+        } else {
+            showTimerText("OFF", 1000)
         }
     }
     
