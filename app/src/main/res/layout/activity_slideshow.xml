@@ -46,14 +46,14 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@android:color/transparent" />
+            android:background="#20FFFFFF" />
 
         <View
             android:id="@+id/shuffleButton"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@android:color/transparent" />
+            android:background="#20FFFFFF" />
 
     </LinearLayout>
 
@@ -69,21 +69,21 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@android:color/transparent" />
+            android:background="#20FFFFFF" />
 
         <View
             android:id="@+id/pauseButton"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@android:color/transparent" />
+            android:background="#20FFFFFF" />
 
         <View
             android:id="@+id/nextButton"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@android:color/transparent" />
+            android:background="#20FFFFFF" />
 
     </LinearLayout>
 
@@ -99,14 +99,14 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@android:color/transparent" />
+            android:background="#20FFFFFF" />
 
         <View
             android:id="@+id/rotateRightButton"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@android:color/transparent" />
+            android:background="#20FFFFFF" />
 
     </LinearLayout>
 
