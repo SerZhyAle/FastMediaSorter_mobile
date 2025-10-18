@@ -1,22 +1,23 @@
 # FastMediaSorter Mobile
 
-A lightweight and private Android application for viewing, sorting, and managing images from your device's local storage and SMB (Samba/Windows) network shares. Perfect for creating a digital photo frame, organizing photos, or simply browsing your media collection with intuitive controls.
+A lightweight and private Android application for viewing, sorting, and managing images and videos from your device's local storage and SMB (Samba/Windows) network shares. Perfect for creating a digital photo frame, organizing media, or simply browsing your collection with intuitive controls.
 
 ## Key Features
 
--   **Dual Media Access**: Seamlessly browse images from both local device folders (Camera, Screenshots, etc.) and remote SMB network shares.
+-   **Dual Media Access**: Seamlessly browse media from both local device folders (Camera, Screenshots, etc.) and remote SMB network shares.
 -   **Powerful Slideshow**:
+    -   Supports both images and videos.
     -   Configurable interval (1-300 seconds).
-    -   Image preloading for smooth, instant transitions.
-    -   Two control modes: invisible touch zones for a clean look or a visible button panel.
+    -   Image and video preloading for smooth, instant transitions.
+    -   Two control modes: invisible touch zones or a visible button panel.
     -   ABC (alphabetical) and Random (shuffle) order modes.
 -   **Advanced File Sorting**:
-    -   Organize images by copying, moving, or deleting them.
+    -   Organize media by copying, moving, or deleting files.
     -   Configure up to 10 custom sort destinations.
     -   Safe by design: uses system permissions for delete/move operations on Android 11+.
--   **Connection Management**:
-    -   Save and manage multiple SMB connection profiles.
-    -   Auto-loads the last used connection for quick access.
+-   **Video Settings**:
+    -   Enable or disable video playback in slideshows.
+    -   Set a maximum file size for videos to prevent playback of large files.
 -   **Privacy-Focused**:
     -   No internet access required (only local network for SMB).
     -   No data collection, analytics, or tracking. All settings are stored locally on your device.
@@ -70,8 +71,8 @@ Enable this mode in **Settings → Slideshow Settings → Show Controls**. A min
 
 ### Sorting Screen
 
--   **Navigate**: Swipe left or right to browse through images.
--   **Copy/Move/Delete**: Use the colored buttons at the bottom to sort the current image. These operations can be enabled or disabled in **Settings**.
+-   **Navigate**: Swipe left or right to browse through media.
+-   **Copy/Move/Delete**: Use the colored buttons at the bottom to sort the current file. These operations can be enabled or disabled in **Settings**.
 -   **Destinations**: Configure up to 10 sort destinations in the **Settings → Sort to..** tab.
 
 ## Build from Source

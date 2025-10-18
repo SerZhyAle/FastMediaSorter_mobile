@@ -60,10 +60,10 @@ class SettingsActivity : AppCompatActivity() {
         
         TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, position ->
             tab.text = when (position) {
-                0 -> "Sort to.."
-                1 -> "Slideshow"
-                2 -> "Video"
-                3 -> "Settings"
+                0 -> getString(R.string.tab_sort_to)
+                1 -> getString(R.string.tab_slideshow)
+                2 -> getString(R.string.tab_video)
+                3 -> getString(R.string.tab_settings)
                 else -> ""
             }
         }.attach()
