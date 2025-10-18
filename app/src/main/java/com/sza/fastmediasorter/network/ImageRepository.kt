@@ -31,7 +31,9 @@ class ImageRepository(private val smbClient: SmbClient, private val preferenceMa
                     return@withContext Result.failure(Exception("Failed to connect to server: $serverAddress\n\nCheck:\n• Server is running?\n• Firewall settings?"))
                 }
                 
-                val result = smbClient.getImageFiles(serverAddress, folderPath)
+                val isVideoEnabled = preferenceManager.isVideoEnabled()
+                val maxVideoSizeMb = preferenceManager.getMaxVideoSizeMb()
+                val result = smbClient.getImageFiles(serverAddress, folderPath, isVideoEnabled, maxVideoSizeMb)
                 if (result.errorMessage != null) {
                     return@withContext Result.failure(Exception(result.errorMessage))
                 }

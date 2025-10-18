@@ -731,7 +731,9 @@ class SortActivity : AppCompatActivity() {
                         val imageInfoList = localStorageClient?.getImageFiles(localUri, bucketName) ?: emptyList()
                         imageInfoList.map { it.uri.toString() }
                     } else {
-                        val result = smbClient.getImageFiles(config.serverAddress, config.folderPath)
+                        val isVideoEnabled = preferenceManager.isVideoEnabled()
+                        val maxVideoSizeMb = preferenceManager.getMaxVideoSizeMb()
+                        val result = smbClient.getImageFiles(config.serverAddress, config.folderPath, isVideoEnabled, maxVideoSizeMb)
                         if (result.errorMessage != null) {
                             withContext(Dispatchers.Main) {
                                 android.widget.Toast.makeText(this@SortActivity, result.errorMessage, android.widget.Toast.LENGTH_LONG).show()
