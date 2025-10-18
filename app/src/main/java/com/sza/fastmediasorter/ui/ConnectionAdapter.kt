@@ -78,18 +78,28 @@ class ConnectionAdapter(
             nameText.text = config.name
             detailsText.text = "${config.serverAddress}/${config.folderPath}"
             
-            // Highlight selected item
-            itemView.setBackgroundColor(
-                if (isSelected) 
-                    itemView.context.getColor(android.R.color.darker_gray)
-                else 
-                    itemView.context.getColor(android.R.color.transparent)
-            )
+            // Highlight selected item with theme-aware color
+            if (isSelected) {
+                val theme = itemView.context.theme
+                val typedValue = android.util.TypedValue()
+                theme.resolveAttribute(android.R.attr.colorControlHighlight, typedValue, true)
+                itemView.setBackgroundColor(itemView.context.getColor(typedValue.resourceId))
+            } else {
+                itemView.setBackgroundColor(itemView.context.getColor(android.R.color.transparent))
+            }
             
-            // Set text color for better readability
-            val textColor = itemView.context.getColor(android.R.color.black)
-            nameText.setTextColor(textColor)
-            detailsText.setTextColor(textColor)
+            // Use theme-aware colors for text
+            val theme = itemView.context.theme
+            val typedValue = android.util.TypedValue()
+            
+            theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
+            val primaryTextColor = itemView.context.getColor(typedValue.resourceId)
+            
+            theme.resolveAttribute(android.R.attr.textColorSecondary, typedValue, true)  
+            val secondaryTextColor = itemView.context.getColor(typedValue.resourceId)
+            
+            nameText.setTextColor(primaryTextColor)
+            detailsText.setTextColor(secondaryTextColor)
             
             itemView.setOnTouchListener { v, event ->
                 gestureDetector.onTouchEvent(event)

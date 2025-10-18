@@ -137,6 +137,10 @@ class SortActivity : AppCompatActivity() {
         exoPlayer = ExoPlayer.Builder(this).build()
         binding.playerView.player = exoPlayer
         
+        // Configure player view for better control positioning
+        binding.playerView.useController = true
+        binding.playerView.controllerAutoShow = false
+        
         exoPlayer?.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 when (playbackState) {
@@ -204,7 +208,6 @@ class SortActivity : AppCompatActivity() {
         // Video control area - show/hide controls on tap
         binding.videoControlArea.setOnClickListener {
             android.util.Log.d("SortActivity", "Video control area clicked")
-            Toast.makeText(this, "Video control area tapped", Toast.LENGTH_SHORT).show()
             if (binding.playerView.visibility == View.VISIBLE) {
                 // Toggle video controls visibility
                 binding.playerView.showController()
@@ -1001,6 +1004,25 @@ class SortActivity : AppCompatActivity() {
         }
         
         updateImageCounter()
+        updateVideoControlZone()
+    }
+    
+    private fun updateVideoControlZone() {
+        // Post to ensure layout is complete
+        binding.root.post {
+            // Get the actual media display area
+            val mediaAreaHeight = binding.fileInfoText.top
+            
+            // Set guideline at 2/3 from top (bottom 1/3 for video controls)  
+            val controlZoneStart = (mediaAreaHeight * 2) / 3
+            
+            val params = binding.videoControlGuideline.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            params.guideBegin = controlZoneStart
+            binding.videoControlGuideline.layoutParams = params
+            
+            // Debug log
+            android.util.Log.d("VideoControl", "Media height: $mediaAreaHeight, Control zone starts at: $controlZoneStart")
+        }
     }
     
     private fun loadImage(imageUrl: String) {

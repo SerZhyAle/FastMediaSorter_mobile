@@ -28,7 +28,8 @@
         app:show_buffering="never"
         app:use_controller="true"
         app:auto_show="false"
-        app:show_timeout="3000" />
+        app:show_timeout="3000"
+        app:controller_layout_id="@layout/custom_player_control_view" />
 
     <!-- Video loading indicator -->
     <LinearLayout
@@ -61,42 +62,49 @@
 
     </LinearLayout>
 
-    <!-- Video control zone (bottom 1/3) - invisible guideline -->
+    <!-- Media area guideline (top 2/3 of media display area) -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/mediaTopGuideline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_begin="0dp" />
+
+    <!-- Video control zone guideline (bottom 1/3 of media area) -->
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/videoControlGuideline"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.67" />
+        android:orientation="horizontal" />
 
-    <!-- Left touch area (only top 2/3) -->
+    <!-- Left touch area (top 2/3 of media area) -->
     <View
         android:id="@+id/previousArea"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:background="#20FF0000"
+
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@id/videoControlGuideline"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@id/nextArea" />
 
-    <!-- Right touch area (only top 2/3) -->
+    <!-- Right touch area (top 2/3 of media area) -->
     <View
         android:id="@+id/nextArea"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:background="#2000FF00"
+
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@id/videoControlGuideline"
         app:layout_constraintStart_toEndOf="@id/previousArea"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Video control touch area (bottom 1/3) -->
+    <!-- Video control touch area (bottom 1/3 of media area) -->
     <View
         android:id="@+id/videoControlArea"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:background="#200000FF"
+
         app:layout_constraintTop_toBottomOf="@id/videoControlGuideline"
         app:layout_constraintBottom_toTopOf="@id/fileInfoText"
         app:layout_constraintStart_toStartOf="parent"
