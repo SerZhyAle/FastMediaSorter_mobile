@@ -355,9 +355,11 @@ class SlideshowActivity : AppCompatActivity() {
         try {
             val localUri = preferenceManager.getLocalUri()
             val bucketName = preferenceManager.getLocalBucketName()
+            val isVideoEnabled = preferenceManager.isVideoEnabled()
+            val maxVideoSizeMb = preferenceManager.getMaxVideoSizeMb()
             
             val folderUri = if (localUri.isNotEmpty()) Uri.parse(localUri) else null
-            val imageInfoList = localStorageClient?.getImageFiles(folderUri, bucketName.ifEmpty { null }) ?: emptyList()
+            val imageInfoList = localStorageClient?.getImageFiles(folderUri, bucketName.ifEmpty { null }, isVideoEnabled, maxVideoSizeMb) ?: emptyList()
             
             val imageUris = imageInfoList.map { it.uri.toString() }
             sortedImages = imageUris.sorted()

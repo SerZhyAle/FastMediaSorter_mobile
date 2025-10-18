@@ -725,14 +725,15 @@ class SortActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 currentConfig?.let { config ->
+                    val isVideoEnabled = preferenceManager.isVideoEnabled()
+                    val maxVideoSizeMb = preferenceManager.getMaxVideoSizeMb()
+                    
                     val files = if (isLocalMode) {
                         val localUri = if (!config.localUri.isNullOrEmpty()) Uri.parse(config.localUri) else null
                         val bucketName = config.localDisplayName?.ifEmpty { null }
-                        val imageInfoList = localStorageClient?.getImageFiles(localUri, bucketName) ?: emptyList()
+                        val imageInfoList = localStorageClient?.getImageFiles(localUri, bucketName, isVideoEnabled, maxVideoSizeMb) ?: emptyList()
                         imageInfoList.map { it.uri.toString() }
                     } else {
-                        val isVideoEnabled = preferenceManager.isVideoEnabled()
-                        val maxVideoSizeMb = preferenceManager.getMaxVideoSizeMb()
                         val result = smbClient.getImageFiles(config.serverAddress, config.folderPath, isVideoEnabled, maxVideoSizeMb)
                         if (result.errorMessage != null) {
                             withContext(Dispatchers.Main) {
