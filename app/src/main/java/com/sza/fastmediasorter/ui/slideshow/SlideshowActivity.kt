@@ -11,11 +11,17 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.bumptech.glide.Glide
 import com.sza.fastmediasorter.databinding.ActivitySlideshowBinding
 import com.sza.fastmediasorter.network.ImageRepository
 import com.sza.fastmediasorter.network.LocalStorageClient
 import com.sza.fastmediasorter.network.SmbClient
+import com.sza.fastmediasorter.network.SmbDataSourceFactory
+import com.sza.fastmediasorter.utils.MediaUtils
 import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -36,6 +42,11 @@ class SlideshowActivity : AppCompatActivity() {
     private var currentBitmap: Bitmap? = null
     private var elapsedTime = 0
     private var isShuffleMode = false
+    
+    // Video support
+    private var exoPlayer: ExoPlayer? = null
+    private var isCurrentMediaVideo = false
+    private var waitingForVideoEnd = false
     
     // Preloading optimization
     private var nextImageData: ByteArray? = null
@@ -60,6 +71,7 @@ class SlideshowActivity : AppCompatActivity() {
             localStorageClient = LocalStorageClient(this)
         }
         
+        setupExoPlayer()
         setupFullscreen()
         
         if (savedInstanceState != null) {
@@ -76,6 +88,32 @@ class SlideshowActivity : AppCompatActivity() {
             currentIndex = preferenceManager.getLastImageIndex()
             loadImages()
         }
+    }
+    
+    private fun setupExoPlayer() {
+        exoPlayer = ExoPlayer.Builder(this).build()
+        binding.playerView.player = exoPlayer
+        
+        exoPlayer?.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                when (playbackState) {
+                    Player.STATE_BUFFERING -> {
+                        binding.videoLoadingLayout.visibility = View.VISIBLE
+                    }
+                    Player.STATE_READY -> {
+                        binding.videoLoadingLayout.visibility = View.GONE
+                    }
+                    Player.STATE_ENDED -> {
+                        binding.videoLoadingLayout.visibility = View.GONE
+                        // Auto-advance to next media when video ends
+                        if (waitingForVideoEnd && !isPaused) {
+                            waitingForVideoEnd = false
+                            skipToNextImage()
+                        }
+                    }
+                }
+            }
+        })
     }
     
     private fun setupFullscreen() {
@@ -257,7 +295,7 @@ class SlideshowActivity : AppCompatActivity() {
             nextImageData = null
             nextImageIndex = -1
             lifecycleScope.launch {
-                loadCurrentImage()
+                loadCurrentMedia()
             }
             // Auto-pause when going to previous
             isPaused = true
@@ -281,7 +319,7 @@ class SlideshowActivity : AppCompatActivity() {
                 // Use preloaded data - instant switch
                 currentIndex = targetIndex
                 lifecycleScope.launch {
-                    loadCurrentImage()
+                    loadCurrentMedia()
                     
                     // Show interval after manual next
                     if (!isPaused) {
@@ -295,7 +333,7 @@ class SlideshowActivity : AppCompatActivity() {
                 nextImageData = null
                 nextImageIndex = -1
                 lifecycleScope.launch {
-                    loadCurrentImage()
+                    loadCurrentMedia()
                     
                     // Show interval after manual next
                     if (!isPaused) {
@@ -355,9 +393,11 @@ class SlideshowActivity : AppCompatActivity() {
         try {
             val localUri = preferenceManager.getLocalUri()
             val bucketName = preferenceManager.getLocalBucketName()
+            val isVideoEnabled = preferenceManager.isVideoEnabled()
+            val maxVideoSizeMb = preferenceManager.getMaxVideoSizeMb()
             
             val folderUri = if (localUri.isNotEmpty()) Uri.parse(localUri) else null
-            val imageInfoList = localStorageClient?.getImageFiles(folderUri, bucketName.ifEmpty { null }) ?: emptyList()
+            val imageInfoList = localStorageClient?.getImageFiles(folderUri, bucketName.ifEmpty { null }, isVideoEnabled, maxVideoSizeMb) ?: emptyList()
             
             val imageUris = imageInfoList.map { it.uri.toString() }
             sortedImages = imageUris.sorted()
@@ -388,9 +428,22 @@ class SlideshowActivity : AppCompatActivity() {
             while (true) {
                 if (images.isNotEmpty()) {
                     val loadStartTime = System.currentTimeMillis()
-                    loadCurrentImage()
+                    loadCurrentMedia()
                     val loadDuration = (System.currentTimeMillis() - loadStartTime) / 1000
                     lastLoadTime = loadDuration
+                    
+                    // For videos, skip interval timer - video will auto-advance on completion
+                    if (isCurrentMediaVideo && waitingForVideoEnd) {
+                        // Wait for video to complete (handled by Player.Listener)
+                        while (waitingForVideoEnd && !isPaused) {
+                            delay(1000L)
+                        }
+                        // Video ended, continue to next iteration
+                        if (!isPaused) {
+                            currentIndex = (currentIndex + 1) % images.size
+                        }
+                        continue
+                    }
                     
                     if (!isPaused) {
                         // Show interval after image load (1 second)
@@ -467,10 +520,31 @@ class SlideshowActivity : AppCompatActivity() {
         }
     }
     
-    private suspend fun loadCurrentImage() {
+    private suspend fun loadCurrentMedia() {
         try {
-            val imageUrl = images[currentIndex]
+            val mediaUrl = images[currentIndex]
             
+            // Determine if current media is video
+            isCurrentMediaVideo = MediaUtils.isVideo(mediaUrl)
+            
+            if (isCurrentMediaVideo) {
+                // Load video
+                binding.imageView.visibility = View.GONE
+                binding.playerView.visibility = View.VISIBLE
+                loadVideo(mediaUrl)
+            } else {
+                // Load image
+                binding.playerView.visibility = View.GONE
+                binding.imageView.visibility = View.VISIBLE
+                loadImage(mediaUrl)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
+    private suspend fun loadImage(imageUrl: String) {
+        try {
             // Use preloaded data if available for current index
             val imageData = if (nextImageIndex == currentIndex && nextImageData != null) {
                 val preloaded = nextImageData
@@ -521,6 +595,87 @@ class SlideshowActivity : AppCompatActivity() {
         }
     }
     
+    private suspend fun loadVideo(videoUrl: String) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+            try {
+                // Stop current playback
+                exoPlayer?.stop()
+                exoPlayer?.clearMediaItems()
+                
+                // Mark that we're waiting for video to complete
+                waitingForVideoEnd = true
+                
+                if (isLocalMode) {
+                    // Local video - use URI directly
+                    val mediaItem = MediaItem.fromUri(Uri.parse(videoUrl))
+                    exoPlayer?.setMediaItem(mediaItem)
+                    exoPlayer?.prepare()
+                    exoPlayer?.play()
+                } else {
+                    // SMB video - need to recreate player with custom data source
+                    val smbContext = imageRepository.getSmbContext()
+                    if (smbContext != null) {
+                        // Release old player
+                        exoPlayer?.release()
+                        
+                        // Create new player with SmbDataSource
+                        val dataSourceFactory = SmbDataSourceFactory(imageRepository.smbClient)
+                        exoPlayer = ExoPlayer.Builder(this@SlideshowActivity)
+                            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory as androidx.media3.datasource.DataSource.Factory))
+                            .build()
+                        binding.playerView.player = exoPlayer
+                        
+                        // Re-add listener
+                        exoPlayer?.addListener(object : Player.Listener {
+                            override fun onPlaybackStateChanged(playbackState: Int) {
+                                when (playbackState) {
+                                    Player.STATE_BUFFERING -> {
+                                        binding.videoLoadingLayout.visibility = View.VISIBLE
+                                    }
+                                    Player.STATE_READY -> {
+                                        binding.videoLoadingLayout.visibility = View.GONE
+                                    }
+                                    Player.STATE_ENDED -> {
+                                        binding.videoLoadingLayout.visibility = View.GONE
+                                        // Auto-advance to next media when video ends
+                                        if (waitingForVideoEnd && !isPaused) {
+                                            waitingForVideoEnd = false
+                                            skipToNextImage()
+                                        }
+                                    }
+                                }
+                            }
+                        })
+                        
+                        val mediaItem = MediaItem.fromUri("smb://$videoUrl")
+                        exoPlayer?.setMediaItem(mediaItem)
+                        exoPlayer?.prepare()
+                        exoPlayer?.play()
+                    } else {
+                        Toast.makeText(
+                            this@SlideshowActivity,
+                            "SMB connection not available",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+                
+                // Save last session state
+                saveSessonState()
+                
+            } catch (e: Exception) {
+                android.util.Log.e("SlideshowActivity", "Failed to load video: ${e.message}", e)
+                Toast.makeText(
+                    this@SlideshowActivity,
+                    "⚠ Failed to load video, skipping",
+                    Toast.LENGTH_SHORT
+                ).show()
+                waitingForVideoEnd = false
+                skipToNextImage()
+            }
+        }
+    }
+    
     private suspend fun preloadNextImage(nextIndex: Int) {
         try {
             if (nextIndex < images.size) {
@@ -568,7 +723,7 @@ class SlideshowActivity : AppCompatActivity() {
         setupFullscreen()
         if (images.isNotEmpty()) {
             lifecycleScope.launch {
-                loadCurrentImage()
+                loadCurrentMedia()
             }
         }
     }
@@ -576,6 +731,8 @@ class SlideshowActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         slideshowJob?.cancel()
+        exoPlayer?.release()
+        exoPlayer = null
     }
     
     override fun onBackPressed() {

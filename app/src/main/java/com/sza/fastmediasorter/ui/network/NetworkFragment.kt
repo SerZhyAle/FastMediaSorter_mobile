@@ -155,7 +155,9 @@ btnTest.text = "Test"
 return@launch
 }
 
-val result = smbClient.getImageFiles(server, folder)
+val isVideoEnabled = com.sza.fastmediasorter.utils.PreferenceManager(requireContext()).isVideoEnabled()
+val maxVideoSizeMb = com.sza.fastmediasorter.utils.PreferenceManager(requireContext()).getMaxVideoSizeMb()
+val result = smbClient.getImageFiles(server, folder, isVideoEnabled, maxVideoSizeMb)
 
 if (result.errorMessage != null) {
 com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(

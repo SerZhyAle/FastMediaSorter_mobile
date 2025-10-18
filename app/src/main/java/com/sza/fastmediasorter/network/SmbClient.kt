@@ -12,6 +12,8 @@ import java.util.*
 class SmbClient {
     private var context: CIFSContext? = null
     
+    fun getContext(): CIFSContext? = context
+    
     private fun buildFullDiagnostic(e: Exception?, serverAddress: String, folderPath: String): String {
         val diagnostic = StringBuilder()
         
@@ -147,10 +149,15 @@ class SmbClient {
         val errorMessage: String? = null
     )
     
-    suspend fun getImageFiles(serverAddress: String, folderPath: String): ImageFilesResult {
+    suspend fun getImageFiles(
+        serverAddress: String, 
+        folderPath: String,
+        isVideoEnabled: Boolean = false,
+        maxVideoSizeMb: Int = 100
+    ): ImageFilesResult {
         return withContext(Dispatchers.IO) {
             try {
-                android.util.Log.d("SmbClient", "getImageFiles - server: $serverAddress, folder: $folderPath")
+                android.util.Log.d("SmbClient", "getImageFiles - server: $serverAddress, folder: $folderPath, videoEnabled: $isVideoEnabled")
                 
                 // Diagnostic check for BC provider and MD4 availability BEFORE SMB operations
                 val bcDiagnostic = StringBuilder()
@@ -212,30 +219,49 @@ class SmbClient {
                     return@withContext ImageFilesResult(emptyList(), msg)
                 }
                 
-                val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
-                val imageFiles = mutableListOf<String>()
+                val mediaFiles = mutableListOf<String>()
+                val maxVideoSizeBytes = maxVideoSizeMb * 1024L * 1024L
                 
                 val files = smbFile.listFiles()
                 android.util.Log.d("SmbClient", "Found ${files?.size ?: 0} files in directory")
                 
                 files?.forEach { file ->
                     if (file.isFile()) {
-                        val extension = file.name.substringAfterLast('.', "").lowercase()
-                        if (extension in imageExtensions) {
-                            imageFiles.add(file.url.toString())
-                            android.util.Log.d("SmbClient", "Added image: ${file.name}")
+                        val filename = file.name
+                        
+                        // Check if it's an image
+                        if (com.sza.fastmediasorter.utils.MediaUtils.isImage(filename)) {
+                            mediaFiles.add(file.url.toString())
+                            android.util.Log.d("SmbClient", "Added image: $filename")
+                        }
+                        // Check if it's a video and video is enabled
+                        else if (isVideoEnabled && com.sza.fastmediasorter.utils.MediaUtils.isVideo(filename)) {
+                            val fileSize = file.length()
+                            val fileSizeMb = fileSize / (1024 * 1024)
+                            
+                            if (fileSize <= maxVideoSizeBytes) {
+                                mediaFiles.add(file.url.toString())
+                                android.util.Log.d("SmbClient", "Added video: $filename (${fileSizeMb}MB)")
+                            } else {
+                                android.util.Log.d("SmbClient", "Skipped video (too large): $filename (${fileSizeMb}MB > ${maxVideoSizeMb}MB)")
+                            }
                         }
                     }
                 }
                 
-                android.util.Log.d("SmbClient", "Total images found: ${imageFiles.size}")
+                android.util.Log.d("SmbClient", "Total media files found: ${mediaFiles.size}")
                 
-                if (imageFiles.isEmpty()) {
-                    val msg = "No image files found in: smb://$cleanServer/$cleanFolder/\n\nSupported formats: JPG, PNG, GIF, BMP, WEBP"
+                if (mediaFiles.isEmpty()) {
+                    val formats = if (isVideoEnabled) {
+                        "JPG, PNG, GIF, BMP, WEBP, MP4, MKV, AVI, MOV, WEBM, 3GP"
+                    } else {
+                        "JPG, PNG, GIF, BMP, WEBP"
+                    }
+                    val msg = "No media files found in: smb://$cleanServer/$cleanFolder/\n\nSupported formats: $formats"
                     return@withContext ImageFilesResult(emptyList(), msg)
                 }
                 
-                ImageFilesResult(imageFiles.sorted())
+                ImageFilesResult(mediaFiles.sorted())
             } catch (e: java.net.UnknownHostException) {
                 val msg = "Cannot reach server: $serverAddress\n\nCheck:\n• Server IP correct?\n• Same WiFi network?\n• Server running?"
                 android.util.Log.e("SmbClient", msg, e)

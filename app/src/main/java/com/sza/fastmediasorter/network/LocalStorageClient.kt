@@ -24,12 +24,19 @@ class LocalStorageClient(private val context: Context) {
      * 
      * @param folderUri TreeUri from SAF (Storage Access Framework), or null for MediaStore
      * @param bucketName BUCKET_DISPLAY_NAME from MediaStore, or null for SAF
-     * @return List of image files
+     * @param isVideoEnabled Whether to include video files
+     * @param maxVideoSizeMb Maximum video file size in MB
+     * @return List of media files (images and optionally videos)
      */
-    suspend fun getImageFiles(folderUri: Uri?, bucketName: String? = null): List<LocalImageInfo> = withContext(Dispatchers.IO) {
+    suspend fun getImageFiles(
+        folderUri: Uri?, 
+        bucketName: String? = null,
+        isVideoEnabled: Boolean = false,
+        maxVideoSizeMb: Int = 100
+    ): List<LocalImageInfo> = withContext(Dispatchers.IO) {
         // Priority 1: MediaStore access (for SCAN-discovered folders)
         if (bucketName != null) {
-            return@withContext getImageFilesByBucketName(bucketName)
+            return@withContext getImageFilesByBucketName(bucketName, isVideoEnabled, maxVideoSizeMb)
         }
         
         // Priority 2: SAF/DocumentFile access (for user-selected folders)
@@ -37,10 +44,25 @@ class LocalStorageClient(private val context: Context) {
             return@withContext emptyList()
         }
         
+        val maxVideoSizeBytes = maxVideoSizeMb * 1024L * 1024L
+        
         try {
             val folder = DocumentFile.fromTreeUri(context, folderUri)
-            folder?.listFiles()?.filter {
-                it.isFile && (it.type?.startsWith("image/") == true)
+            folder?.listFiles()?.filter { file ->
+                if (!file.isFile) return@filter false
+                
+                val mimeType = file.type ?: return@filter false
+                val isImage = mimeType.startsWith("image/")
+                val isVideo = mimeType.startsWith("video/")
+                
+                when {
+                    isImage -> true
+                    isVideo && isVideoEnabled -> {
+                        val fileSize = file.length()
+                        fileSize <= maxVideoSizeBytes
+                    }
+                    else -> false
+                }
             }?.map {
                 LocalImageInfo(
                     uri = it.uri,
@@ -120,9 +142,16 @@ e.printStackTrace()
 return@withContext folders
 }
 
-suspend fun getImageFilesByBucketName(bucketName: String): List<LocalImageInfo> = withContext(Dispatchers.IO) {
-val images = mutableListOf<LocalImageInfo>()
-val projection = arrayOf(
+suspend fun getImageFilesByBucketName(
+    bucketName: String,
+    isVideoEnabled: Boolean = false,
+    maxVideoSizeMb: Int = 100
+): List<LocalImageInfo> = withContext(Dispatchers.IO) {
+val mediaFiles = mutableListOf<LocalImageInfo>()
+val maxVideoSizeBytes = maxVideoSizeMb * 1024L * 1024L
+
+// Query images
+val imageProjection = arrayOf(
 MediaStore.Images.Media._ID,
 MediaStore.Images.Media.DISPLAY_NAME,
 MediaStore.Images.Media.SIZE,
@@ -132,10 +161,11 @@ MediaStore.Images.Media.BUCKET_DISPLAY_NAME
 val selection = "${MediaStore.Images.Media.BUCKET_DISPLAY_NAME} = ?"
 val selectionArgs = arrayOf(bucketName)
 val sortOrder = "${MediaStore.Images.Media.DISPLAY_NAME} ASC"
+
 try {
 context.contentResolver.query(
 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-projection,
+imageProjection,
 selection,
 selectionArgs,
 sortOrder
@@ -147,7 +177,7 @@ val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIF
 while (cursor.moveToNext()) {
 val id = cursor.getLong(idColumn)
 val uri = Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id.toString())
-images.add(
+mediaFiles.add(
 LocalImageInfo(
 uri = uri,
 name = cursor.getString(nameColumn),
@@ -160,7 +190,50 @@ dateModified = cursor.getLong(dateColumn) * 1000
 } catch (e: Exception) {
 e.printStackTrace()
 }
-return@withContext images
+
+// Query videos if enabled
+if (isVideoEnabled) {
+val videoProjection = arrayOf(
+MediaStore.Video.Media._ID,
+MediaStore.Video.Media.DISPLAY_NAME,
+MediaStore.Video.Media.SIZE,
+MediaStore.Video.Media.DATE_MODIFIED,
+MediaStore.Video.Media.BUCKET_DISPLAY_NAME
+)
+try {
+context.contentResolver.query(
+MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+videoProjection,
+selection,
+selectionArgs,
+sortOrder
+)?.use { cursor ->
+val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
+val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED)
+while (cursor.moveToNext()) {
+val size = cursor.getLong(sizeColumn)
+if (size <= maxVideoSizeBytes) {
+val id = cursor.getLong(idColumn)
+val uri = Uri.withAppendedPath(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id.toString())
+mediaFiles.add(
+LocalImageInfo(
+uri = uri,
+name = cursor.getString(nameColumn),
+size = size,
+dateModified = cursor.getLong(dateColumn) * 1000
+)
+)
+}
+}
+}
+} catch (e: Exception) {
+e.printStackTrace()
+}
+}
+
+return@withContext mediaFiles.sortedBy { it.name }
 }
 
 suspend fun downloadImage(uri: Uri): ByteArray? = withContext(Dispatchers.IO) {
