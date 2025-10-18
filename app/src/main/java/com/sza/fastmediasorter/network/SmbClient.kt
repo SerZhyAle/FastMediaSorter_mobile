@@ -129,6 +129,16 @@ class SmbClient {
                 val config = PropertyConfiguration(props)
                 val baseContext = BaseContext(config)
                 
+                // Clear existing context before creating new one to prevent resource leaks
+                context?.let {
+                    try {
+                        (it as? AutoCloseable)?.close()
+                    } catch (e: Exception) {
+                        android.util.Log.w("SmbClient", "Failed to close previous context", e)
+                    }
+                }
+                context = null
+                
                 context = if (username.isNotEmpty() && password.isNotEmpty()) {
                     val auth = NtlmPasswordAuthenticator(null, username, password)
                     baseContext.withCredentials(auth)
@@ -654,8 +664,16 @@ class SmbClient {
      * Clears the SMB context and credentials from memory.
      * Should be called after completing operations to minimize the time
      * sensitive credentials remain in memory, improving security.
+     * Also attempts to properly close the context to free resources.
      */
     fun disconnect() {
+        context?.let {
+            try {
+                (it as? AutoCloseable)?.close()
+            } catch (e: Exception) {
+                android.util.Log.w("SmbClient", "Failed to close context during disconnect", e)
+            }
+        }
         context = null
     }
 }
