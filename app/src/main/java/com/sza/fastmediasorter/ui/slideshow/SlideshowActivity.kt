@@ -846,14 +846,6 @@ class SlideshowActivity : AppCompatActivity() {
         outState.putStringArrayList(KEY_IMAGES, ArrayList(images))
     }
     
-    override fun onPause() {
-        super.onPause()
-        // Clear SMB credentials from memory when activity is paused
-        if (!isLocalMode) {
-            imageRepository.smbClient.disconnect()
-        }
-    }
-    
     override fun onResume() {
         super.onResume()
         // Update controls visibility in case setting changed

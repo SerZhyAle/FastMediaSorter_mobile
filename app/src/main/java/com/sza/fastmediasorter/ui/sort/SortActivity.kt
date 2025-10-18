@@ -1482,19 +1482,6 @@ class SortActivity : AppCompatActivity() {
             }
         }
     }
-
-    override fun onPause() {
-        super.onPause()
-        // Clear SMB credentials from memory when activity is paused
-        if (!isLocalMode) {
-            try {
-                smbClient.disconnect()
-            } catch (e: Exception) {
-                // Ignore disconnect errors on pause
-            }
-        }
-    }
-
     
     override fun onDestroy() {
         super.onDestroy()
