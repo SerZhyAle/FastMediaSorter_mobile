@@ -22,7 +22,7 @@
     <string name="connection_saved">Підключення збережено</string>
     <string name="connection_deleted">Підключення видалено</string>
     <string name="back">Назад</string>
-    <string name="footer_text">sza@ukr.net v1.0.1</string>
+    <string name="footer_text">sza@ukr.net v251019</string>
     <string name="touch_zones_title">Сенсорні зони керування</string>
     <string name="touch_zones_description">Діаграма, що показує сенсорні зони в режимі слайд-шоу</string>
     <string name="touch_zones_hint">Торкайтеся відповідних областей під час слайд-шоу для керування відтворенням</string>
@@ -63,7 +63,7 @@
     <string name="server_path_placeholder">сервер/шлях</string>
     <string name="folder_count_placeholder">0</string>
     <string name="photos_placeholder">фото</string>
-    <string name="ip_path_example">192.168.1.10\\фото</string>
+    <string name="ip_path_example">192.168.1.10\\photo</string>
     <!-- Settings -->
     <string name="application_settings">Налаштування програми</string>
     <string name="sorting_settings">Налаштування сортування</string>
@@ -87,5 +87,5 @@
     <string name="next_button">Наст ►</string>
     <string name="rotate_left">↺ Поворот</string>
     <string name="rotate_right">Поворот ↻</string>
-    <string name="button_controls_description">Елементи керування кнопками увімкнено.\n\nПід час слайд-шоу внизу екрана буде панель з кнопками:\n\n◄ Назад | ◄◄ Попередній | ▐▐/▶ Пауза/Відтворення | ►► Наступний | АБВ/ВИП Перемішати | ↺↻ Поворот\n\nЩоб використовувати невидимі сенсорні зони, вимкніть 'Показувати елементи керування' в налаштуваннях.</string>
+    <string name="button_controls_description">Елементи керування кнопками увімкнено. Під час слайд-шоу внизу екрана буде панель з кнопками: Назад, Попередній, Пауза/Відтворення, Наступний, Перемішати, Поворот. Щоб використовувати невидимі сенсорні зони, вимкніть Показувати елементи керування в налаштуваннях.</string>
 </resources>

@@ -22,7 +22,7 @@
     <string name="connection_saved">Connection saved</string>
     <string name="connection_deleted">Connection deleted</string>
     <string name="back">Back</string>
-    <string name="footer_text">sza@ukr.net v1.0.1</string>
+    <string name="footer_text">sza@ukr.net v251019</string>
     <string name="touch_zones_title">Touch Control Zones</string>
     <string name="touch_zones_description">Diagram showing touch zones in slideshow mode</string>
     <string name="touch_zones_hint">Tap corresponding areas during slideshow to control playback</string>
@@ -87,5 +87,5 @@
     <string name="next_button">Next ►</string>
     <string name="rotate_left">↺ Rotate</string>
     <string name="rotate_right">Rotate ↻</string>
-    <string name="button_controls_description">Button controls are enabled.\n\nDuring slideshow, you'll see a panel with buttons at the bottom of the screen:\n\n◄ Back | ◄◄ Previous | ▐▐/▶ Pause/Play | ►► Next | ABC/RND Shuffle | ↺↻ Rotate\n\nTo use invisible touch zones instead, turn off 'Show Controls' in Settings.</string>
+    <string name="button_controls_description">Button controls are enabled. During slideshow, you will see a panel with buttons at the bottom of the screen: Back, Previous, Pause/Play, Next, Shuffle, Rotate. To use invisible touch zones instead, turn off Show Controls in Settings.</string>
 </resources>
