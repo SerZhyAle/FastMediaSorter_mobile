@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.sza.fastmediasorter.data.AppDatabase
 import com.sza.fastmediasorter.data.ConnectionConfig
 import com.sza.fastmediasorter.data.ConnectionRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class ConnectionViewModel(application: Application) : AndroidViewModel(application) {
@@ -24,7 +25,7 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
         localCustomFolders = repository.localCustomFolders.asLiveData()
     }
     
-    fun insertConfig(config: ConnectionConfig) = viewModelScope.launch {
+    fun insertConfig(config: ConnectionConfig) = viewModelScope.launch(Dispatchers.IO) {
         repository.insertConfig(config)
     }
     
@@ -32,15 +33,15 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
         return repository.insertConfig(config)
     }
     
-    fun updateConfig(config: ConnectionConfig) = viewModelScope.launch {
+    fun updateConfig(config: ConnectionConfig) = viewModelScope.launch(Dispatchers.IO) {
         repository.updateConfig(config)
     }
     
-    fun deleteConfig(config: ConnectionConfig) = viewModelScope.launch {
+    fun deleteConfig(config: ConnectionConfig) = viewModelScope.launch(Dispatchers.IO) {
         repository.deleteConfig(config)
     }
     
-    fun updateLastUsed(id: Long) = viewModelScope.launch {
+    fun updateLastUsed(id: Long) = viewModelScope.launch(Dispatchers.IO) {
         repository.updateLastUsed(id)
     }
     
@@ -69,15 +70,15 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     }
     
     // Sort destinations methods
-    fun addSortDestination(configId: Long, sortName: String) = viewModelScope.launch {
+    fun addSortDestination(configId: Long, sortName: String) = viewModelScope.launch(Dispatchers.IO) {
         repository.addSortDestination(configId, sortName)
     }
     
-    fun removeSortDestination(configId: Long) = viewModelScope.launch {
+    fun removeSortDestination(configId: Long) = viewModelScope.launch(Dispatchers.IO) {
         repository.removeSortDestination(configId)
     }
     
-    fun moveSortDestination(config: ConnectionConfig, direction: Int) = viewModelScope.launch {
+    fun moveSortDestination(config: ConnectionConfig, direction: Int) = viewModelScope.launch(Dispatchers.IO) {
         repository.moveSortDestination(config, direction)
     }
     
@@ -86,7 +87,7 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     }
     
     // Local folders methods
-    fun addLocalCustomFolder(folderName: String, folderUri: String) = viewModelScope.launch {
+    fun addLocalCustomFolder(folderName: String, folderUri: String) = viewModelScope.launch(Dispatchers.IO) {
         repository.addLocalCustomFolder(folderName, folderUri)
     }
 }

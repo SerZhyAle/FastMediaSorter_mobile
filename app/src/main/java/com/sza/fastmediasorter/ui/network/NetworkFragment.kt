@@ -17,7 +17,9 @@ import com.sza.fastmediasorter.R
 import com.sza.fastmediasorter.data.ConnectionConfig
 import com.sza.fastmediasorter.ui.ConnectionAdapter
 import com.sza.fastmediasorter.ui.ConnectionViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class NetworkFragment : Fragment() {
 private val viewModel: ConnectionViewModel by activityViewModels()
@@ -135,79 +137,89 @@ password = preferenceManager.getDefaultPassword()
 
 val (server, folder) = parseFolderAddress(folderAddress)
 
-lifecycleScope.launch {
-btnTest.isEnabled = false
-btnTest.text = "Testing..."
+lifecycleScope.launch(Dispatchers.IO) {
+withContext(Dispatchers.Main) {
+    btnTest.isEnabled = false
+    btnTest.text = "Testing..."
+}
 
 try {
 val smbClient = com.sza.fastmediasorter.network.SmbClient()
 val connected = smbClient.connect(server, username, password)
 
 if (!connected) {
-com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
-requireContext(),
-"Test FAILED",
-"Connection failed: Unable to connect to server\n\nCheck:\n• Server IP correct?\n• Server running?\n• Firewall settings?",
-false
-)
-btnTest.isEnabled = true
-btnTest.text = "Test"
-return@launch
+    withContext(Dispatchers.Main) {
+        com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
+            requireContext(),
+            "Test FAILED",
+            "Connection failed: Unable to connect to server\n\nCheck:\n• Server IP correct?\n• Server running?\n• Firewall settings?",
+            false
+        )
+        btnTest.isEnabled = true
+        btnTest.text = "Test"
+    }
+    return@launch
 }
 
 val isVideoEnabled = com.sza.fastmediasorter.utils.PreferenceManager(requireContext()).isVideoEnabled()
 val maxVideoSizeMb = com.sza.fastmediasorter.utils.PreferenceManager(requireContext()).getMaxVideoSizeMb()
 val result = smbClient.getImageFiles(server, folder, isVideoEnabled, maxVideoSizeMb)
 
-if (result.errorMessage != null) {
-com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
-requireContext(),
-"Test FAILED",
-result.errorMessage,
-false
-)
-} else {
-val successMsg = "=== SMB CONNECTION TEST SUCCESS ===\n" +
-"Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n" +
-"Server: $server\n" +
-"Folder: $folder\n\n" +
-"=== RESULTS ===\n" +
-"✓ Connection: SUCCESS\n" +
-"✓ Authentication: SUCCESS\n" +
-"✓ Folder Access: SUCCESS\n" +
-"✓ Images Found: ${result.files.size}\n\n" +
-"=== SYSTEM INFO ===\n" +
-"Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n" +
-"Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n\n" +
-"Connection test completed successfully!"
+withContext(Dispatchers.Main) {
+    if (result.errorMessage != null) {
+        com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
+            requireContext(),
+            "Test FAILED",
+            result.errorMessage,
+            false
+        )
+    } else {
+        val successMsg = "=== SMB CONNECTION TEST SUCCESS ===\n" +
+        "Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n" +
+        "Server: $server\n" +
+        "Folder: $folder\n\n" +
+        "=== RESULTS ===\n" +
+        "✓ Connection: SUCCESS\n" +
+        "✓ Authentication: SUCCESS\n" +
+        "✓ Folder Access: SUCCESS\n" +
+        "✓ Images Found: ${result.files.size}\n\n" +
+        "=== SYSTEM INFO ===\n" +
+        "Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n" +
+        "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n\n" +
+        "Connection test completed successfully!"
 
-com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
-requireContext(),
-"Test PASSED ✓",
-successMsg,
-true
-)
+        com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
+            requireContext(),
+            "Test PASSED ✓",
+            successMsg,
+            true
+        )
+    }
 }
 } catch (e: Exception) {
 val diagnostic = "=== UNEXPECTED ERROR IN TEST ===\n" +
-"Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n\n" +
-"=== ERROR DETAILS ===\n" +
-"Exception: ${e.javaClass.simpleName}\n" +
-"Message: ${e.message ?: "No message"}\n" +
-"Cause: ${e.cause?.javaClass?.simpleName ?: "None"}\n\n" +
-"=== STACK TRACE ===\n" +
-android.util.Log.getStackTraceString(e)
+    "Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n\n" +
+    "=== ERROR DETAILS ===\n" +
+    "Exception: ${e.javaClass.simpleName}\n" +
+    "Message: ${e.message ?: "No message"}\n" +
+    "Cause: ${e.cause?.javaClass?.simpleName ?: "None"}\n\n" +
+    "=== STACK TRACE ===\n" +
+    android.util.Log.getStackTraceString(e)
 
-com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
-requireContext(),
-"Test FAILED - Unexpected Error",
-diagnostic,
-false
-)
+withContext(Dispatchers.Main) {
+    com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
+        requireContext(),
+        "Test FAILED - Unexpected Error",
+        diagnostic,
+        false
+    )
+}
 }
 
-btnTest.isEnabled = true
-btnTest.text = "Test"
+withContext(Dispatchers.Main) {
+    btnTest.isEnabled = true
+    btnTest.text = "Test"
+}
 }
 }
 
