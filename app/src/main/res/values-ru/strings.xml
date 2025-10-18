@@ -12,7 +12,7 @@
     <string name="folder_path">Путь к папке</string>
     <string name="interval">1-300 сек</string>
     <string name="connection_failed">Ошибка подключения</string>
-    <string name="no_images_found">Изображения не найдены</string>
+    <string name="no_images_found">Медиафайлы не найдены</string>
     <string name="loading">Загрузка...</string>
     <string name="saved_connections">Сохраненные подключения</string>
     <string name="connection_name">Имя подключения</string>
@@ -22,7 +22,7 @@
     <string name="connection_saved">Подключение сохранено</string>
     <string name="connection_deleted">Подключение удалено</string>
     <string name="back">Назад</string>
-    <string name="footer_text">sza@ukr.net v251018v</string>
+    <string name="footer_text">sza@ukr.net v1.0.2024</string>
     <string name="touch_zones_title">Сенсорные зоны управления</string>
     <string name="touch_zones_description">Диаграмма, показывающая сенсорные зоны в режиме слайд-шоу</string>
     <string name="touch_zones_hint">Нажимайте на соответствующие области во время слайд-шоу для управления воспроизведением</string>
@@ -37,4 +37,31 @@
     <string name="tab_slideshow">Слайд-шоу</string>
     <string name="tab_video">Видео</string>
     <string name="tab_settings">Настройки</string>
+    <!-- Video Settings -->
+    <string name="video_playback_settings">Настройки воспроизведения видео</string>
+    <string name="enable_video_playback">Включить воспроизведение видео</string>
+    <string name="max_video_file_size">Максимальный размер видеофайла (МБ):</string>
+    <string name="valid_range_mb">Допустимый диапазон: 1-999999 МБ</string>
+    <string name="supported_formats">Поддерживаемые форматы: MP4, MKV, AVI, MOV, WEBM, 3GP</string>
+    <string name="video_streaming_note">Примечание: Видео транслируется с SMB без полной загрузки. Автовоспроизведение со звуком.</string>
+    <string name="show_detailed_video_errors">Показывать подробную информацию об ошибках видео</string>
+    <string name="detailed_errors_description">Включите для отображения подробной диагностической информации при сбоях воспроизведения видео</string>
+    <!-- Sort Help -->
+    <string name="sort_destinations_title">Папки назначения (0-9)</string>
+    <string name="add_destination">+ Добавить папку</string>
+    <string name="no_destinations_message">Папки не добавлены\nНажмите + для добавления из подключений</string>
+    <string name="back_button">← Назад</string>
+    <string name="abc_rnd">АБВ/СЛУЧАЙНО</string>
+    <string name="prev_button">◄ Пред</string>
+    <string name="pause_play">▐▐ / ▶</string>
+    <!-- Toast Messages -->
+    <string name="scan_failed">Ошибка сканирования: %1$s</string>
+    <string name="copied_to_clipboard">Скопировано в буфер обмена</string>
+    <string name="select_connection_first">Сначала выберите подключение</string>
+    <!-- Item layouts -->
+    <string name="connection_name_placeholder">Имя подключения</string>
+    <string name="server_path_placeholder">сервер/путь</string>
+    <string name="folder_count_placeholder">0</string>
+    <string name="photos_placeholder">фото</string>
+    <string name="ip_path_example">192.168.1.10\\фото</string>
 </resources>

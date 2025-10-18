@@ -8,7 +8,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Video Playback Settings"
+        android:text="@string/video_playback_settings"
         android:textSize="18sp"
         android:textStyle="bold"
         android:layout_marginBottom="16dp" />
@@ -17,14 +17,14 @@
         android:id="@+id/videoEnabledCheckbox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Enable video playback"
+        android:text="@string/enable_video_playback"
         android:textSize="16sp"
         android:layout_marginBottom="16dp" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Maximum video file size (MB):"
+        android:text="@string/max_video_file_size"
         android:textSize="14sp"
         android:layout_marginBottom="8dp" />
 
@@ -40,7 +40,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Valid range: 1-999999 MB"
+        android:text="@string/valid_range_mb"
         android:textSize="12sp"
         android:textColor="#666666"
         android:layout_marginTop="4dp"
@@ -49,7 +49,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Supported formats: MP4, MKV, AVI, MOV, WEBM, 3GP"
+        android:text="@string/supported_formats"
         android:textSize="12sp"
         android:textColor="#666666"
         android:layout_marginBottom="8dp" />
@@ -57,7 +57,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Note: Videos stream from SMB without full download. Auto-play with sound."
+        android:text="@string/video_streaming_note"
         android:textSize="12sp"
         android:textColor="#666666"
         android:layout_marginBottom="16dp" />
@@ -66,13 +66,13 @@
         android:id="@+id/showVideoErrorDetailsCheckbox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Show detailed video error information"
+        android:text="@string/show_detailed_video_errors"
         android:textSize="14sp" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Enable to see detailed diagnostic information when video playback fails"
+        android:text="@string/detailed_errors_description"
         android:textSize="12sp"
         android:textColor="#666666"
         android:layout_marginTop="4dp" />

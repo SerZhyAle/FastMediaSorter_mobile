@@ -195,7 +195,7 @@ else ->
 
 Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
 } catch (e: Exception) {
-Toast.makeText(requireContext(), "Scan failed: ${e.message}", Toast.LENGTH_LONG).show()
+Toast.makeText(requireContext(), getString(R.string.scan_failed, e.message), Toast.LENGTH_LONG).show()
 }
 }
 }

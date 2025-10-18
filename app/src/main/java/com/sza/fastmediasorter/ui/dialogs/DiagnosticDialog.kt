@@ -38,7 +38,7 @@ class DiagnosticDialog {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("SMB Test Results", diagnosticText)
                 clipboard.setPrimaryClip(clip)
-                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
             }
             
             closeButton.setOnClickListener {

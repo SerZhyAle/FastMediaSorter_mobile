@@ -18,7 +18,7 @@
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:gravity="center"
-            android:text="0"
+            android:text="@string/folder_count_placeholder"
             android:textSize="18sp"
             android:textStyle="bold"
             android:background="@color/primary"
@@ -42,7 +42,7 @@
                 android:id="@+id/sortNameText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="photos"
+                android:text="@string/photos_placeholder"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@android:color/white" />
@@ -51,7 +51,7 @@
                 android:id="@+id/folderAddressText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="192.168.1.10\photos"
+                android:text="@string/ip_path_example"
                 android:textSize="12sp"
                 android:textColor="@android:color/darker_gray" />
 

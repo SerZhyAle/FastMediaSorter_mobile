@@ -12,7 +12,7 @@
     <string name="folder_path">Шлях до папки</string>
     <string name="interval">1-300 сек</string>
     <string name="connection_failed">Помилка підключення</string>
-    <string name="no_images_found">Зображень не знайдено</string>
+    <string name="no_images_found">Медіафайли не знайдено</string>
     <string name="loading">Завантаження...</string>
     <string name="saved_connections">Збережені підключення</string>
     <string name="connection_name">Ім\'я підключення</string>
@@ -22,13 +22,13 @@
     <string name="connection_saved">Підключення збережено</string>
     <string name="connection_deleted">Підключення видалено</string>
     <string name="back">Назад</string>
-    <string name="footer_text">sza@ukr.net v251018v</string>
+    <string name="footer_text">sza@ukr.net v1.0.2024</string>
     <string name="touch_zones_title">Сенсорні зони керування</string>
     <string name="touch_zones_description">Діаграма, що показує сенсорні зони в режимі слайд-шоу</string>
     <string name="touch_zones_hint">Торкайтеся відповідних областей під час слайд-шоу для керування відтворенням</string>
     <string name="local_folders">Локальні папки</string>
     <string name="network">Мережа</string>
-    <string name="scan_folders">СКАУВАТИ</string>
+    <string name="scan_folders">СКАНУВАТИ</string>
     <string name="add_custom_folder">+ Додати папку</string>
     <string name="no_media_permission">Потрібен дозвіл на доступ до медіафайлів. Перейдіть до налаштувань, щоб надати дозвіл і перезапустити програму.</string>
     <string name="scanning_folders">Сканування папок...</string>
@@ -37,4 +37,31 @@
     <string name="tab_slideshow">Слайд-шоу</string>
     <string name="tab_video">Відео</string>
     <string name="tab_settings">Налаштування</string>
+    <!-- Video Settings -->
+    <string name="video_playback_settings">Налаштування відтворення відео</string>
+    <string name="enable_video_playback">Увімкнути відтворення відео</string>
+    <string name="max_video_file_size">Максимальний розмір відеофайлу (МБ):</string>
+    <string name="valid_range_mb">Допустимий діапазон: 1-999999 МБ</string>
+    <string name="supported_formats">Підтримувані формати: MP4, MKV, AVI, MOV, WEBM, 3GP</string>
+    <string name="video_streaming_note">Примітка: Відео транслюється з SMB без повного завантаження. Автовідтворення зі звуком.</string>
+    <string name="show_detailed_video_errors">Показувати детальну інформацію про помилки відео</string>
+    <string name="detailed_errors_description">Увімкніть для відображення детальної діагностичної інформації при збоях відтворення відео</string>
+    <!-- Sort Help -->
+    <string name="sort_destinations_title">Папки призначення (0-9)</string>
+    <string name="add_destination">+ Додати папку</string>
+    <string name="no_destinations_message">Папки не додано\nНатисніть + для додавання з підключень</string>
+    <string name="back_button">← Назад</string>
+    <string name="abc_rnd">АБВ/ВИПАДКОВО</string>
+    <string name="prev_button">◄ Попер</string>
+    <string name="pause_play">▐▐ / ▶</string>
+    <!-- Toast Messages -->
+    <string name="scan_failed">Помилка сканування: %1$s</string>
+    <string name="copied_to_clipboard">Скопійовано до буфера обміну</string>
+    <string name="select_connection_first">Спершу виберіть підключення</string>
+    <!-- Item layouts -->
+    <string name="connection_name_placeholder">Ім\'я підключення</string>
+    <string name="server_path_placeholder">сервер/шлях</string>
+    <string name="folder_count_placeholder">0</string>
+    <string name="photos_placeholder">фото</string>
+    <string name="ip_path_example">192.168.1.10\\фото</string>
 </resources>

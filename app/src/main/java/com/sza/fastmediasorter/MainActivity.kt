@@ -250,11 +250,11 @@ val config = updateConfigInterval(configId)
 if (config != null) {
 loadConfigAndStartSlideshow(config)
 } else {
-Toast.makeText(this@MainActivity, "Please select a connection first", Toast.LENGTH_SHORT).show()
+Toast.makeText(this@MainActivity, getString(R.string.select_connection_first), Toast.LENGTH_SHORT).show()
 }
 }
 } ?: run {
-Toast.makeText(this, "Please select a connection first", Toast.LENGTH_SHORT).show()
+Toast.makeText(this, getString(R.string.select_connection_first), Toast.LENGTH_SHORT).show()
 }
 }
 binding.sortButton.setOnClickListener {
@@ -266,7 +266,7 @@ intent.putExtra("configId", configId)
 startActivity(intent)
 }
 } ?: run {
-Toast.makeText(this, "Please select a connection first", Toast.LENGTH_SHORT).show()
+Toast.makeText(this, getString(R.string.select_connection_first), Toast.LENGTH_SHORT).show()
 }
 }
 binding.settingsButton.setOnClickListener {
