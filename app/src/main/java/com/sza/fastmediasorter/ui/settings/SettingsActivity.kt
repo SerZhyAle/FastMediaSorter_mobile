@@ -194,7 +194,9 @@ class SortHelpFragment : Fragment() {
         viewModel.allConfigs.observe(viewLifecycleOwner) { configs ->
             viewModel.sortDestinations.value?.let { destinations ->
                 val usedIds = destinations.map { it.id }.toSet()
-                val available = configs.filter { it.id !in usedIds }
+                val available = configs.filter { 
+                    it.id !in usedIds && it.type != "LOCAL_CUSTOM"
+                }
                 connectionAdapter.setConnections(available)
             }
         }

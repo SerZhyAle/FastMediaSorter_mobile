@@ -165,6 +165,9 @@ class SortActivity : AppCompatActivity() {
         // Show and configure buttons for active destinations
         sortDestinations.forEachIndexed { index, config ->
             if (index < copyButtons.size) {
+                // Skip local folders (defensive check)
+                if (config.type == "LOCAL_CUSTOM") return@forEachIndexed
+                
                 val copyButton = copyButtons[index]
                 copyButton.text = config.sortName
                 copyButton.setBackgroundColor(colors[index])
@@ -188,6 +191,16 @@ class SortActivity : AppCompatActivity() {
     
     private fun copyToDestination(destination: ConnectionConfig) {
         if (imageFiles.isEmpty()) return
+        
+        // Validate destination type
+        if (destination.type == "LOCAL_CUSTOM") {
+            android.widget.Toast.makeText(
+                this,
+                "Cannot copy to local folders. Use SMB destinations only.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            return
+        }
         
         val currentImageUrl = imageFiles[currentIndex]
         
@@ -306,6 +319,16 @@ class SortActivity : AppCompatActivity() {
     
     private fun moveToDestination(destination: ConnectionConfig) {
         if (imageFiles.isEmpty()) return
+        
+        // Validate destination type
+        if (destination.type == "LOCAL_CUSTOM") {
+            android.widget.Toast.makeText(
+                this,
+                "Cannot move to local folders. Use SMB destinations only.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            return
+        }
         
         val currentImageUrl = imageFiles[currentIndex]
         

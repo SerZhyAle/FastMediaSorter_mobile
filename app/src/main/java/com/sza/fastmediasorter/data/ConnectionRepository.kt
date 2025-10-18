@@ -46,6 +46,12 @@ class ConnectionRepository(private val dao: ConnectionConfigDao) {
     
     // Sort destinations methods
     suspend fun addSortDestination(configId: Long, sortName: String) {
+        // Validate that config is not a local folder
+        val config = dao.getConfigById(configId)
+        if (config?.type == "LOCAL_CUSTOM") {
+            return // Silently ignore local folders
+        }
+        
         val maxOrder = dao.getMaxSortOrder() ?: -1
         val newOrder = maxOrder + 1
         if (newOrder <= 9) {
