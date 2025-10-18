@@ -198,6 +198,14 @@ class SortActivity : AppCompatActivity() {
             }
             loadMedia()
         }
+
+        // Video control area - show/hide controls on tap
+        binding.videoControlArea.setOnClickListener {
+            if (binding.playerView.visibility == View.VISIBLE) {
+                // Toggle video controls visibility
+                binding.playerView.showController()
+            }
+        }
     }
     
     private fun setupBackButton() {
