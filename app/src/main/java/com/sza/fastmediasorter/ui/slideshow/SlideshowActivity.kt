@@ -487,12 +487,34 @@ class SlideshowActivity : AppCompatActivity() {
             
             imageData?.let { data ->
                 val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size)
-                currentBitmap = bitmap
-                binding.imageView.setImageBitmap(bitmap)
-                binding.imageView.rotation = 0f // Reset rotation for new image
+                if (bitmap != null) {
+                    currentBitmap = bitmap
+                    binding.imageView.setImageBitmap(bitmap)
+                    binding.imageView.rotation = 0f // Reset rotation for new image
+                    
+                    // Save last session state
+                    saveSessonState()
+                } else {
+                    android.util.Log.e("SlideshowActivity", "Failed to decode image at index $currentIndex: ${images.getOrNull(currentIndex)}")
+                    android.widget.Toast.makeText(
+                        this@SlideshowActivity,
+                        "⚠ Image corrupted, skipping to next",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    
+                    // Auto-skip to next image
+                    skipToNextImage()
+                }
+            } ?: run {
+                android.util.Log.e("SlideshowActivity", "No image data received for index $currentIndex")
+                android.widget.Toast.makeText(
+                    this@SlideshowActivity,
+                    "⚠ Failed to load image, skipping",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
                 
-                // Save last session state
-                saveSessonState()
+                // Auto-skip to next image
+                skipToNextImage()
             }
         } catch (e: Exception) {
             e.printStackTrace()

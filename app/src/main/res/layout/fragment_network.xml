@@ -87,6 +87,17 @@ android:layout_width="match_parent"
 android:layout_height="wrap_content"
 android:inputType="textPassword"/>
 </com.google.android.material.textfield.TextInputLayout>
+<CheckBox
+android:id="@+id/addToDestinationsCheckbox"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_marginStart="16dp"
+android:layout_marginTop="8dp"
+android:layout_marginEnd="16dp"
+android:text="Add also to destinations list"
+app:layout_constraintEnd_toEndOf="parent"
+app:layout_constraintStart_toStartOf="parent"
+app:layout_constraintTop_toBottomOf="@+id/usernameLayout"/>
 <com.google.android.material.textfield.TextInputLayout
 android:id="@+id/nameLayout"
 android:layout_width="0dp"
@@ -97,7 +108,7 @@ android:layout_marginEnd="8dp"
 android:hint="@string/connection_name"
 app:layout_constraintEnd_toStartOf="@+id/testButton"
 app:layout_constraintStart_toStartOf="parent"
-app:layout_constraintTop_toBottomOf="@+id/usernameLayout">
+app:layout_constraintTop_toBottomOf="@+id/addToDestinationsCheckbox">
 <com.google.android.material.textfield.TextInputEditText
 android:id="@+id/nameInput"
 android:layout_width="match_parent"

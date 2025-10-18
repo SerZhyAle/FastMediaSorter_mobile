@@ -14,6 +14,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.Target
+import com.sza.fastmediasorter.R
 import com.sza.fastmediasorter.data.ConnectionConfig
 import com.sza.fastmediasorter.databinding.ActivitySortBinding
 import com.sza.fastmediasorter.network.LocalStorageClient
@@ -787,6 +792,33 @@ class SortActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         Glide.with(this@SortActivity)
                             .load(imageBytes)
+                            .error(R.drawable.error_placeholder)
+                            .listener(object : RequestListener<android.graphics.drawable.Drawable> {
+                                override fun onLoadFailed(
+                                    e: GlideException?,
+                                    model: Any?,
+                                    target: Target<android.graphics.drawable.Drawable>,
+                                    isFirstResource: Boolean
+                                ): Boolean {
+                                    android.util.Log.e("SortActivity", "Failed to load image: ${e?.message}", e)
+                                    android.widget.Toast.makeText(
+                                        this@SortActivity,
+                                        "⚠ Image corrupted or unsupported format",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                    return false
+                                }
+                                
+                                override fun onResourceReady(
+                                    resource: android.graphics.drawable.Drawable,
+                                    model: Any,
+                                    target: Target<android.graphics.drawable.Drawable>?,
+                                    dataSource: DataSource,
+                                    isFirstResource: Boolean
+                                ): Boolean {
+                                    return false
+                                }
+                            })
                             .into(binding.imageView)
                         
                         updateFileInfo(fileInfo)
@@ -824,6 +856,33 @@ class SortActivity : AppCompatActivity() {
                         if (imageBytes != null) {
                             Glide.with(this@SortActivity)
                                 .load(imageBytes)
+                                .error(R.drawable.error_placeholder)
+                                .listener(object : RequestListener<android.graphics.drawable.Drawable> {
+                                    override fun onLoadFailed(
+                                        e: GlideException?,
+                                        model: Any?,
+                                        target: Target<android.graphics.drawable.Drawable>,
+                                        isFirstResource: Boolean
+                                    ): Boolean {
+                                        android.util.Log.e("SortActivity", "Failed to load image: ${e?.message}", e)
+                                        android.widget.Toast.makeText(
+                                            this@SortActivity,
+                                            "⚠ Image corrupted or unsupported format",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                        return false
+                                    }
+                                    
+                                    override fun onResourceReady(
+                                        resource: android.graphics.drawable.Drawable,
+                                        model: Any,
+                                        target: Target<android.graphics.drawable.Drawable>?,
+                                        dataSource: DataSource,
+                                        isFirstResource: Boolean
+                                    ): Boolean {
+                                        return false
+                                    }
+                                })
                                 .into(binding.imageView)
                             
                             updateFileInfo(fileInfo)

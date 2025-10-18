@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -26,6 +27,7 @@ private lateinit var etFolderAddress: TextInputEditText
 private lateinit var etUsername: TextInputEditText
 private lateinit var etPassword: TextInputEditText
 private lateinit var etName: TextInputEditText
+private lateinit var cbAddToDestinations: CheckBox
 private lateinit var btnSave: Button
 private lateinit var btnTest: Button
 private var selectedConfig: ConnectionConfig? = null
@@ -47,6 +49,7 @@ etFolderAddress = view.findViewById(R.id.folderAddressInput)
 etUsername = view.findViewById(R.id.usernameInput)
 etPassword = view.findViewById(R.id.passwordInput)
 etName = view.findViewById(R.id.nameInput)
+cbAddToDestinations = view.findViewById(R.id.addToDestinationsCheckbox)
 btnSave = view.findViewById(R.id.saveButton)
 btnTest = view.findViewById(R.id.testButton)
 setupRecyclerView()
@@ -238,6 +241,7 @@ name = folderAddress
 val (server, folder) = parseFolderAddress(folderAddress)
 lifecycleScope.launch {
 val existingConfig = viewModel.getConfigByFolderAddress(server, folder)
+val savedConfig: ConnectionConfig
 if (existingConfig != null) {
 val config = existingConfig.copy(
 name = name,
@@ -247,6 +251,7 @@ lastUsed = System.currentTimeMillis()
 )
 viewModel.updateConfig(config)
 selectedConfig = config
+savedConfig = config
 onConfigSelected?.invoke(config)
 Toast.makeText(requireContext(), "Connection updated", Toast.LENGTH_SHORT).show()
 } else {
@@ -262,10 +267,24 @@ lastUsed = System.currentTimeMillis(),
 type = "SMB"
 )
 val newId = viewModel.insertConfigAndGetId(config)
-val savedConfig = config.copy(id = newId)
+savedConfig = config.copy(id = newId)
 selectedConfig = savedConfig
 onConfigSelected?.invoke(savedConfig)
 Toast.makeText(requireContext(), R.string.connection_saved, Toast.LENGTH_SHORT).show()
+}
+if (cbAddToDestinations.isChecked) {
+val destinations = viewModel.sortDestinations.value ?: emptyList()
+if (destinations.size < 10) {
+val alreadyExists = destinations.any {
+it.serverAddress == savedConfig.serverAddress && it.folderPath == savedConfig.folderPath
+}
+if (!alreadyExists) {
+viewModel.addSortDestination(savedConfig.id, savedConfig.name)
+Toast.makeText(requireContext(), "Added to destinations", Toast.LENGTH_SHORT).show()
+}
+} else {
+Toast.makeText(requireContext(), "Destinations list is full (max 10)", Toast.LENGTH_SHORT).show()
+}
 }
 }
 }
