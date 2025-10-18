@@ -691,8 +691,8 @@ class SlideshowActivity : AppCompatActivity() {
                             }
                         })
                         
-                        val mediaItem = MediaItem.fromUri("smb://$videoUrl")
-                        android.util.Log.d("SlideshowActivity", "Setting media item: smb://$videoUrl")
+                        val mediaItem = MediaItem.fromUri(videoUrl)
+                        android.util.Log.d("SlideshowActivity", "Setting media item: $videoUrl")
                         exoPlayer?.setMediaItem(mediaItem)
                         exoPlayer?.prepare()
                         exoPlayer?.play()

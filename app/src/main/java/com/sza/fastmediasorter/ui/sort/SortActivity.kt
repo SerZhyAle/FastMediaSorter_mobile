@@ -1174,7 +1174,7 @@ class SortActivity : AppCompatActivity() {
                                     }
                                 })
                                 
-                                val mediaItem = MediaItem.fromUri("smb://$videoUrl")
+                                val mediaItem = MediaItem.fromUri(videoUrl)
                                 exoPlayer?.setMediaItem(mediaItem)
                                 exoPlayer?.prepare()
                                 exoPlayer?.play()
