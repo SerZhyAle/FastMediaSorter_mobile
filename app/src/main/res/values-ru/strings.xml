@@ -64,4 +64,28 @@
     <string name="folder_count_placeholder">0</string>
     <string name="photos_placeholder">фото</string>
     <string name="ip_path_example">192.168.1.10\\фото</string>
+    <!-- Settings -->
+    <string name="application_settings">Настройки приложения</string>
+    <string name="sorting_settings">Настройки сортировки</string>
+    <string name="allow_to_copy">Разрешить копирование</string>
+    <string name="allow_to_move">Разрешить перемещение</string>
+    <string name="allow_to_delete">Разрешить удаление</string>
+    <string name="request_user_for_deletion">Запрашивать подтверждение удаления</string>
+    <string name="allow_renaming">Разрешить переименование</string>
+    <string name="slideshow_settings">Настройки слайд-шоу</string>
+    <string name="show_controls">Показывать элементы управления</string>
+    <string name="general_settings">Общие настройки</string>
+    <string name="not_allow_device_to_sleep">Не давать устройству засыпать</string>
+    <string name="local_storage_access">Доступ к локальному хранилищу</string>
+    <string name="grant_media_access">Предоставить доступ к медиафайлам</string>
+    <string name="help">Справка</string>
+    <string name="user_guide">Руководство пользователя</string>
+    <!-- Network Fragment -->
+    <string name="add_also_to_destinations_list">Добавить также в список назначений</string>
+    <string name="test">Тест</string>
+    <!-- Slideshow Help -->
+    <string name="next_button">След ►</string>
+    <string name="rotate_left">↺ Поворот</string>
+    <string name="rotate_right">Поворот ↻</string>
+    <string name="button_controls_description">Элементы управления кнопками включены.\n\nВо время слайд-шоу внизу экрана будет панель с кнопками:\n\n◄ Назад | ◄◄ Предыдущий | ▐▐/▶ Пауза/Воспроизведение | ►► Следующий | АБВ/СЛУ Перемешать | ↺↻ Поворот\n\nЧтобы использовать невидимые сенсорные зоны, отключите 'Показывать элементы управления' в настройках.</string>
 </resources>

@@ -64,4 +64,28 @@
     <string name="folder_count_placeholder">0</string>
     <string name="photos_placeholder">photos</string>
     <string name="ip_path_example">192.168.1.10\\photos</string>
+    <!-- Settings -->
+    <string name="application_settings">Application Settings</string>
+    <string name="sorting_settings">Sorting Settings</string>
+    <string name="allow_to_copy">Allow to Copy</string>
+    <string name="allow_to_move">Allow to Move</string>
+    <string name="allow_to_delete">Allow to Delete</string>
+    <string name="request_user_for_deletion">Request user for deletion</string>
+    <string name="allow_renaming">Allow renaming</string>
+    <string name="slideshow_settings">Slideshow Settings</string>
+    <string name="show_controls">Show Controls</string>
+    <string name="general_settings">General Settings</string>
+    <string name="not_allow_device_to_sleep">Not allow device to sleep</string>
+    <string name="local_storage_access">Local Storage Access</string>
+    <string name="grant_media_access">Grant Media Access</string>
+    <string name="help">Help</string>
+    <string name="user_guide">User Guide</string>
+    <!-- Network Fragment -->
+    <string name="add_also_to_destinations_list">Add also to destinations list</string>
+    <string name="test">Test</string>
+    <!-- Slideshow Help -->
+    <string name="next_button">Next ►</string>
+    <string name="rotate_left">↺ Rotate</string>
+    <string name="rotate_right">Rotate ↻</string>
+    <string name="button_controls_description">Button controls are enabled.\n\nDuring slideshow, you'll see a panel with buttons at the bottom of the screen:\n\n◄ Back | ◄◄ Previous | ▐▐/▶ Pause/Play | ►► Next | ABC/RND Shuffle | ↺↻ Rotate\n\nTo use invisible touch zones instead, turn off 'Show Controls' in Settings.</string>
 </resources>
