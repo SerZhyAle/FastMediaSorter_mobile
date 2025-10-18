@@ -17,29 +17,42 @@ val dateModified: Long
 )
 
 class LocalStorageClient(private val context: Context) {
-suspend fun getImageFiles(folderUri: Uri?, bucketName: String? = null): List<LocalImageInfo> = withContext(Dispatchers.IO) {
-if (bucketName != null) {
-return@withContext getImageFilesByBucketName(bucketName)
-}
-if (folderUri == null) {
-return@withContext emptyList()
-}
-try {
-val folder = DocumentFile.fromTreeUri(context, folderUri)
-folder?.listFiles()?.filter {
-it.isFile && (it.type?.startsWith("image/") == true)
-}?.map {
-LocalImageInfo(
-uri = it.uri,
-name = it.name ?: "unknown",
-size = it.length(),
-dateModified = it.lastModified()
-)
-}?.sortedBy { it.name } ?: emptyList()
-} catch (e: Exception) {
-emptyList()
-}
-}
+    /**
+     * Get image files from local storage using dual-access pattern:
+     * 1. MediaStore access (by bucketName) - for folders found via SCAN
+     * 2. SAF/DocumentFile access (by folderUri) - for user-selected folders
+     * 
+     * @param folderUri TreeUri from SAF (Storage Access Framework), or null for MediaStore
+     * @param bucketName BUCKET_DISPLAY_NAME from MediaStore, or null for SAF
+     * @return List of image files
+     */
+    suspend fun getImageFiles(folderUri: Uri?, bucketName: String? = null): List<LocalImageInfo> = withContext(Dispatchers.IO) {
+        // Priority 1: MediaStore access (for SCAN-discovered folders)
+        if (bucketName != null) {
+            return@withContext getImageFilesByBucketName(bucketName)
+        }
+        
+        // Priority 2: SAF/DocumentFile access (for user-selected folders)
+        if (folderUri == null) {
+            return@withContext emptyList()
+        }
+        
+        try {
+            val folder = DocumentFile.fromTreeUri(context, folderUri)
+            folder?.listFiles()?.filter {
+                it.isFile && (it.type?.startsWith("image/") == true)
+            }?.map {
+                LocalImageInfo(
+                    uri = it.uri,
+                    name = it.name ?: "unknown",
+                    size = it.length(),
+                    dateModified = it.lastModified()
+                )
+            }?.sortedBy { it.name } ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
 
 suspend fun scanStandardFolders(): Map<String, Pair<Uri?, Int>> = withContext(Dispatchers.IO) {
 val folders = mutableMapOf<String, Pair<Uri?, Int>>()

@@ -158,18 +158,21 @@ val allFolders = localClient.scanAllImageFolders()
 var newFoldersCount = 0
 var updatedFoldersCount = 0
 
-// Get existing custom folders
-val existingFolders = viewModel.localCustomFolders.value?.map { it.localDisplayName } ?: emptyList()
-allFolders.forEach { (folderName, count) ->
-if (folderName !in standardFolderNames) {
-if (folderName !in existingFolders) {
-viewModel.addLocalCustomFolder(folderName, "")
-newFoldersCount++
-} else {
-updatedFoldersCount++
-}
-}
-}
+            // Get existing custom folders
+            val existingFolders = viewModel.localCustomFolders.value?.map { it.localDisplayName } ?: emptyList()
+            
+            allFolders.forEach { (folderName, count) ->
+                if (folderName !in standardFolderNames) {
+                    if (folderName !in existingFolders) {
+                        // Save with empty localUri - MediaStore will use bucketName instead
+                        // Dual-access pattern: MediaStore (bucketName) OR SAF (treeUri)
+                        viewModel.addLocalCustomFolder(folderName, "")
+                        newFoldersCount++
+                    } else {
+                        updatedFoldersCount++
+                    }
+                }
+            }
 
 // Reload folders to update counts
 loadStandardFolders()
