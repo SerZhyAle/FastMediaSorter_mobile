@@ -25,9 +25,8 @@
         app:layout_constraintBottom_toTopOf="@id/fileInfoText"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:show_buffering="when_playing"
-        app:use_controller="true"
-        app:controller_layout_id="@layout/exo_player_control_view" />
+        app:show_buffering="never"
+        app:use_controller="false" />
 
     <!-- Video loading indicator -->
     <LinearLayout

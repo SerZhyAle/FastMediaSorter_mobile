@@ -113,6 +113,19 @@ class SlideshowActivity : AppCompatActivity() {
                     }
                 }
             }
+            
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                binding.videoLoadingLayout.visibility = View.GONE
+                android.widget.Toast.makeText(
+                    this@SlideshowActivity,
+                    "Video playback error: ${error.message}",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                // Skip to next on error
+                if (!isPaused) {
+                    skipToNextImage()
+                }
+            }
         })
     }
     
@@ -643,6 +656,19 @@ class SlideshowActivity : AppCompatActivity() {
                                             skipToNextImage()
                                         }
                                     }
+                                }
+                            }
+                            
+                            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                                binding.videoLoadingLayout.visibility = View.GONE
+                                android.widget.Toast.makeText(
+                                    this@SlideshowActivity,
+                                    "Video playback error: ${error.message}",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                                // Skip to next on error
+                                if (!isPaused) {
+                                    skipToNextImage()
                                 }
                             }
                         })

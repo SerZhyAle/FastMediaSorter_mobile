@@ -132,6 +132,15 @@ class SortActivity : AppCompatActivity() {
                     }
                 }
             }
+            
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                binding.videoLoadingLayout.visibility = View.GONE
+                Toast.makeText(
+                    this@SortActivity,
+                    "Video playback error: ${error.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         })
     }
     
@@ -1025,6 +1034,32 @@ class SortActivity : AppCompatActivity() {
                                     .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory as androidx.media3.datasource.DataSource.Factory))
                                     .build()
                                 binding.playerView.player = exoPlayer
+                                
+                                // Re-attach listener after recreating player
+                                exoPlayer?.addListener(object : Player.Listener {
+                                    override fun onPlaybackStateChanged(playbackState: Int) {
+                                        when (playbackState) {
+                                            Player.STATE_BUFFERING -> {
+                                                binding.videoLoadingLayout.visibility = View.VISIBLE
+                                            }
+                                            Player.STATE_READY -> {
+                                                binding.videoLoadingLayout.visibility = View.GONE
+                                            }
+                                            Player.STATE_ENDED -> {
+                                                binding.videoLoadingLayout.visibility = View.GONE
+                                            }
+                                        }
+                                    }
+                                    
+                                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                                        binding.videoLoadingLayout.visibility = View.GONE
+                                        Toast.makeText(
+                                            this@SortActivity,
+                                            "Video playback error: ${error.message}",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                })
                                 
                                 val mediaItem = MediaItem.fromUri("smb://$videoUrl")
                                 exoPlayer?.setMediaItem(mediaItem)
