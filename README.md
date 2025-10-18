@@ -50,20 +50,11 @@ The slideshow offers two control modes, which can be toggled in **Settings**.
 
 **Mode 1: Invisible Touch Zones (Default)**
 
-The screen is divided into invisible zones for a distraction-free experience.
+The screen is divided into invisible zones for a distraction-free experience:
 
-'''
-┌─────────────────────────────┐
-│  BACK   │   ABC/RND toggle  │ ← Top 12.5%
-├─────────────────────────────┤
-│         │        │          │
-│  PREV   │ PAUSE  │   NEXT   │ ← Middle 75%
-│         │        │          │
-├─────────────────────────────┤
-│  ROTATE │      ROTATE       │ ← Bottom 12.5%
-│   LEFT  │       RIGHT       │
-└─────────────────────────────┘
-'''
+- **Top 12.5%**: Left half = BACK | Right half = ABC/RND toggle
+- **Middle 75%**: Left third = PREV | Center = PAUSE | Right third = NEXT
+- **Bottom 12.5%**: Left half = ROTATE LEFT | Right half = ROTATE RIGHT
 
 **Mode 2: Visible Button Panel**
 
