@@ -12,6 +12,8 @@ import java.util.*
 class SmbClient {
     private var context: CIFSContext? = null
     
+    fun getContext(): CIFSContext? = context
+    
     private fun buildFullDiagnostic(e: Exception?, serverAddress: String, folderPath: String): String {
         val diagnostic = StringBuilder()
         
