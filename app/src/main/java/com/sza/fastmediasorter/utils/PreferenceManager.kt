@@ -38,6 +38,7 @@ class PreferenceManager(context: Context) {
         private const val KEY_LOCAL_URI = "local_uri"
         private const val KEY_LOCAL_BUCKET_NAME = "local_bucket_name"
         private const val KEY_CONNECTION_TYPE = "connection_type"
+        private const val KEY_SHOW_CONTROLS = "show_controls"
     }
     
     init {
@@ -158,4 +159,11 @@ class PreferenceManager(context: Context) {
     }
     
     fun isConfirmDelete(): Boolean = prefs.getBoolean(KEY_CONFIRM_DELETE, true)
+    
+    // Show controls in slideshow
+    fun setShowControls(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_CONTROLS, show).apply()
+    }
+    
+    fun isShowControls(): Boolean = prefs.getBoolean(KEY_SHOW_CONTROLS, true)
 }

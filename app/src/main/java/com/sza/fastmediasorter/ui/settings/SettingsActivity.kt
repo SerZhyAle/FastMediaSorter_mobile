@@ -275,6 +275,9 @@ class SettingsFragment : Fragment() {
         // Load confirm delete setting
         binding.confirmDeleteCheckbox.isChecked = preferenceManager.isConfirmDelete()
         
+        // Load show controls setting
+        binding.showControlsCheckbox.isChecked = preferenceManager.isShowControls()
+        
         // Setup media access button
         updateMediaAccessButton()
         binding.requestMediaAccessButton.setOnClickListener {
@@ -312,6 +315,11 @@ class SettingsFragment : Fragment() {
         // Save confirm delete on change
         binding.confirmDeleteCheckbox.setOnCheckedChangeListener { _, isChecked ->
             preferenceManager.setConfirmDelete(isChecked)
+        }
+        
+        // Save show controls on change
+        binding.showControlsCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setShowControls(isChecked)
         }
     }
     

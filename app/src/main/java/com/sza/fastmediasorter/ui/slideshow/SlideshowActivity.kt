@@ -91,6 +91,16 @@ class SlideshowActivity : AppCompatActivity() {
         }
         
         setupControlAreas()
+        updateControlsVisibility()
+    }
+    
+    private fun updateControlsVisibility() {
+        val showControls = preferenceManager.isShowControls()
+        val visibility = if (showControls) View.VISIBLE else View.GONE
+        
+        binding.topLayout.visibility = visibility
+        binding.controlsLayout.visibility = visibility
+        binding.rotationLayout.visibility = visibility
     }
     
     private fun setupControlAreas() {
@@ -457,6 +467,12 @@ class SlideshowActivity : AppCompatActivity() {
         super.onSaveInstanceState(outState)
         outState.putInt(KEY_CURRENT_INDEX, currentIndex)
         outState.putStringArrayList(KEY_IMAGES, ArrayList(images))
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Update controls visibility in case setting changed
+        updateControlsVisibility()
     }
     
     override fun onConfigurationChanged(newConfig: Configuration) {
