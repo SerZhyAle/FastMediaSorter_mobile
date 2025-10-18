@@ -14,6 +14,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.adapter.FragmentStateAdapter
@@ -27,6 +28,9 @@ import com.sza.fastmediasorter.databinding.FragmentSettingsBinding
 import com.sza.fastmediasorter.ui.ConnectionViewModel
 import com.sza.fastmediasorter.ui.welcome.WelcomeActivity
 import com.sza.fastmediasorter.utils.PreferenceManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
@@ -270,6 +274,8 @@ class VideoSettingsFragment : Fragment() {
     private lateinit var preferenceManager: PreferenceManager
     private lateinit var videoEnabledCheckbox: android.widget.CheckBox
     private lateinit var maxVideoSizeEdit: EditText
+    private lateinit var testVideoButton: android.widget.Button
+    private lateinit var videoTestResultText: android.widget.TextView
     
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         return inflater.inflate(R.layout.fragment_video_settings, container, false)
@@ -282,6 +288,8 @@ class VideoSettingsFragment : Fragment() {
         
         videoEnabledCheckbox = view.findViewById(R.id.videoEnabledCheckbox)
         maxVideoSizeEdit = view.findViewById(R.id.maxVideoSizeEdit)
+        testVideoButton = view.findViewById(R.id.testVideoButton)
+        videoTestResultText = view.findViewById(R.id.videoTestResultText)
         
         // Load current settings
         videoEnabledCheckbox.isChecked = preferenceManager.isVideoEnabled()
@@ -292,6 +300,11 @@ class VideoSettingsFragment : Fragment() {
         videoEnabledCheckbox.setOnCheckedChangeListener { _, isChecked ->
             maxVideoSizeEdit.isEnabled = isChecked
             preferenceManager.setVideoEnabled(isChecked)
+        }
+        
+        // Test video button
+        testVideoButton.setOnClickListener {
+            testVideoPlayback()
         }
         
         // Validate and save video size
@@ -316,6 +329,106 @@ class VideoSettingsFragment : Fragment() {
                 }
             }
         })
+    }
+    
+    private fun testVideoPlayback() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                testVideoButton.isEnabled = false
+                testVideoButton.text = "Testing..."
+                videoTestResultText.text = "Starting video playback test...\n"
+            }
+            
+            try {
+                val result = StringBuilder()
+                result.append("=== VIDEO PLAYBACK TEST ===\n")
+                result.append("Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n\n")
+                
+                // ExoPlayer info
+                result.append("=== PLAYER INFO ===\n")
+                result.append("ExoPlayer Library: androidx.media3\n")
+                result.append("Video Enabled: ${preferenceManager.isVideoEnabled()}\n")
+                result.append("Max Video Size: ${preferenceManager.getMaxVideoSizeMb()} MB\n\n")
+                
+                // Supported formats
+                result.append("=== SUPPORTED FORMATS ===\n")
+                result.append("✓ MP4 (H.264, H.265)\n")
+                result.append("✓ MKV\n")
+                result.append("✓ AVI\n")
+                result.append("✓ MOV\n")
+                result.append("✓ WEBM\n")
+                result.append("✓ 3GP\n\n")
+                
+                // System capabilities
+                result.append("=== SYSTEM INFO ===\n")
+                result.append("Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n")
+                result.append("Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n")
+                
+                // Check hardware decoder support
+                withContext(Dispatchers.Main) {
+                    try {
+                        val exoPlayer = androidx.media3.exoplayer.ExoPlayer.Builder(requireContext()).build()
+                        result.append("✓ ExoPlayer initialized successfully\n")
+                        exoPlayer.release()
+                    } catch (e: Exception) {
+                        result.append("✗ ExoPlayer initialization failed: ${e.message}\n")
+                    }
+                }
+                
+                result.append("\n=== COMMON ISSUES & SOLUTIONS ===\n\n")
+                result.append("1. VIDEO WON'T PLAY:\n")
+                result.append("   • Check 'Enable video playback' is ON\n")
+                result.append("   • Verify file format is supported\n")
+                result.append("   • Check file size < max size limit\n")
+                result.append("   • For SMB: ensure stable network\n\n")
+                
+                result.append("2. LOADING VIDEO... STUCK:\n")
+                result.append("   • SMB connection may be slow\n")
+                result.append("   • Large file size (check limit)\n")
+                result.append("   • Network timeout - try refresh\n")
+                result.append("   • Codec not supported by device\n\n")
+                
+                result.append("3. PLAYBACK ERROR:\n")
+                result.append("   • Unsupported codec (try MP4 H.264)\n")
+                result.append("   • Corrupted video file\n")
+                result.append("   • Insufficient device resources\n")
+                result.append("   • For SMB: check SmbDataSource\n\n")
+                
+                result.append("4. DEBUGGING:\n")
+                result.append("   • Check Android logcat for errors\n")
+                result.append("   • Filter by 'ExoPlayer' or 'SortActivity'\n")
+                result.append("   • Error messages show codec info\n")
+                result.append("   • Try same video file locally first\n\n")
+                
+                result.append("=== RECOMMENDATION ===\n")
+                result.append("Best format: MP4 with H.264 video codec\n")
+                result.append("Max resolution: 1920x1080 for stability\n")
+                result.append("For SMB: Keep files under 500 MB\n\n")
+                
+                result.append("Test completed. Try playing a video in Sort/Slideshow mode.\n")
+                result.append("If error occurs, note the error message for debugging.\n")
+                
+                withContext(Dispatchers.Main) {
+                    videoTestResultText.text = result.toString()
+                    testVideoButton.isEnabled = true
+                    testVideoButton.text = "Test Video Playback"
+                }
+                
+            } catch (e: Exception) {
+                val errorResult = "=== TEST ERROR ===\n" +
+                        "Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n\n" +
+                        "Exception: ${e.javaClass.simpleName}\n" +
+                        "Message: ${e.message ?: "No message"}\n" +
+                        "Cause: ${e.cause?.javaClass?.simpleName ?: "None"}\n\n" +
+                        "Stack Trace:\n${android.util.Log.getStackTraceString(e)}"
+                
+                withContext(Dispatchers.Main) {
+                    videoTestResultText.text = errorResult
+                    testVideoButton.isEnabled = true
+                    testVideoButton.text = "Test Video Playback"
+                }
+            }
+        }
     }
 }
 

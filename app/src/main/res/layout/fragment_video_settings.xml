@@ -59,6 +59,33 @@
         android:layout_height="wrap_content"
         android:text="Note: Videos stream from SMB without full download. Auto-play with sound."
         android:textSize="12sp"
-        android:textColor="#666666" />
+        android:textColor="#666666"
+        android:layout_marginBottom="24dp" />
+
+    <Button
+        android:id="@+id/testVideoButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Test Video Playback"
+        android:textSize="14sp"
+        android:layout_marginBottom="8dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#F5F5F5"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/videoTestResultText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:textColor="#000000"
+            android:hint="Test results will appear here..." />
+
+    </ScrollView>
 
 </LinearLayout>
