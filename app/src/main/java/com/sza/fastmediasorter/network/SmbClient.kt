@@ -388,6 +388,23 @@ class SmbClient {
         data class UnknownError(val message: String) : MoveResult()
     }
     
+    sealed class DeleteResult {
+        object Success : DeleteResult()
+        object FileNotFound : DeleteResult()
+        data class SecurityError(val message: String) : DeleteResult()
+        data class NetworkError(val message: String) : DeleteResult()
+        data class UnknownError(val message: String) : DeleteResult()
+    }
+    
+    sealed class RenameResult {
+        object Success : RenameResult()
+        object SourceNotFound : RenameResult()
+        object TargetExists : RenameResult()
+        data class SecurityError(val message: String) : RenameResult()
+        data class NetworkError(val message: String) : RenameResult()
+        data class UnknownError(val message: String) : RenameResult()
+    }
+    
     suspend fun writeFile(
         targetServer: String,
         targetFolder: String,
@@ -412,6 +429,10 @@ class SmbClient {
                 if (!targetDir.exists()) {
                     try {
                         targetDir.mkdirs()
+                    } catch (e: jcifs.smb.SmbAuthException) {
+                        return@withContext CopyResult.SecurityError("Access denied to target folder: ${e.message}")
+                    } catch (e: java.net.UnknownHostException) {
+                        return@withContext CopyResult.NetworkError("Server not found: ${e.message}")
                     } catch (e: Exception) {
                         return@withContext CopyResult.SecurityError("Cannot create target folder: ${e.message}")
                     }
@@ -430,8 +451,14 @@ class SmbClient {
                 CopyResult.Success
             } catch (e: jcifs.smb.SmbAuthException) {
                 CopyResult.SecurityError("Authentication failed: ${e.message}")
+            } catch (e: java.net.UnknownHostException) {
+                CopyResult.NetworkError("Server not found: ${e.message}")
+            } catch (e: java.net.SocketTimeoutException) {
+                CopyResult.NetworkError("Connection timeout")
+            } catch (e: java.io.IOException) {
+                CopyResult.NetworkError("Network error: ${e.message}")
             } catch (e: jcifs.smb.SmbException) {
-                CopyResult.NetworkError("SMB error: ${e.message}")
+                CopyResult.SecurityError("SMB error: ${e.message}")
             } catch (e: Exception) {
                 e.printStackTrace()
                 CopyResult.UnknownError(e.message ?: "Unknown error")
@@ -602,47 +629,67 @@ class SmbClient {
         }
     }
     
-    suspend fun deleteFile(fileUrl: String): Boolean {
+    suspend fun deleteFile(fileUrl: String): DeleteResult {
         return withContext(Dispatchers.IO) {
             try {
-                val currentContext = context ?: return@withContext false
+                val currentContext = context ?: return@withContext DeleteResult.UnknownError("SMB context not initialized")
                 
                 val smbFile = SmbFile(fileUrl, currentContext)
                 
                 if (!smbFile.exists()) {
-                    return@withContext false
+                    return@withContext DeleteResult.FileNotFound
                 }
                 
                 smbFile.delete()
-                true
+                DeleteResult.Success
+            } catch (e: jcifs.smb.SmbAuthException) {
+                DeleteResult.SecurityError("Delete permission denied: ${e.message}")
+            } catch (e: java.net.UnknownHostException) {
+                DeleteResult.NetworkError("Server not found: ${e.message}")
+            } catch (e: java.net.SocketTimeoutException) {
+                DeleteResult.NetworkError("Connection timeout")
+            } catch (e: java.io.IOException) {
+                DeleteResult.NetworkError("Network error: ${e.message}")
+            } catch (e: jcifs.smb.SmbException) {
+                DeleteResult.SecurityError("SMB error: ${e.message}")
             } catch (e: Exception) {
                 e.printStackTrace()
-                false
+                DeleteResult.UnknownError(e.message ?: "Unknown error")
             }
         }
     }
     
-    suspend fun renameFile(oldUrl: String, newUrl: String): Boolean {
+    suspend fun renameFile(oldUrl: String, newUrl: String): RenameResult {
         return withContext(Dispatchers.IO) {
             try {
-                val currentContext = context ?: return@withContext false
+                val currentContext = context ?: return@withContext RenameResult.UnknownError("SMB context not initialized")
                 
                 val oldFile = SmbFile(oldUrl, currentContext)
                 val newFile = SmbFile(newUrl, currentContext)
                 
                 if (!oldFile.exists()) {
-                    return@withContext false
+                    return@withContext RenameResult.SourceNotFound
                 }
                 
                 if (newFile.exists()) {
-                    return@withContext false
+                    return@withContext RenameResult.TargetExists
                 }
                 
                 oldFile.renameTo(newFile)
-                true
+                RenameResult.Success
+            } catch (e: jcifs.smb.SmbAuthException) {
+                RenameResult.SecurityError("Rename permission denied: ${e.message}")
+            } catch (e: java.net.UnknownHostException) {
+                RenameResult.NetworkError("Server not found: ${e.message}")
+            } catch (e: java.net.SocketTimeoutException) {
+                RenameResult.NetworkError("Connection timeout")
+            } catch (e: java.io.IOException) {
+                RenameResult.NetworkError("Network error: ${e.message}")
+            } catch (e: jcifs.smb.SmbException) {
+                RenameResult.SecurityError("SMB error: ${e.message}")
             } catch (e: Exception) {
                 e.printStackTrace()
-                false
+                RenameResult.UnknownError(e.message ?: "Unknown error")
             }
         }
     }

@@ -1317,12 +1317,12 @@ class SortActivity : AppCompatActivity() {
                     } else {
                         // Direct delete for Android 10 and below
                         val deleted = localStorageClient?.deleteImage(uri) ?: false
-                        handleDeleteResult(deleted, imageUrl)
+                        handleDeleteResultLocal(deleted, imageUrl)
                     }
                 } else {
                     // SMB delete
-                    val deleted = smbClient.deleteFile(imageUrl)
-                    handleDeleteResult(deleted, imageUrl)
+                    val deleteResult = smbClient.deleteFile(imageUrl)
+                    handleDeleteResult(deleteResult, imageUrl)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -1338,7 +1338,7 @@ class SortActivity : AppCompatActivity() {
         }
     }
     
-    private suspend fun handleDeleteResult(deleted: Boolean, imageUrl: String) {
+    private suspend fun handleDeleteResultLocal(deleted: Boolean, imageUrl: String) {
         withContext(Dispatchers.Main) {
             binding.copyProgressLayout.visibility = View.GONE
             
@@ -1347,20 +1347,20 @@ class SortActivity : AppCompatActivity() {
                     this@SortActivity,
                     "File deleted",
                     android.widget.Toast.LENGTH_SHORT
-            ).show()
-            
-            // Remove from list and load next
-            imageFiles.remove(imageUrl)
-            
-            if (imageFiles.isEmpty()) {
-                showNoFilesState()
-                return@withContext
-            }
-            
-            if (currentIndex >= imageFiles.size) {
-                currentIndex = imageFiles.size - 1
-            }
-                            loadMedia()
+                ).show()
+                
+                // Remove from list and load next
+                imageFiles.remove(imageUrl)
+                
+                if (imageFiles.isEmpty()) {
+                    showNoFilesState()
+                    return@withContext
+                }
+                
+                if (currentIndex >= imageFiles.size) {
+                    currentIndex = imageFiles.size - 1
+                }
+                loadMedia()
             } else {
                 android.widget.Toast.makeText(
                     this@SortActivity,
@@ -1370,8 +1370,63 @@ class SortActivity : AppCompatActivity() {
             }
         }
     }
-
-    private fun renameCurrentMedia() {
+    
+    private suspend fun handleDeleteResult(deleteResult: SmbClient.DeleteResult, imageUrl: String) {
+        withContext(Dispatchers.Main) {
+            binding.copyProgressLayout.visibility = View.GONE
+            
+            when (deleteResult) {
+                is SmbClient.DeleteResult.Success -> {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "File deleted",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    
+                    // Remove from list and load next
+                    imageFiles.remove(imageUrl)
+                    
+                    if (imageFiles.isEmpty()) {
+                        showNoFilesState()
+                        return@withContext
+                    }
+                    
+                    if (currentIndex >= imageFiles.size) {
+                        currentIndex = imageFiles.size - 1
+                    }
+                    loadMedia()
+                }
+                is SmbClient.DeleteResult.FileNotFound -> {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "File not found",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+                is SmbClient.DeleteResult.SecurityError -> {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Access denied: ${deleteResult.message}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+                is SmbClient.DeleteResult.NetworkError -> {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Network error: ${deleteResult.message}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+                is SmbClient.DeleteResult.UnknownError -> {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Error: ${deleteResult.message}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }    private fun renameCurrentMedia() {
         if (imageFiles.isEmpty()) return
         
         val currentUrl = imageFiles[currentIndex]
@@ -1430,27 +1485,70 @@ class SortActivity : AppCompatActivity() {
                     val folderPath = oldUrl.substringBeforeLast('/')
                     newUrl = "$folderPath/$newFileName"
                     
-                    // Check if file with new name already exists
-                    if (smbClient.fileExists(newUrl)) {
-                        withContext(Dispatchers.Main) {
-                            binding.copyProgressLayout.visibility = View.GONE
-                            android.widget.Toast.makeText(
-                                this@SortActivity,
-                                "File with this name already exists",
-                                android.widget.Toast.LENGTH_LONG
-                            ).show()
-                        }
-                        return@launch
-                    }
+                    val renameResult = smbClient.renameFile(oldUrl, newUrl)
                     
-                    success = smbClient.renameFile(oldUrl, newUrl)
+                    withContext(Dispatchers.Main) {
+                        binding.copyProgressLayout.visibility = View.GONE
+                        
+                        when (renameResult) {
+                            is SmbClient.RenameResult.Success -> {
+                                // Update the list with new URL
+                                imageFiles[currentIndex] = newUrl
+                                
+                                android.widget.Toast.makeText(
+                                    this@SortActivity,
+                                    "File renamed successfully",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                                
+                                // Reload current media with new name
+                                loadMedia()
+                            }
+                            is SmbClient.RenameResult.SourceNotFound -> {
+                                android.widget.Toast.makeText(
+                                    this@SortActivity,
+                                    "Source file not found",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                            is SmbClient.RenameResult.TargetExists -> {
+                                android.widget.Toast.makeText(
+                                    this@SortActivity,
+                                    "File with this name already exists",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                            is SmbClient.RenameResult.SecurityError -> {
+                                android.widget.Toast.makeText(
+                                    this@SortActivity,
+                                    "Access denied: ${renameResult.message}",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                            is SmbClient.RenameResult.NetworkError -> {
+                                android.widget.Toast.makeText(
+                                    this@SortActivity,
+                                    "Network error: ${renameResult.message}",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                            is SmbClient.RenameResult.UnknownError -> {
+                                android.widget.Toast.makeText(
+                                    this@SortActivity,
+                                    "Error: ${renameResult.message}",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    }
+                    return@launch
                 }
                 
                 withContext(Dispatchers.Main) {
                     binding.copyProgressLayout.visibility = View.GONE
                     
                     if (success) {
-                        // Update the list with new URL
+                        // Update the list with new URL (for local mode)
                         imageFiles[currentIndex] = newUrl
                         
                         android.widget.Toast.makeText(
