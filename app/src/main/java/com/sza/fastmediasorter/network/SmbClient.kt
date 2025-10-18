@@ -612,6 +612,44 @@ class SmbClient {
         }
     }
     
+    suspend fun renameFile(oldUrl: String, newUrl: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val currentContext = context ?: return@withContext false
+                
+                val oldFile = SmbFile(oldUrl, currentContext)
+                val newFile = SmbFile(newUrl, currentContext)
+                
+                if (!oldFile.exists()) {
+                    return@withContext false
+                }
+                
+                if (newFile.exists()) {
+                    return@withContext false
+                }
+                
+                oldFile.renameTo(newFile)
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+        }
+    }
+    
+    suspend fun fileExists(fileUrl: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val currentContext = context ?: return@withContext false
+                val smbFile = SmbFile(fileUrl, currentContext)
+                smbFile.exists()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+        }
+    }
+    
     fun disconnect() {
         context = null
     }

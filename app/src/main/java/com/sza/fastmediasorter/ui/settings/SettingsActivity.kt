@@ -368,6 +368,9 @@ class SettingsFragment : Fragment() {
         // Load confirm delete setting
         binding.confirmDeleteCheckbox.isChecked = preferenceManager.isConfirmDelete()
         
+        // Load allow rename setting
+        binding.allowRenameCheckbox.isChecked = preferenceManager.isAllowRename()
+        
         // Load show controls setting
         binding.showControlsCheckbox.isChecked = preferenceManager.isShowControls()
         
@@ -415,6 +418,11 @@ class SettingsFragment : Fragment() {
         // Save confirm delete on change
         binding.confirmDeleteCheckbox.setOnCheckedChangeListener { _, isChecked ->
             preferenceManager.setConfirmDelete(isChecked)
+        }
+        
+        // Save allow rename on change
+        binding.allowRenameCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setAllowRename(isChecked)
         }
         
         // Save show controls on change

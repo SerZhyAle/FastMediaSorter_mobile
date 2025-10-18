@@ -352,4 +352,77 @@ android.content.pm.PackageManager.PERMISSION_GRANTED
 }
 }
 }
+
+suspend fun renameFile(uri: Uri, newFileName: String): Pair<Boolean, String>? = withContext(Dispatchers.IO) {
+try {
+android.util.Log.d("LocalStorageClient", "Attempting to rename file: $uri to $newFileName")
+
+// Get current file info
+val projection = arrayOf(
+android.provider.MediaStore.MediaColumns._ID,
+android.provider.MediaStore.MediaColumns.DISPLAY_NAME,
+android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+android.provider.MediaStore.MediaColumns.MIME_TYPE
+)
+
+val cursor = context.contentResolver.query(uri, projection, null, null, null)
+cursor?.use {
+if (it.moveToFirst()) {
+val idColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID)
+val nameColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
+val pathColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.RELATIVE_PATH)
+val mimeColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.MIME_TYPE)
+
+val id = it.getLong(idColumn)
+val oldName = it.getString(nameColumn)
+val relativePath = it.getString(pathColumn)
+val mimeType = it.getString(mimeColumn)
+
+android.util.Log.d("LocalStorageClient", "Old name: $oldName, New name: $newFileName")
+android.util.Log.d("LocalStorageClient", "Path: $relativePath, MIME: $mimeType")
+
+// Check if file with new name already exists
+val collection = when {
+mimeType.startsWith("image/") -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+mimeType.startsWith("video/") -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+else -> return@withContext Pair(false, uri.toString())
 }
+
+val checkSelection = "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.MediaColumns.RELATIVE_PATH} = ?"
+val checkArgs = arrayOf(newFileName, relativePath)
+val checkCursor = context.contentResolver.query(collection, arrayOf(android.provider.MediaStore.MediaColumns._ID), checkSelection, checkArgs, null)
+val exists = checkCursor?.use { it.count > 0 } ?: false
+checkCursor?.close()
+
+if (exists) {
+android.util.Log.d("LocalStorageClient", "File with new name already exists")
+return@withContext Pair(false, uri.toString())
+}
+
+// Perform rename using ContentValues
+val values = android.content.ContentValues().apply {
+put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, newFileName)
+}
+
+val updated = context.contentResolver.update(uri, values, null, null)
+if (updated > 0) {
+android.util.Log.d("LocalStorageClient", "File renamed successfully")
+// Create new URI for renamed file
+val newUri = android.content.ContentUris.withAppendedId(collection, id)
+return@withContext Pair(true, newUri.toString())
+} else {
+android.util.Log.d("LocalStorageClient", "Failed to rename file")
+return@withContext Pair(false, uri.toString())
+}
+}
+}
+
+android.util.Log.d("LocalStorageClient", "Failed to query file info")
+return@withContext Pair(false, uri.toString())
+} catch (e: Exception) {
+android.util.Log.e("LocalStorageClient", "Error renaming file", e)
+return@withContext Pair(false, uri.toString())
+}
+}
+}
+

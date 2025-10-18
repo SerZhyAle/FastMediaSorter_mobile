@@ -120,6 +120,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <CheckBox
+        android:id="@+id/allowRenameCheckbox"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Allow renaming"
+        android:textSize="16sp"
+        app:layout_constraintTop_toBottomOf="@id/confirmDeleteCheckbox"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <TextView
         android:id="@+id/slideshowSettingsLabel"
         android:layout_width="wrap_content"
@@ -129,7 +140,7 @@
         android:textSize="14sp"
         android:textStyle="bold"
         android:textColor="#666666"
-        app:layout_constraintTop_toBottomOf="@id/confirmDeleteCheckbox"
+        app:layout_constraintTop_toBottomOf="@id/allowRenameCheckbox"
         app:layout_constraintStart_toStartOf="parent" />
 
     <CheckBox

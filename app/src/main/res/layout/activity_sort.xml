@@ -467,6 +467,20 @@
             android:textColor="#FFFFFF"
             android:visibility="gone" />
 
+        <!-- Rename button -->
+        <Button
+            android:id="@+id/renameButton"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Rename"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:backgroundTint="#1976D2"
+            android:textColor="#FFFFFF"
+            android:visibility="gone" />
+
     </LinearLayout>
 
     <!-- Back button (top left corner) -->

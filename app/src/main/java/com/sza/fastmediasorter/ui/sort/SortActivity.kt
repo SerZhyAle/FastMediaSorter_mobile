@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.View
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
@@ -47,7 +48,7 @@ class SortActivity : AppCompatActivity() {
     private var localStorageClient: LocalStorageClient? = null
     
     private var currentConfig: ConnectionConfig? = null
-    private var imageFiles = listOf<String>()
+    private var imageFiles = mutableListOf<String>()
     private var currentIndex = 0
     private var sortDestinations = listOf<ConnectionConfig>()
     private var isLocalMode = false
@@ -241,6 +242,15 @@ class SortActivity : AppCompatActivity() {
         // Setup delete button click listener
         binding.deleteButton.setOnClickListener {
             deleteCurrentImage()
+        }
+        
+        // Hide/show rename button
+        val allowRename = preferenceManager.isAllowRename()
+        binding.renameButton.visibility = if (allowRename) View.VISIBLE else View.GONE
+        
+        // Setup rename button click listener
+        binding.renameButton.setOnClickListener {
+            renameCurrentMedia()
         }
         
         // Color shades for buttons
@@ -509,13 +519,11 @@ class SortActivity : AppCompatActivity() {
             
             // Remove from list and load next
             if (imageFiles.isNotEmpty()) {
-                imageFiles = imageFiles.toMutableList().apply {
-                    val index = indexOfFirst { it == uri.toString() }
-                    if (index != -1) {
-                        removeAt(index)
-                        if (currentIndex >= size) {
-                            currentIndex = size - 1
-                        }
+                val index = imageFiles.indexOfFirst { it == uri.toString() }
+                if (index != -1) {
+                    imageFiles.removeAt(index)
+                    if (currentIndex >= imageFiles.size) {
+                        currentIndex = imageFiles.size - 1
                     }
                 }
                 
@@ -592,24 +600,20 @@ class SortActivity : AppCompatActivity() {
                     
                     // Remove from list and load next on success
                     if (result is SmbClient.MoveResult.Success) {
-                        if (imageFiles.isNotEmpty()) {
-                            // Remove current file from list
-                            imageFiles = imageFiles.toMutableList().apply {
-                                removeAt(currentIndex)
-                            }
-                            
-                            // Check if list is now empty
-                            if (imageFiles.isEmpty()) {
-                                showNoFilesState()
-                                return@withContext
-                            }
-                            
-                            // Adjust index if we removed the last item
-                            if (currentIndex >= imageFiles.size) {
-                                currentIndex = imageFiles.size - 1
-                            }
-                            
-                            // Load media at current index (which is now the next file)
+                    if (imageFiles.isNotEmpty()) {
+                        // Remove current file from list
+                        imageFiles.removeAt(currentIndex)
+                        
+                        // Check if list is now empty
+                        if (imageFiles.isEmpty()) {
+                            showNoFilesState()
+                            return@withContext
+                        }
+                        
+                        // Adjust index if we removed the last item
+                        if (currentIndex >= imageFiles.size) {
+                            currentIndex = imageFiles.size - 1
+                        }                            // Load media at current index (which is now the next file)
                             loadMedia()
                         }
                     }
@@ -811,7 +815,8 @@ class SortActivity : AppCompatActivity() {
                         }
                         result.files
                     }
-                    imageFiles = files.sorted() // ABC order
+                    imageFiles.clear()
+                imageFiles.addAll(files.sorted()) // ABC order
                     
                     withContext(Dispatchers.Main) {
                         if (imageFiles.isNotEmpty()) {
@@ -1332,29 +1337,138 @@ class SortActivity : AppCompatActivity() {
                     this@SortActivity,
                     "File deleted",
                     android.widget.Toast.LENGTH_SHORT
-                ).show()
-                
-                // Remove from list and load next
-                imageFiles = imageFiles.toMutableList().apply {
-                    remove(imageUrl)
-                }
-                
-                if (imageFiles.isEmpty()) {
-                    showNoFilesState()
-                    return@withContext
-                }
-                
-                if (currentIndex >= imageFiles.size) {
-                    currentIndex = imageFiles.size - 1
-                }
-                
-                loadMedia()
+            ).show()
+            
+            // Remove from list and load next
+            imageFiles.remove(imageUrl)
+            
+            if (imageFiles.isEmpty()) {
+                showNoFilesState()
+                return@withContext
+            }
+            
+            if (currentIndex >= imageFiles.size) {
+                currentIndex = imageFiles.size - 1
+            }
+                            loadMedia()
             } else {
                 android.widget.Toast.makeText(
                     this@SortActivity,
                     "Failed to delete file",
                     android.widget.Toast.LENGTH_LONG
                 ).show()
+            }
+        }
+    }
+
+    private fun renameCurrentMedia() {
+        if (imageFiles.isEmpty()) return
+        
+        val currentUrl = imageFiles[currentIndex]
+        val currentFileName = currentUrl.substringAfterLast('/')
+        
+        // Create input dialog
+        val input = EditText(this)
+        input.setText(currentFileName)
+        input.selectAll()
+        input.inputType = android.text.InputType.TYPE_CLASS_TEXT
+        
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Rename Media")
+            .setMessage("Enter new filename:")
+            .setView(input)
+            .setPositiveButton("Rename") { _, _ ->
+                val newFileName = input.text.toString().trim()
+                if (newFileName.isNotEmpty() && newFileName != currentFileName) {
+                    performRename(currentUrl, newFileName)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+    
+    private fun performRename(oldUrl: String, newFileName: String) {
+        // Validate filename
+        val invalidChars = listOf('/', '\\', ':', '*', '?', '"', '<', '>', '|')
+        if (invalidChars.any { newFileName.contains(it) }) {
+            android.widget.Toast.makeText(
+                this,
+                "Filename contains invalid characters: / \\ : * ? \" < > |",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                binding.progressText.text = "Renaming..."
+                binding.copyProgressLayout.visibility = View.VISIBLE
+            }
+            
+            try {
+                val newUrl: String
+                val success: Boolean
+                
+                if (isLocalMode) {
+                    // Local storage rename
+                    val oldUri = Uri.parse(oldUrl)
+                    val result = localStorageClient?.renameFile(oldUri, newFileName)
+                    success = result?.first ?: false
+                    newUrl = result?.second ?: oldUrl
+                } else {
+                    // SMB rename
+                    val folderPath = oldUrl.substringBeforeLast('/')
+                    newUrl = "$folderPath/$newFileName"
+                    
+                    // Check if file with new name already exists
+                    if (smbClient.fileExists(newUrl)) {
+                        withContext(Dispatchers.Main) {
+                            binding.copyProgressLayout.visibility = View.GONE
+                            android.widget.Toast.makeText(
+                                this@SortActivity,
+                                "File with this name already exists",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        return@launch
+                    }
+                    
+                    success = smbClient.renameFile(oldUrl, newUrl)
+                }
+                
+                withContext(Dispatchers.Main) {
+                    binding.copyProgressLayout.visibility = View.GONE
+                    
+                    if (success) {
+                        // Update the list with new URL
+                        imageFiles[currentIndex] = newUrl
+                        
+                        android.widget.Toast.makeText(
+                            this@SortActivity,
+                            "File renamed successfully",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        
+                        // Reload current media with new name
+                        loadMedia()
+                    } else {
+                        android.widget.Toast.makeText(
+                            this@SortActivity,
+                            "Failed to rename file",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    binding.copyProgressLayout.visibility = View.GONE
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Error renaming file: ${e.message}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+                e.printStackTrace()
             }
         }
     }

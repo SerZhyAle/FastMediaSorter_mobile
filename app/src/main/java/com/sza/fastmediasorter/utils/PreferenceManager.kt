@@ -35,6 +35,7 @@ class PreferenceManager(context: Context) {
         private const val KEY_ALLOW_COPY = "allow_copy"
         private const val KEY_ALLOW_DELETE = "allow_delete"
         private const val KEY_CONFIRM_DELETE = "confirm_delete"
+        private const val KEY_ALLOW_RENAME = "allow_rename"
         private const val KEY_LOCAL_URI = "local_uri"
         private const val KEY_LOCAL_BUCKET_NAME = "local_bucket_name"
         private const val KEY_CONNECTION_TYPE = "connection_type"
@@ -164,6 +165,13 @@ class PreferenceManager(context: Context) {
     }
     
     fun isConfirmDelete(): Boolean = prefs.getBoolean(KEY_CONFIRM_DELETE, true)
+    
+    // Allow renaming
+    fun setAllowRename(allow: Boolean) {
+        prefs.edit().putBoolean(KEY_ALLOW_RENAME, allow).apply()
+    }
+    
+    fun isAllowRename(): Boolean = prefs.getBoolean(KEY_ALLOW_RENAME, false)
     
     // Show controls in slideshow
     fun setShowControls(show: Boolean) {
