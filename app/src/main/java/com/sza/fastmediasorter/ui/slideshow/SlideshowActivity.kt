@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.FrameLayout
@@ -14,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.sza.fastmediasorter.databinding.ActivitySlideshowBinding
 import com.sza.fastmediasorter.network.ImageRepository
+import com.sza.fastmediasorter.network.LocalStorageClient
 import com.sza.fastmediasorter.network.SmbClient
 import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Job
@@ -24,6 +26,8 @@ class SlideshowActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySlideshowBinding
     private lateinit var imageRepository: ImageRepository
     private lateinit var preferenceManager: PreferenceManager
+    private var localStorageClient: LocalStorageClient? = null
+    private var isLocalMode = false
     
     private var images: List<String> = emptyList()
     private var sortedImages: List<String> = emptyList()
@@ -52,6 +56,11 @@ class SlideshowActivity : AppCompatActivity() {
         
         preferenceManager = PreferenceManager(this)
         imageRepository = ImageRepository(SmbClient(), preferenceManager)
+        
+        isLocalMode = preferenceManager.getConnectionType() == "LOCAL"
+        if (isLocalMode) {
+            localStorageClient = LocalStorageClient(this)
+        }
         
         setupFullscreen()
         
@@ -247,37 +256,73 @@ class SlideshowActivity : AppCompatActivity() {
         binding.progressBar.visibility = View.VISIBLE
         
         lifecycleScope.launch {
-            imageRepository.loadImages()
-                .onSuccess { imageList ->
-                    // Save sorted list
-                    sortedImages = imageList.sorted()
-                    
-                    // Load shuffle mode preference
-                    isShuffleMode = preferenceManager.isShuffleMode()
-                    
-                    // Apply current mode
-                    images = if (isShuffleMode) {
-                        sortedImages.shuffled()
-                    } else {
-                        sortedImages
-                    }
-                    
-                    if (images.isNotEmpty()) {
-                        // Validate currentIndex
-                        if (currentIndex >= images.size) {
-                            currentIndex = 0
+            if (isLocalMode) {
+                loadLocalImages()
+            } else {
+                imageRepository.loadImages()
+                    .onSuccess { imageList ->
+                        // Save sorted list
+                        sortedImages = imageList.sorted()
+                        
+                        // Load shuffle mode preference
+                        isShuffleMode = preferenceManager.isShuffleMode()
+                        
+                        // Apply current mode
+                        images = if (isShuffleMode) {
+                            sortedImages.shuffled()
+                        } else {
+                            sortedImages
                         }
-                        startSlideshow()
-                    } else {
-                        showError("No images found")
+                        
+                        if (images.isNotEmpty()) {
+                            // Validate currentIndex
+                            if (currentIndex >= images.size) {
+                                currentIndex = 0
+                            }
+                            startSlideshow()
+                        } else {
+                            showError("No images found")
+                        }
                     }
-                }
-                .onFailure { error ->
-                    preferenceManager.clearLastSession()
-                    showError("Loading error: ${error.message}")
-                }
+                    .onFailure { error ->
+                        preferenceManager.clearLastSession()
+                        showError("Loading error: ${error.message}")
+                    }
+            }
             
             binding.progressBar.visibility = View.GONE
+        }
+    }
+    
+    private suspend fun loadLocalImages() {
+        try {
+            val localUri = preferenceManager.getLocalUri()
+            val bucketName = preferenceManager.getLocalBucketName()
+            
+            val folderUri = if (localUri.isNotEmpty()) Uri.parse(localUri) else null
+            val imageInfoList = localStorageClient?.getImageFiles(folderUri, bucketName.ifEmpty { null }) ?: emptyList()
+            
+            val imageUris = imageInfoList.map { it.uri.toString() }
+            sortedImages = imageUris.sorted()
+            
+            isShuffleMode = preferenceManager.isShuffleMode()
+            images = if (isShuffleMode) {
+                sortedImages.shuffled()
+            } else {
+                sortedImages
+            }
+            
+            if (images.isNotEmpty()) {
+                if (currentIndex >= images.size) {
+                    currentIndex = 0
+                }
+                startSlideshow()
+            } else {
+                showError("No images found")
+            }
+        } catch (e: Exception) {
+            preferenceManager.clearLastSession()
+            showError("Error loading local images: ${e.message}")
         }
     }
     
@@ -367,7 +412,11 @@ class SlideshowActivity : AppCompatActivity() {
                 nextImageIndex = -1
                 preloaded
             } else {
-                imageRepository.downloadImage(imageUrl)
+                if (isLocalMode) {
+                    localStorageClient?.downloadImage(Uri.parse(imageUrl))
+                } else {
+                    imageRepository.downloadImage(imageUrl)
+                }
             }
             
             imageData?.let { data ->
@@ -394,7 +443,11 @@ class SlideshowActivity : AppCompatActivity() {
         try {
             if (nextIndex < images.size) {
                 val imageUrl = images[nextIndex]
-                val imageData = imageRepository.downloadImage(imageUrl)
+                val imageData = if (isLocalMode) {
+                    localStorageClient?.downloadImage(Uri.parse(imageUrl))
+                } else {
+                    imageRepository.downloadImage(imageUrl)
+                }
                 
                 // Store preloaded data
                 nextImageData = imageData

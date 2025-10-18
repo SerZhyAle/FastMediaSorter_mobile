@@ -48,6 +48,8 @@ binding.viewPager.offscreenPageLimit = 2
 binding.viewPager.post {
 val networkFragment = supportFragmentManager.findFragmentByTag("f1") as? NetworkFragment
 networkFragment?.let { setupNetworkFragmentCallbacks(it) }
+val localFragment = supportFragmentManager.findFragmentByTag("f0") as? com.sza.fastmediasorter.ui.local.LocalFoldersFragment
+localFragment?.let { setupLocalFragmentCallbacks(it) }
 }
 binding.intervalInput.setOnFocusChangeListener { _, hasFocus ->
 if (!hasFocus) {
@@ -82,6 +84,55 @@ loadConfigAndStartSlideshow(config)
 }
 }
 
+private fun setupLocalFragmentCallbacks(fragment: com.sza.fastmediasorter.ui.local.LocalFoldersFragment) {
+fragment.onFolderSelected = { folder ->
+lifecycleScope.launch {
+val config = if (folder.isCustom) {
+viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
+} else {
+viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
+?: createTempLocalConfig(folder.name, "", folder.name)
+}
+config?.let {
+currentConfigId = it.id
+binding.intervalInput.setText(it.interval.toString())
+}
+}
+}
+fragment.onFolderDoubleClick = { folder ->
+lifecycleScope.launch {
+val config = if (folder.isCustom) {
+viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
+} else {
+viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
+?: createTempLocalConfig(folder.name, "", folder.name)
+}
+config?.let {
+val interval = binding.intervalInput.text.toString().toIntOrNull() ?: it.interval
+val updatedConfig = it.copy(interval = interval)
+if (it.id > 0) viewModel.updateConfig(updatedConfig)
+loadConfigAndStartSlideshow(updatedConfig)
+}
+}
+}
+}
+
+private fun createTempLocalConfig(name: String, uri: String, bucketName: String): com.sza.fastmediasorter.data.ConnectionConfig {
+return com.sza.fastmediasorter.data.ConnectionConfig(
+id = 0,
+name = name,
+serverAddress = "",
+username = "",
+password = "",
+folderPath = "",
+interval = binding.intervalInput.text.toString().toIntOrNull() ?: 10,
+lastUsed = System.currentTimeMillis(),
+type = "LOCAL_CUSTOM",
+localUri = uri,
+localDisplayName = bucketName
+)
+}
+
 private fun tryAutoResumeSession() {
 val lastFolderAddress = preferenceManager.getLastFolderAddress()
 if (lastFolderAddress.isEmpty()) {
@@ -97,20 +148,26 @@ preferenceManager.clearLastSession()
 }
 }
 
-private fun loadConfigAndStartSlideshow(config: ConnectionConfig) {
-preferenceManager.saveConnectionSettings(
-config.serverAddress,
-config.username,
-config.password,
-config.folderPath
-)
-preferenceManager.setInterval(config.interval)
-viewModel.updateLastUsed(config.id)
-val intent = Intent(this, SlideshowActivity::class.java)
-startActivity(intent)
-}
-
-private fun setupClickListeners() {
+    private fun loadConfigAndStartSlideshow(config: ConnectionConfig) {
+        if (config.type == "LOCAL_CUSTOM") {
+            preferenceManager.saveLocalFolderSettings(
+                config.localUri ?: "",
+                config.localDisplayName ?: "",
+                config.interval
+            )
+        } else {
+            preferenceManager.saveConnectionSettings(
+                config.serverAddress,
+                config.username,
+                config.password,
+                config.folderPath
+            )
+            preferenceManager.setInterval(config.interval)
+        }
+        viewModel.updateLastUsed(config.id)
+        val intent = Intent(this, SlideshowActivity::class.java)
+        startActivity(intent)
+    }private fun setupClickListeners() {
 binding.slideshowButton.setOnClickListener {
 currentConfigId?.let { configId ->
 lifecycleScope.launch {

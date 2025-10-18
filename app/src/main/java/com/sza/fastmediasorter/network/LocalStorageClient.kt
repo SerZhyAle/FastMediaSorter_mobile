@@ -17,7 +17,10 @@ val dateModified: Long
 )
 
 class LocalStorageClient(private val context: Context) {
-suspend fun getImageFiles(folderUri: Uri?): List<LocalImageInfo> = withContext(Dispatchers.IO) {
+suspend fun getImageFiles(folderUri: Uri?, bucketName: String? = null): List<LocalImageInfo> = withContext(Dispatchers.IO) {
+if (bucketName != null) {
+return@withContext getImageFilesByBucketName(bucketName)
+}
 if (folderUri == null) {
 return@withContext emptyList()
 }
@@ -104,6 +107,49 @@ e.printStackTrace()
 return@withContext folders
 }
 
+suspend fun getImageFilesByBucketName(bucketName: String): List<LocalImageInfo> = withContext(Dispatchers.IO) {
+val images = mutableListOf<LocalImageInfo>()
+val projection = arrayOf(
+MediaStore.Images.Media._ID,
+MediaStore.Images.Media.DISPLAY_NAME,
+MediaStore.Images.Media.SIZE,
+MediaStore.Images.Media.DATE_MODIFIED,
+MediaStore.Images.Media.BUCKET_DISPLAY_NAME
+)
+val selection = "${MediaStore.Images.Media.BUCKET_DISPLAY_NAME} = ?"
+val selectionArgs = arrayOf(bucketName)
+val sortOrder = "${MediaStore.Images.Media.DISPLAY_NAME} ASC"
+try {
+context.contentResolver.query(
+MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+projection,
+selection,
+selectionArgs,
+sortOrder
+)?.use { cursor ->
+val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
+val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
+val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
+while (cursor.moveToNext()) {
+val id = cursor.getLong(idColumn)
+val uri = Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id.toString())
+images.add(
+LocalImageInfo(
+uri = uri,
+name = cursor.getString(nameColumn),
+size = cursor.getLong(sizeColumn),
+dateModified = cursor.getLong(dateColumn) * 1000
+)
+)
+}
+}
+} catch (e: Exception) {
+e.printStackTrace()
+}
+return@withContext images
+}
+
 suspend fun downloadImage(uri: Uri): ByteArray? = withContext(Dispatchers.IO) {
 try {
 context.contentResolver.openInputStream(uri)?.use { input ->
@@ -135,6 +181,16 @@ null
 }
 } catch (e: Exception) {
 null
+}
+}
+
+suspend fun deleteImage(uri: Uri): Boolean = withContext(Dispatchers.IO) {
+try {
+val deleted = context.contentResolver.delete(uri, null, null)
+return@withContext deleted > 0
+} catch (e: Exception) {
+e.printStackTrace()
+return@withContext false
 }
 }
 

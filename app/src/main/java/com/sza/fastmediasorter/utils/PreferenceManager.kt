@@ -35,6 +35,9 @@ class PreferenceManager(context: Context) {
         private const val KEY_ALLOW_COPY = "allow_copy"
         private const val KEY_ALLOW_DELETE = "allow_delete"
         private const val KEY_CONFIRM_DELETE = "confirm_delete"
+        private const val KEY_LOCAL_URI = "local_uri"
+        private const val KEY_LOCAL_BUCKET_NAME = "local_bucket_name"
+        private const val KEY_CONNECTION_TYPE = "connection_type"
     }
     
     init {
@@ -61,11 +64,25 @@ class PreferenceManager(context: Context) {
             putString(KEY_SERVER_ADDRESS, server)
             putString(KEY_USERNAME, username)
             putString(KEY_FOLDER_PATH, folder)
+            putString(KEY_CONNECTION_TYPE, "SMB")
             apply()
         }
         encryptedPrefs.edit().putString(KEY_PASSWORD, password).apply()
     }
     
+    fun saveLocalFolderSettings(localUri: String, bucketName: String, interval: Int) {
+        prefs.edit().apply {
+            putString(KEY_LOCAL_URI, localUri)
+            putString(KEY_LOCAL_BUCKET_NAME, bucketName)
+            putInt(KEY_INTERVAL, interval)
+            putString(KEY_CONNECTION_TYPE, "LOCAL")
+            apply()
+        }
+    }
+    
+    fun getConnectionType(): String = prefs.getString(KEY_CONNECTION_TYPE, "SMB") ?: "SMB"
+    fun getLocalUri(): String = prefs.getString(KEY_LOCAL_URI, "") ?: ""
+    fun getLocalBucketName(): String = prefs.getString(KEY_LOCAL_BUCKET_NAME, "") ?: ""
     fun getServerAddress(): String = prefs.getString(KEY_SERVER_ADDRESS, "") ?: ""
     fun getUsername(): String = prefs.getString(KEY_USERNAME, "") ?: ""
     fun getPassword(): String = encryptedPrefs.getString(KEY_PASSWORD, "") ?: ""

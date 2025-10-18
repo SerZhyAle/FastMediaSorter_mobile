@@ -143,6 +143,57 @@ class SmbClient {
         data class UnknownError(val message: String) : MoveResult()
     }
     
+    suspend fun writeFile(
+        targetServer: String,
+        targetFolder: String,
+        fileName: String,
+        data: ByteArray
+    ): CopyResult {
+        return withContext(Dispatchers.IO) {
+            try {
+                val cleanTargetServer = targetServer.trim()
+                    .removePrefix("smb://")
+                    .removePrefix("\\\\")
+                    .replace("\\", "/")
+                
+                val cleanTargetFolder = targetFolder.trim()
+                    .removePrefix("/")
+                    .removePrefix("\\")
+                    .replace("\\", "/")
+                
+                val targetUrl = "smb://$cleanTargetServer/$cleanTargetFolder/"
+                val targetDir = SmbFile(targetUrl, context)
+                
+                if (!targetDir.exists()) {
+                    try {
+                        targetDir.mkdirs()
+                    } catch (e: Exception) {
+                        return@withContext CopyResult.SecurityError("Cannot create target folder: ${e.message}")
+                    }
+                }
+                
+                val targetFile = SmbFile(targetDir, fileName)
+                
+                if (targetFile.exists()) {
+                    return@withContext CopyResult.AlreadyExists
+                }
+                
+                targetFile.openOutputStream().use { output ->
+                    output.write(data)
+                }
+                
+                CopyResult.Success
+            } catch (e: jcifs.smb.SmbAuthException) {
+                CopyResult.SecurityError("Authentication failed: ${e.message}")
+            } catch (e: jcifs.smb.SmbException) {
+                CopyResult.NetworkError("SMB error: ${e.message}")
+            } catch (e: Exception) {
+                e.printStackTrace()
+                CopyResult.UnknownError(e.message ?: "Unknown error")
+            }
+        }
+    }
+    
     suspend fun copyFile(
         sourceUrl: String,
         targetServer: String,

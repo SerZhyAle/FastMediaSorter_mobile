@@ -1,5 +1,6 @@
 package com.sza.fastmediasorter.ui.sort
 
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
@@ -8,6 +9,7 @@ import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.sza.fastmediasorter.data.ConnectionConfig
 import com.sza.fastmediasorter.databinding.ActivitySortBinding
+import com.sza.fastmediasorter.network.LocalStorageClient
 import com.sza.fastmediasorter.network.SmbClient
 import com.sza.fastmediasorter.ui.ConnectionViewModel
 import com.sza.fastmediasorter.utils.PreferenceManager
@@ -22,11 +24,13 @@ class SortActivity : AppCompatActivity() {
     private lateinit var viewModel: ConnectionViewModel
     private lateinit var smbClient: SmbClient
     private lateinit var preferenceManager: PreferenceManager
+    private var localStorageClient: LocalStorageClient? = null
     
     private var currentConfig: ConnectionConfig? = null
     private var imageFiles = listOf<String>()
     private var currentIndex = 0
     private var sortDestinations = listOf<ConnectionConfig>()
+    private var isLocalMode = false
     
     // Preloading optimization
     private var nextImageData: ByteArray? = null
@@ -195,11 +199,17 @@ class SortActivity : AppCompatActivity() {
             }
             
             try {
-                val result = smbClient.copyFile(
-                    currentImageUrl,
-                    destination.serverAddress,
-                    destination.folderPath
-                )
+                val result = if (isLocalMode && destination.type == "SMB") {
+                    copyFromLocalToSmb(currentImageUrl, destination)
+                } else if (!isLocalMode && destination.type == "SMB") {
+                    smbClient.copyFile(
+                        currentImageUrl,
+                        destination.serverAddress,
+                        destination.folderPath
+                    )
+                } else {
+                    SmbClient.CopyResult.UnknownError("Unsupported operation")
+                }
                 
                 withContext(Dispatchers.Main) {
                     // Hide progress
@@ -251,6 +261,49 @@ class SortActivity : AppCompatActivity() {
         }
     }
     
+    private suspend fun copyFromLocalToSmb(localUri: String, destination: ConnectionConfig): SmbClient.CopyResult {
+        return try {
+            val uri = Uri.parse(localUri)
+            val imageBytes = localStorageClient?.downloadImage(uri) ?: return SmbClient.CopyResult.UnknownError("Failed to read local file")
+            val fileName = localStorageClient?.getFileInfo(uri)?.name ?: "unknown.jpg"
+            
+            // Connect to destination SMB if needed
+            val destClient = SmbClient()
+            val connected = destClient.connect(destination.serverAddress, destination.username, destination.password)
+            if (!connected) {
+                return SmbClient.CopyResult.NetworkError("Failed to connect to destination")
+            }
+            
+            // Write file to SMB
+            destClient.writeFile(destination.serverAddress, destination.folderPath, fileName, imageBytes)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            SmbClient.CopyResult.UnknownError(e.message ?: "Unknown error")
+        }
+    }
+    
+    private suspend fun moveFromLocalToSmb(localUri: String, destination: ConnectionConfig): SmbClient.MoveResult {
+        return try {
+            val copyResult = copyFromLocalToSmb(localUri, destination)
+            
+            if (copyResult is SmbClient.CopyResult.Success) {
+                val uri = Uri.parse(localUri)
+                val deleted = localStorageClient?.deleteImage(uri) ?: false
+                
+                if (deleted) {
+                    SmbClient.MoveResult.Success
+                } else {
+                    SmbClient.MoveResult.DeleteError("Failed to delete local file after copy")
+                }
+            } else {
+                SmbClient.MoveResult.UnknownError("Copy failed")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            SmbClient.MoveResult.UnknownError(e.message ?: "Unknown error")
+        }
+    }
+    
     private fun moveToDestination(destination: ConnectionConfig) {
         if (imageFiles.isEmpty()) return
         
@@ -264,11 +317,17 @@ class SortActivity : AppCompatActivity() {
             }
             
             try {
-                val result = smbClient.moveFile(
-                    currentImageUrl,
-                    destination.serverAddress,
-                    destination.folderPath
-                )
+                val result = if (isLocalMode && destination.type == "SMB") {
+                    moveFromLocalToSmb(currentImageUrl, destination)
+                } else if (!isLocalMode && destination.type == "SMB") {
+                    smbClient.moveFile(
+                        currentImageUrl,
+                        destination.serverAddress,
+                        destination.folderPath
+                    )
+                } else {
+                    SmbClient.MoveResult.UnknownError("Unsupported operation")
+                }
                 
                 withContext(Dispatchers.Main) {
                     // Hide progress
@@ -357,56 +416,80 @@ class SortActivity : AppCompatActivity() {
         }
         
         currentConfig = config
-        smbClient = SmbClient()
+        isLocalMode = config.type == "LOCAL_CUSTOM"
         
-        withContext(Dispatchers.Main) {
-            // Display connection name and folder address
-            binding.connectionNameText.text = "${config.name} - ${config.serverAddress}\\${config.folderPath}"
-        }
-        
-        // Use default credentials if not set
-        var username = config.username
-        var password = config.password
-        if (username.isEmpty()) {
-            username = preferenceManager.getDefaultUsername()
-        }
-        if (password.isEmpty()) {
-            password = preferenceManager.getDefaultPassword()
-        }
-        
-        // Connect to SMB
-        val connected = withContext(Dispatchers.IO) {
-            smbClient.connect(config.serverAddress, username, password)
-        }
-        
-        if (!connected) {
+        if (isLocalMode) {
+            localStorageClient = LocalStorageClient(this@SortActivity)
+            smbClient = SmbClient() // Still need for destinations
+            
+            withContext(Dispatchers.Main) {
+                binding.connectionNameText.text = "Local: ${config.localDisplayName}"
+                android.widget.Toast.makeText(
+                    this@SortActivity,
+                    "Loading local images...",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+            
+            loadImages()
+        } else {
+            smbClient = SmbClient()
+            
+            withContext(Dispatchers.Main) {
+                binding.connectionNameText.text = "${config.name} - ${config.serverAddress}\\${config.folderPath}"
+            }
+            
+            // Use default credentials if not set
+            var username = config.username
+            var password = config.password
+            if (username.isEmpty()) {
+                username = preferenceManager.getDefaultUsername()
+            }
+            if (password.isEmpty()) {
+                password = preferenceManager.getDefaultPassword()
+            }
+            
+            // Connect to SMB
+            val connected = withContext(Dispatchers.IO) {
+                smbClient.connect(config.serverAddress, username, password)
+            }
+            
+            if (!connected) {
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Failed to connect to ${config.serverAddress}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    finish()
+                }
+                return
+            }
+            
             withContext(Dispatchers.Main) {
                 android.widget.Toast.makeText(
                     this@SortActivity,
-                    "Failed to connect to ${config.serverAddress}",
-                    android.widget.Toast.LENGTH_LONG
+                    "Connected. Loading images...",
+                    android.widget.Toast.LENGTH_SHORT
                 ).show()
-                finish()
             }
-            return
+            
+            loadImages()
         }
-        
-        withContext(Dispatchers.Main) {
-            android.widget.Toast.makeText(
-                this@SortActivity,
-                "Connected. Loading images...",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-        }
-        
-        loadImages()
     }
     
     private fun loadImages() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 currentConfig?.let { config ->
-                    val files = smbClient.getImageFiles(config.serverAddress, config.folderPath)
+                    val files = if (isLocalMode) {
+                        val localUri = if (!config.localUri.isNullOrEmpty()) Uri.parse(config.localUri) else null
+                        val bucketName = config.localDisplayName?.ifEmpty { null }
+                        val imageInfoList = localStorageClient?.getImageFiles(localUri, bucketName) ?: emptyList()
+                        imageInfoList.map { it.uri.toString() }
+                    } else {
+                        smbClient.getImageFiles(config.serverAddress, config.folderPath)
+                    }
                     imageFiles = files.sorted() // ABC order
                     
                     withContext(Dispatchers.Main) {
@@ -473,8 +556,23 @@ class SortActivity : AppCompatActivity() {
             // Load normally
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    val imageBytes = smbClient.downloadImage(imageUrl)
-                    val fileInfo = smbClient.getFileInfo(imageUrl)
+                    val imageBytes = if (isLocalMode) {
+                        localStorageClient?.downloadImage(Uri.parse(imageUrl))
+                    } else {
+                        smbClient.downloadImage(imageUrl)
+                    }
+                    
+                    val fileInfo = if (isLocalMode) {
+                        localStorageClient?.getFileInfo(Uri.parse(imageUrl))?.let {
+                            SmbClient.FileInfo(
+                                name = it.name,
+                                sizeKB = (it.size / 1024),
+                                modifiedDate = it.dateModified
+                            )
+                        }
+                    } else {
+                        smbClient.getFileInfo(imageUrl)
+                    }
                     
                     withContext(Dispatchers.Main) {
                         if (imageBytes != null) {
@@ -538,7 +636,11 @@ class SortActivity : AppCompatActivity() {
         preloadJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val nextImageUrl = imageFiles[nextIndex]
-                val imageBytes = smbClient.downloadImage(nextImageUrl)
+                val imageBytes = if (isLocalMode) {
+                    localStorageClient?.downloadImage(Uri.parse(nextImageUrl))
+                } else {
+                    smbClient.downloadImage(nextImageUrl)
+                }
                 
                 if (imageBytes != null) {
                     nextImageData = imageBytes
@@ -581,7 +683,12 @@ class SortActivity : AppCompatActivity() {
             }
             
             try {
-                val deleted = smbClient.deleteFile(imageUrl)
+                val deleted = if (isLocalMode) {
+                    val uri = Uri.parse(imageUrl)
+                    localStorageClient?.deleteImage(uri) ?: false
+                } else {
+                    smbClient.deleteFile(imageUrl)
+                }
                 
                 withContext(Dispatchers.Main) {
                     binding.copyProgressLayout.visibility = View.GONE

@@ -1,6 +1,8 @@
 package com.sza.fastmediasorter.ui
 
+import android.view.GestureDetector
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
@@ -45,8 +47,24 @@ class ConnectionAdapter(
         private val detailsText: TextView = itemView.findViewById(R.id.connectionDetails)
         private val deleteButton: ImageButton = itemView.findViewById(R.id.deleteButton)
         
-        private var lastClickTime: Long = 0
-        private val doubleClickDelay: Long = 300 // milliseconds
+        private val gestureDetector = GestureDetector(itemView.context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                val position = bindingAdapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    onItemClick(getItem(position))
+                    setSelectedPosition(position)
+                }
+                return true
+            }
+            
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                val position = bindingAdapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    onItemDoubleClick(getItem(position))
+                }
+                return true
+            }
+        })
         
         fun bind(config: ConnectionConfig, isSelected: Boolean) {
             nameText.text = config.name
@@ -60,18 +78,10 @@ class ConnectionAdapter(
                     itemView.context.getColor(android.R.color.transparent)
             )
             
-            itemView.setOnClickListener {
-                val currentTime = System.currentTimeMillis()
-                if (currentTime - lastClickTime < doubleClickDelay) {
-                    // Double click
-                    onItemDoubleClick(config)
-                    lastClickTime = 0
-                } else {
-                    // Single click
-                    onItemClick(config)
-                    setSelectedPosition(bindingAdapterPosition)
-                    lastClickTime = currentTime
-                }
+            itemView.setOnTouchListener { v, event ->
+                gestureDetector.onTouchEvent(event)
+                v.performClick()
+                true
             }
             
             deleteButton.setOnClickListener {

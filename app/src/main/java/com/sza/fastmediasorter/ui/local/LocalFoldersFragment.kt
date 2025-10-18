@@ -28,17 +28,20 @@ val isCustom: Boolean = false
 )
 
 class LocalFoldersFragment : Fragment() {
-private lateinit var rvLocalFolders: RecyclerView
-private lateinit var btnScanFolders: Button
-private lateinit var btnAddCustomFolder: Button
-private lateinit var tvNoPermission: TextView
-private lateinit var localClient: LocalStorageClient
-private lateinit var adapter: LocalFolderAdapter
-private val folders = mutableListOf<LocalFolder>()
-private val viewModel: ConnectionViewModel by activityViewModels()
-private val standardFolderNames = setOf("Camera", "Screenshots", "Pictures", "Download")
-
-private val pickFolderLauncher = registerForActivityResult(
+    private lateinit var rvLocalFolders: RecyclerView
+    private lateinit var btnScanFolders: Button
+    private lateinit var btnAddCustomFolder: Button
+    private lateinit var tvNoPermission: TextView
+    private lateinit var localClient: LocalStorageClient
+    private lateinit var adapter: LocalFolderAdapter
+    private val folders = mutableListOf<LocalFolder>()
+    private val viewModel: ConnectionViewModel by activityViewModels()
+    private val standardFolderNames = setOf("Camera", "Screenshots", "Pictures", "Download")
+    
+    var onFolderSelected: ((LocalFolder) -> Unit)? = null
+    var onFolderDoubleClick: ((LocalFolder) -> Unit)? = null
+    
+    private val pickFolderLauncher = registerForActivityResult(
 ActivityResultContracts.OpenDocumentTree()
 ) { uri ->
 uri?.let {
@@ -66,9 +69,9 @@ tvNoPermission = view.findViewById(R.id.tvNoPermission)
 localClient = LocalStorageClient(requireContext())
 adapter = LocalFolderAdapter(folders) { folder, isDoubleClick ->
 if (isDoubleClick) {
-// TODO: launch slideshow
+onFolderDoubleClick?.invoke(folder)
 } else {
-// TODO: select folder
+onFolderSelected?.invoke(folder)
 }
 }
 rvLocalFolders.layoutManager = LinearLayoutManager(requireContext())
@@ -138,26 +141,26 @@ adapter.notifyDataSetChanged()
 }
 }
 
-private fun scanAllFolders() {
-lifecycleScope.launch {
-Toast.makeText(requireContext(), R.string.scanning_folders, Toast.LENGTH_SHORT).show()
-try {
-val allFolders = localClient.scanAllImageFolders()
-var newFoldersCount = 0
-allFolders.forEach { (folderName, count) ->
-if (count > 0 && folderName !in standardFolderNames) {
-viewModel.addLocalCustomFolder(folderName, "")
-newFoldersCount++
-}
-}
-Toast.makeText(
-requireContext(),
-getString(R.string.scan_complete, newFoldersCount),
-Toast.LENGTH_LONG
-).show()
-} catch (e: Exception) {
-Toast.makeText(requireContext(), "Scan failed: ${e.message}", Toast.LENGTH_LONG).show()
-}
-}
-}
+    private fun scanAllFolders() {
+        lifecycleScope.launch {
+            Toast.makeText(requireContext(), R.string.scanning_folders, Toast.LENGTH_SHORT).show()
+            try {
+                val allFolders = localClient.scanAllImageFolders()
+                var newFoldersCount = 0
+                allFolders.forEach { (folderName, count) ->
+                    if (folderName !in standardFolderNames) {
+                        viewModel.addLocalCustomFolder(folderName, "")
+                        newFoldersCount++
+                    }
+                }
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.scan_complete, newFoldersCount),
+                    Toast.LENGTH_LONG
+                ).show()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Scan failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 }
