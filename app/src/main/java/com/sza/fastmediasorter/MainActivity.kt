@@ -101,8 +101,11 @@ tryAutoResumeSession()
 fragment.onConfigSelected = { config ->
 currentConfigId = config.id
 currentConfig = config
-val interval = binding.intervalInput.text.toString().toIntOrNull() ?: config.interval
-binding.intervalInput.setText(interval.toString())
+// Only update interval field if empty or invalid, don't overwrite user's input
+val currentInterval = binding.intervalInput.text.toString().toIntOrNull()
+if (currentInterval == null || currentInterval !in 1..300) {
+    binding.intervalInput.setText(config.interval.toString())
+}
 updateButtonsState()
 }
 fragment.onConfigDoubleClick = { config ->
@@ -124,7 +127,11 @@ createStandardLocalConfig(folder.name)
 config?.let {
 currentConfigId = it.id
 currentConfig = it
-binding.intervalInput.setText(it.interval.toString())
+// Only update interval field if empty or invalid, don't overwrite user's input
+val currentInterval = binding.intervalInput.text.toString().toIntOrNull()
+if (currentInterval == null || currentInterval !in 1..300) {
+    binding.intervalInput.setText(it.interval.toString())
+}
 updateButtonsState()
 }
 }
