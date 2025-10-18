@@ -28,6 +28,10 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
         repository.insertConfig(config)
     }
     
+    suspend fun insertConfigAndGetId(config: ConnectionConfig): Long {
+        return repository.insertConfig(config)
+    }
+    
     fun updateConfig(config: ConnectionConfig) = viewModelScope.launch {
         repository.updateConfig(config)
     }

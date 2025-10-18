@@ -14,6 +14,8 @@ class LocalFolderAdapter(
     private val onFolderClick: (LocalFolder, Boolean) -> Unit
 ) : RecyclerView.Adapter<LocalFolderAdapter.ViewHolder>() {
     
+    private var selectedPosition: Int = RecyclerView.NO_POSITION
+    
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvFolderIcon: TextView = view.findViewById(R.id.tvFolderIcon)
         val tvFolderName: TextView = view.findViewById(R.id.tvFolderName)
@@ -32,8 +34,20 @@ class LocalFolderAdapter(
         holder.tvFolderName.text = folder.name
         holder.tvFolderCount.text = "(${folder.count})"
         
+        // Highlight selected item
+        holder.itemView.setBackgroundColor(
+            if (position == selectedPosition)
+                holder.itemView.context.getColor(android.R.color.darker_gray)
+            else
+                holder.itemView.context.getColor(android.R.color.transparent)
+        )
+        
         val gestureDetector = GestureDetector(holder.itemView.context, object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                val oldPosition = selectedPosition
+                selectedPosition = holder.bindingAdapterPosition
+                notifyItemChanged(oldPosition)
+                notifyItemChanged(selectedPosition)
                 onFolderClick(folder, false)
                 return true
             }
@@ -48,6 +62,17 @@ class LocalFolderAdapter(
             gestureDetector.onTouchEvent(event)
             v.performClick()
             true
+        }
+    }
+    
+    fun setSelectedPosition(position: Int) {
+        val oldPosition = selectedPosition
+        selectedPosition = position
+        if (oldPosition != RecyclerView.NO_POSITION) {
+            notifyItemChanged(oldPosition)
+        }
+        if (selectedPosition != RecyclerView.NO_POSITION) {
+            notifyItemChanged(selectedPosition)
         }
     }
     

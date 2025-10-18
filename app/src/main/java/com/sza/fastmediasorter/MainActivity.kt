@@ -15,7 +15,9 @@ import com.sza.fastmediasorter.ui.MainPagerAdapter
 import com.sza.fastmediasorter.ui.network.NetworkFragment
 import com.sza.fastmediasorter.ui.slideshow.SlideshowActivity
 import com.sza.fastmediasorter.utils.PreferenceManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 private lateinit var binding: ActivityMainBinding
@@ -85,8 +87,13 @@ lifecycleScope.launch {
 val config = if (folder.isCustom) {
 viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
 } else {
-viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
-?: createTempLocalConfig(folder.name, "", folder.name)
+var existingConfig = viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
+if (existingConfig == null) {
+val tempConfig = createTempLocalConfig(folder.name, "", folder.name)
+val newId = viewModel.insertConfigAndGetId(tempConfig)
+existingConfig = tempConfig.copy(id = newId)
+}
+existingConfig
 }
 config?.let {
 currentConfigId = it.id
@@ -99,8 +106,13 @@ lifecycleScope.launch {
 val config = if (folder.isCustom) {
 viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
 } else {
-viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
-?: createTempLocalConfig(folder.name, "", folder.name)
+var existingConfig = viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
+if (existingConfig == null) {
+val tempConfig = createTempLocalConfig(folder.name, "", folder.name)
+val newId = viewModel.insertConfigAndGetId(tempConfig)
+existingConfig = tempConfig.copy(id = newId)
+}
+existingConfig
 }
 config?.let {
 val interval = binding.intervalInput.text.toString().toIntOrNull() ?: it.interval
