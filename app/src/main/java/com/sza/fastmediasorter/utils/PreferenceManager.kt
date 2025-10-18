@@ -4,10 +4,18 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import org.bouncycastle.jce.provider.BouncyCastleProvider
+import java.security.Security
 
 class PreferenceManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
     private val encryptedPrefs: SharedPreferences by lazy {
+        try {
+            Security.removeProvider("BC")
+            Security.addProvider(BouncyCastleProvider())
+        } catch (e: Exception) {
+            android.util.Log.w("PreferenceManager", "BouncyCastle provider setup warning", e)
+        }
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
@@ -39,6 +47,7 @@ class PreferenceManager(context: Context) {
         private const val KEY_LOCAL_BUCKET_NAME = "local_bucket_name"
         private const val KEY_CONNECTION_TYPE = "connection_type"
         private const val KEY_SHOW_CONTROLS = "show_controls"
+        private const val KEY_FIRST_LAUNCH = "first_launch"
     }
     
     init {
@@ -166,4 +175,11 @@ class PreferenceManager(context: Context) {
     }
     
     fun isShowControls(): Boolean = prefs.getBoolean(KEY_SHOW_CONTROLS, true)
+    
+    // First launch flag
+    fun isFirstLaunch(): Boolean = prefs.getBoolean(KEY_FIRST_LAUNCH, true)
+    
+    fun setFirstLaunchComplete() {
+        prefs.edit().putBoolean(KEY_FIRST_LAUNCH, false).apply()
+    }
 }

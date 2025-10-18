@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+<LinearLayout
+    android:id="@+id/touchZonesContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -13,7 +18,7 @@
         android:text="@string/touch_zones_title"
         android:textSize="20sp"
         android:textStyle="bold"
-        android:textColor="@android:color/black" />
+        android:textColor="@android:color/white" />
 
     <FrameLayout
         android:layout_width="match_parent"
@@ -148,3 +153,16 @@
         android:textColor="@android:color/darker_gray" />
 
 </LinearLayout>
+
+<TextView
+    android:id="@+id/buttonControlsInfo"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:padding="32dp"
+    android:text="Button controls are enabled.\n\nDuring slideshow, you'll see a panel with buttons at the bottom of the screen:\n\n◄ Back | ◄◄ Previous | ▐▐/▶ Pause/Play | ►► Next | ABC/RND Shuffle | ↺↻ Rotate\n\nTo use invisible touch zones instead, turn off 'Show Controls' in Settings."
+    android:textSize="16sp"
+    android:textColor="@android:color/white"
+    android:visibility="gone" />
+
+</FrameLayout>

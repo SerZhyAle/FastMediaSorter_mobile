@@ -718,7 +718,15 @@ class SortActivity : AppCompatActivity() {
                         val imageInfoList = localStorageClient?.getImageFiles(localUri, bucketName) ?: emptyList()
                         imageInfoList.map { it.uri.toString() }
                     } else {
-                        smbClient.getImageFiles(config.serverAddress, config.folderPath)
+                        val result = smbClient.getImageFiles(config.serverAddress, config.folderPath)
+                        if (result.errorMessage != null) {
+                            withContext(Dispatchers.Main) {
+                                android.widget.Toast.makeText(this@SortActivity, result.errorMessage, android.widget.Toast.LENGTH_LONG).show()
+                                finish()
+                            }
+                            return@launch
+                        }
+                        result.files
                     }
                     imageFiles = files.sorted() // ABC order
                     

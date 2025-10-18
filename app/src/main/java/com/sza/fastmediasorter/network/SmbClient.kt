@@ -40,9 +40,22 @@ class SmbClient {
         }
     }
     
-    suspend fun getImageFiles(serverAddress: String, folderPath: String): List<String> {
+    data class ImageFilesResult(
+        val files: List<String>,
+        val errorMessage: String? = null
+    )
+    
+    suspend fun getImageFiles(serverAddress: String, folderPath: String): ImageFilesResult {
         return withContext(Dispatchers.IO) {
             try {
+                android.util.Log.d("SmbClient", "getImageFiles - server: $serverAddress, folder: $folderPath")
+                
+                if (context == null) {
+                    val msg = "Not connected to server. Please check connection settings."
+                    android.util.Log.e("SmbClient", msg)
+                    return@withContext ImageFilesResult(emptyList(), msg)
+                }
+                
                 val cleanServer = serverAddress.trim()
                     .removePrefix("smb://")
                     .removePrefix("\\\\")
@@ -54,28 +67,81 @@ class SmbClient {
                     .replace("\\", "/")
                 
                 val smbUrl = "smb://$cleanServer/$cleanFolder/"
+                android.util.Log.d("SmbClient", "Final SMB URL: $smbUrl")
+                
                 val smbFile = SmbFile(smbUrl, context)
                 
-                if (!smbFile.exists() || !smbFile.isDirectory()) {
-                    return@withContext emptyList()
+                android.util.Log.d("SmbClient", "Checking SMB path...")
+                
+                if (!smbFile.exists()) {
+                    val msg = "Path not found: smb://$cleanServer/$cleanFolder/\n\nCheck:\n• Server IP correct?\n• Folder name correct?\n• Network connection?"
+                    android.util.Log.e("SmbClient", msg)
+                    return@withContext ImageFilesResult(emptyList(), msg)
+                }
+                
+                if (!smbFile.isDirectory()) {
+                    val msg = "Path is not a folder: smb://$cleanServer/$cleanFolder/"
+                    android.util.Log.e("SmbClient", msg)
+                    return@withContext ImageFilesResult(emptyList(), msg)
                 }
                 
                 val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
                 val imageFiles = mutableListOf<String>()
                 
-                smbFile.listFiles()?.forEach { file ->
+                val files = smbFile.listFiles()
+                android.util.Log.d("SmbClient", "Found ${files?.size ?: 0} files in directory")
+                
+                files?.forEach { file ->
                     if (file.isFile()) {
                         val extension = file.name.substringAfterLast('.', "").lowercase()
                         if (extension in imageExtensions) {
                             imageFiles.add(file.url.toString())
+                            android.util.Log.d("SmbClient", "Added image: ${file.name}")
                         }
                     }
                 }
                 
-                imageFiles.sorted()
-            } catch (e: Exception) {
+                android.util.Log.d("SmbClient", "Total images found: ${imageFiles.size}")
+                
+                if (imageFiles.isEmpty()) {
+                    val msg = "No image files found in: smb://$cleanServer/$cleanFolder/\n\nSupported formats: JPG, PNG, GIF, BMP, WEBP"
+                    return@withContext ImageFilesResult(emptyList(), msg)
+                }
+                
+                ImageFilesResult(imageFiles.sorted())
+            } catch (e: java.net.UnknownHostException) {
+                val msg = "Cannot reach server: $serverAddress\n\nCheck:\n• Server IP correct?\n• Same WiFi network?\n• Server running?"
+                android.util.Log.e("SmbClient", msg, e)
+                ImageFilesResult(emptyList(), msg)
+            } catch (e: jcifs.smb.SmbAuthException) {
+                val msg = "Authentication failed\n\nCheck username and password"
+                android.util.Log.e("SmbClient", msg, e)
+                ImageFilesResult(emptyList(), msg)
+            } catch (e: jcifs.smb.SmbException) {
+                val msg = when {
+                    e.message?.contains("Access is denied", ignoreCase = true) == true ->
+                        "Access denied to: smb://$serverAddress/$folderPath/\n\nCheck:\n• Username/password correct?\n• Folder permissions?\n• Share enabled?"
+                    e.message?.contains("does not exist", ignoreCase = true) == true ->
+                        "Folder not found: smb://$serverAddress/$folderPath/\n\nCheck:\n• Folder path correct?\n• Share name correct?"
+                    e.message?.contains("timed out", ignoreCase = true) == true ->
+                        "Connection timeout\n\nCheck:\n• Server reachable?\n• Firewall blocking SMB?\n• Same network?"
+                    e.message?.contains("Connection refused", ignoreCase = true) == true ->
+                        "Connection refused\n\nCheck:\n• SMB enabled on server?\n• Firewall settings?\n• Port 445 open?"
+                    else ->
+                        "SMB Error: ${e.message ?: "Unknown error"}\n\nFull error details logged"
+                }
+                android.util.Log.e("SmbClient", "SmbException details: ${e.message}", e)
                 e.printStackTrace()
-                emptyList()
+                ImageFilesResult(emptyList(), msg)
+            } catch (e: java.net.SocketTimeoutException) {
+                val msg = "Connection timeout\n\nCheck:\n• Server running?\n• Network stable?\n• VPN not blocking?"
+                android.util.Log.e("SmbClient", msg, e)
+                ImageFilesResult(emptyList(), msg)
+            } catch (e: Exception) {
+                val msg = "Error: ${e.javaClass.simpleName}\n${e.message ?: "Unknown error"}\n\nFull details logged"
+                android.util.Log.e("SmbClient", "Error in getImageFiles: ${e.message}", e)
+                e.printStackTrace()
+                ImageFilesResult(emptyList(), msg)
             }
         }
     }

@@ -38,6 +38,12 @@ class SettingsActivity : AppCompatActivity() {
         
         setupToolbar()
         setupTabs()
+        
+        // Check for initial tab from intent
+        val initialTab = intent.getIntExtra("initialTab", 0)
+        if (initialTab in 0..2) {
+            binding.viewPager.setCurrentItem(initialTab, false)
+        }
     }
     
     private fun setupToolbar() {
@@ -82,10 +88,28 @@ class SettingsPagerAdapter(activity: AppCompatActivity) : FragmentStateAdapter(a
 class SlideshowHelpFragment : Fragment() {
     private var _binding: FragmentSlideshowHelpBinding? = null
     private val binding get() = _binding!!
+    private lateinit var preferenceManager: PreferenceManager
     
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentSlideshowHelpBinding.inflate(inflater, container, false)
         return binding.root
+    }
+    
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        preferenceManager = PreferenceManager(requireContext())
+        updateVisibility()
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        updateVisibility()
+    }
+    
+    private fun updateVisibility() {
+        val showControls = preferenceManager.isShowControls()
+        binding.touchZonesContainer.visibility = if (showControls) View.GONE else View.VISIBLE
+        binding.buttonControlsInfo.visibility = if (showControls) View.VISIBLE else View.GONE
     }
     
     override fun onDestroyView() {

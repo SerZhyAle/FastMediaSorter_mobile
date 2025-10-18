@@ -27,6 +27,7 @@ private lateinit var etUsername: TextInputEditText
 private lateinit var etPassword: TextInputEditText
 private lateinit var etName: TextInputEditText
 private lateinit var btnSave: Button
+private lateinit var btnTest: Button
 var onConfigSelected: ((ConnectionConfig) -> Unit)? = null
 var onConfigDoubleClick: ((ConnectionConfig) -> Unit)? = null
 
@@ -46,9 +47,11 @@ etUsername = view.findViewById(R.id.usernameInput)
 etPassword = view.findViewById(R.id.passwordInput)
 etName = view.findViewById(R.id.nameInput)
 btnSave = view.findViewById(R.id.saveButton)
+btnTest = view.findViewById(R.id.testButton)
 setupRecyclerView()
 observeConnections()
 setupSaveButton()
+setupTestButton()
 }
 
 private fun setupRecyclerView() {
@@ -75,12 +78,88 @@ private fun observeConnections() {
 viewModel.allConfigs.observe(viewLifecycleOwner) { configs ->
 val smbConfigs = configs.filter { it.type == "SMB" }
 adapter.submitList(smbConfigs)
+adapter.clearSelection()
 }
 }
 
 private fun setupSaveButton() {
 btnSave.setOnClickListener {
 saveConnection()
+}
+}
+
+private fun setupTestButton() {
+btnTest.setOnClickListener {
+testConnection()
+}
+}
+
+private fun testConnection() {
+val folderAddress = etFolderAddress.text.toString().trim()
+var username = etUsername.text.toString().trim()
+var password = etPassword.text.toString().trim()
+
+if (folderAddress.isEmpty()) {
+Toast.makeText(requireContext(), "Please enter folder address", Toast.LENGTH_SHORT).show()
+return
+}
+
+// Use default credentials if not set
+val preferenceManager = com.sza.fastmediasorter.utils.PreferenceManager(requireContext())
+if (username.isEmpty()) {
+username = preferenceManager.getDefaultUsername()
+}
+if (password.isEmpty()) {
+password = preferenceManager.getDefaultPassword()
+}
+
+val (server, folder) = parseFolderAddress(folderAddress)
+
+lifecycleScope.launch {
+btnTest.isEnabled = false
+btnTest.text = "Testing..."
+
+try {
+val smbClient = com.sza.fastmediasorter.network.SmbClient()
+val connected = smbClient.connect(server, username, password)
+
+if (!connected) {
+androidx.appcompat.app.AlertDialog.Builder(requireContext())
+.setTitle("Test FAILED")
+.setMessage("Connection failed: Unable to connect to server\n\nCheck:\n• Server IP correct?\n• Server running?\n• Firewall settings?")
+.setPositiveButton("OK", null)
+.show()
+btnTest.isEnabled = true
+btnTest.text = "Test"
+return@launch
+}
+
+            val result = smbClient.getImageFiles(server, folder)
+
+if (result.errorMessage != null) {
+androidx.appcompat.app.AlertDialog.Builder(requireContext())
+.setTitle("Test FAILED")
+.setMessage(result.errorMessage)
+.setPositiveButton("OK", null)
+.show()
+} else {
+val msg = "Test PASSED ✓\n\nFound ${result.files.size} image(s) in folder"
+androidx.appcompat.app.AlertDialog.Builder(requireContext())
+.setTitle("Connection Test")
+.setMessage(msg)
+.setPositiveButton("OK", null)
+.show()
+}
+} catch (e: Exception) {
+androidx.appcompat.app.AlertDialog.Builder(requireContext())
+.setTitle("Test FAILED")
+.setMessage("Error: ${e.javaClass.simpleName}\n\n${e.message}")
+.setPositiveButton("OK", null)
+.show()
+}
+
+btnTest.isEnabled = true
+btnTest.text = "Test"
 }
 }
 

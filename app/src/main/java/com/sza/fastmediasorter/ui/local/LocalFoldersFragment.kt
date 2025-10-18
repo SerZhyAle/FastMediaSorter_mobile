@@ -133,6 +133,10 @@ viewModel.localCustomFolders.observe(viewLifecycleOwner) { customConfigs ->
 // Get current counts from scanAllImageFolders
 lifecycleScope.launch {
 val allFolders = localClient.scanAllImageFolders()
+
+// Remove old custom folders from the list
+folders.removeAll { it.isCustom }
+
 val customFolders = customConfigs.map { config ->
 val folderName = config.localDisplayName ?: "Unknown"
 val count = allFolders[folderName] ?: 0

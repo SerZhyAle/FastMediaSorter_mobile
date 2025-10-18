@@ -78,6 +78,7 @@ dependencies {
     
     // Security - Encrypted SharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.78")
     
     // ViewModel and LiveData
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")

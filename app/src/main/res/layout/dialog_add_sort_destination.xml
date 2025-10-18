@@ -11,7 +11,7 @@
         android:text="Select Connection"
         android:textSize="16sp"
         android:textStyle="bold"
-        android:textColor="@android:color/black"
+        android:textColor="@android:color/white"
         android:layout_marginBottom="8dp" />
 
     <androidx.recyclerview.widget.RecyclerView
@@ -25,7 +25,7 @@
         android:layout_height="wrap_content"
         android:text="Short Name (max 20 chars)"
         android:textSize="14sp"
-        android:textColor="@android:color/black"
+        android:textColor="@android:color/white"
         android:layout_marginBottom="4dp" />
 
     <EditText

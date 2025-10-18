@@ -32,8 +32,16 @@ binding = ActivityMainBinding.inflate(layoutInflater)
 setContentView(binding.root)
 supportActionBar?.hide()
 preferenceManager = PreferenceManager(this)
+
 setupViewPager()
 setupClickListeners()
+
+// Check for first launch
+if (preferenceManager.isFirstLaunch()) {
+    preferenceManager.setFirstLaunchComplete()
+    openSettingsForFirstLaunch()
+}
+
 tryAutoResumeSession()
 }
 
@@ -48,6 +56,12 @@ tryAutoResumeSession()
             }
         }.attach()
         binding.viewPager.offscreenPageLimit = 2
+        
+        // Switch to Network tab if no media permission
+        if (!com.sza.fastmediasorter.network.LocalStorageClient.hasMediaPermission(this)) {
+            binding.viewPager.setCurrentItem(1, false)
+        }
+        
         binding.viewPager.post {
             val networkFragment = supportFragmentManager.findFragmentByTag("f1") as? NetworkFragment
             networkFragment?.let { setupNetworkFragmentCallbacks(it) }
@@ -175,6 +189,12 @@ preferenceManager.clearLastSession()
 }
 }
 
+    private fun openSettingsForFirstLaunch() {
+        val intent = Intent(this, com.sza.fastmediasorter.ui.settings.SettingsActivity::class.java)
+        intent.putExtra("initialTab", 2) // Open Settings tab (index 2)
+        startActivity(intent)
+    }
+
     private fun loadConfigAndStartSlideshow(config: ConnectionConfig) {
         if (config.type == "LOCAL_CUSTOM" || config.type == "LOCAL_STANDARD") {
             preferenceManager.saveLocalFolderSettings(
@@ -198,6 +218,22 @@ preferenceManager.clearLastSession()
         val intent = Intent(this, SlideshowActivity::class.java)
         startActivity(intent)
     }private fun setupClickListeners() {
+// Save interval on text change
+binding.intervalInput.addTextChangedListener(object : android.text.TextWatcher {
+override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+override fun afterTextChanged(s: android.text.Editable?) {
+val interval = s.toString().toIntOrNull()
+if (interval != null && interval in 1..300) {
+currentConfigId?.let { configId ->
+lifecycleScope.launch {
+updateConfigInterval(configId)
+}
+}
+}
+}
+})
+
 binding.slideshowButton.setOnClickListener {
 currentConfigId?.let { configId ->
 lifecycleScope.launch {

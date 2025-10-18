@@ -28,15 +28,15 @@ class ImageRepository(private val smbClient: SmbClient, private val preferenceMa
                 
                 val connected = smbClient.connect(serverAddress, username, password)
                 if (!connected) {
-                    return@withContext Result.failure(Exception("Failed to connect to server"))
+                    return@withContext Result.failure(Exception("Failed to connect to server: $serverAddress\n\nCheck:\n• Server is running?\n• Firewall settings?"))
                 }
                 
-                val images = smbClient.getImageFiles(serverAddress, folderPath)
-                if (images.isEmpty()) {
-                    return@withContext Result.failure(Exception("No images found"))
+                val result = smbClient.getImageFiles(serverAddress, folderPath)
+                if (result.errorMessage != null) {
+                    return@withContext Result.failure(Exception(result.errorMessage))
                 }
                 
-                Result.success(images)
+                Result.success(result.files)
             } catch (e: Exception) {
                 Result.failure(e)
             }

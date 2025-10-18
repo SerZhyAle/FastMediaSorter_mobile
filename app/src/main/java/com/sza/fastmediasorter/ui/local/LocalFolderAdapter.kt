@@ -38,7 +38,7 @@ class LocalFolderAdapter(
         val isSelected = position == selectedPosition
         holder.itemView.setBackgroundColor(
             if (isSelected)
-                holder.itemView.context.getColor(android.R.color.darker_gray)
+                holder.itemView.context.getColor(R.color.primary)
             else
                 holder.itemView.context.getColor(android.R.color.transparent)
         )
@@ -48,7 +48,7 @@ class LocalFolderAdapter(
             if (isSelected)
                 holder.itemView.context.getColor(android.R.color.white)
             else
-                holder.itemView.context.getColor(android.R.color.black)
+                holder.itemView.context.getColor(android.R.color.white)
         )
         
         holder.tvFolderCount.setTextColor(

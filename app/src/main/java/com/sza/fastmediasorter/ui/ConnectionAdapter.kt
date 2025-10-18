@@ -42,6 +42,14 @@ class ConnectionAdapter(
         }
     }
     
+    fun clearSelection() {
+        val oldPosition = selectedPosition
+        selectedPosition = RecyclerView.NO_POSITION
+        if (oldPosition != RecyclerView.NO_POSITION) {
+            notifyItemChanged(oldPosition)
+        }
+    }
+    
     inner class ConnectionViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val nameText: TextView = itemView.findViewById(R.id.connectionName)
         private val detailsText: TextView = itemView.findViewById(R.id.connectionDetails)
@@ -73,7 +81,7 @@ class ConnectionAdapter(
             // Highlight selected item
             itemView.setBackgroundColor(
                 if (isSelected) 
-                    itemView.context.getColor(android.R.color.darker_gray)
+                    itemView.context.getColor(R.color.primary)
                 else 
                     itemView.context.getColor(android.R.color.transparent)
             )
