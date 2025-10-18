@@ -62,7 +62,8 @@ class SettingsActivity : AppCompatActivity() {
             tab.text = when (position) {
                 0 -> "Sort to.."
                 1 -> "Slideshow"
-                2 -> "Settings"
+                2 -> "Video"
+                3 -> "Settings"
                 else -> ""
             }
         }.attach()
@@ -75,13 +76,14 @@ class SettingsActivity : AppCompatActivity() {
 }
 
 class SettingsPagerAdapter(activity: AppCompatActivity) : FragmentStateAdapter(activity) {
-    override fun getItemCount(): Int = 3
+    override fun getItemCount(): Int = 4
     
     override fun createFragment(position: Int): Fragment {
         return when (position) {
             0 -> SortHelpFragment()
             1 -> SlideshowHelpFragment()
-            2 -> SettingsFragment()
+            2 -> VideoSettingsFragment()
+            3 -> SettingsFragment()
             else -> SortHelpFragment()
         }
     }
@@ -261,6 +263,59 @@ class SortHelpFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+}
+
+class VideoSettingsFragment : Fragment() {
+    private lateinit var preferenceManager: PreferenceManager
+    private lateinit var videoEnabledCheckbox: android.widget.CheckBox
+    private lateinit var maxVideoSizeEdit: EditText
+    
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        return inflater.inflate(R.layout.fragment_video_settings, container, false)
+    }
+    
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        
+        preferenceManager = PreferenceManager(requireContext())
+        
+        videoEnabledCheckbox = view.findViewById(R.id.videoEnabledCheckbox)
+        maxVideoSizeEdit = view.findViewById(R.id.maxVideoSizeEdit)
+        
+        // Load current settings
+        videoEnabledCheckbox.isChecked = preferenceManager.isVideoEnabled()
+        maxVideoSizeEdit.setText(preferenceManager.getMaxVideoSizeMb().toString())
+        maxVideoSizeEdit.isEnabled = videoEnabledCheckbox.isChecked
+        
+        // Enable/disable size field based on checkbox
+        videoEnabledCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            maxVideoSizeEdit.isEnabled = isChecked
+            preferenceManager.setVideoEnabled(isChecked)
+        }
+        
+        // Validate and save video size
+        maxVideoSizeEdit.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            
+            override fun afterTextChanged(s: Editable?) {
+                val text = s.toString()
+                if (text.isNotEmpty()) {
+                    try {
+                        val value = text.toInt()
+                        if (value in 1..999999) {
+                            preferenceManager.setMaxVideoSizeMb(value)
+                        } else {
+                            // Show error hint
+                            maxVideoSizeEdit.error = "Range: 1-999999 MB"
+                        }
+                    } catch (e: NumberFormatException) {
+                        maxVideoSizeEdit.error = "Invalid number"
+                    }
+                }
+            }
+        })
     }
 }
 
