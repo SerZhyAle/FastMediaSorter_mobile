@@ -155,6 +155,29 @@
         app:layout_constraintEnd_toEndOf="parent" />
 
     <TextView
+        android:id="@+id/generalSettingsLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="General Settings"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#666666"
+        app:layout_constraintTop_toBottomOf="@id/showControlsCheckbox"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <CheckBox
+        android:id="@+id/keepScreenOnCheckbox"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Not allow device to sleep"
+        android:textSize="16sp"
+        app:layout_constraintTop_toBottomOf="@id/generalSettingsLabel"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
         android:id="@+id/localAccessLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -163,7 +186,7 @@
         android:textSize="14sp"
         android:textStyle="bold"
         android:textColor="#666666"
-        app:layout_constraintTop_toBottomOf="@id/showControlsCheckbox"
+        app:layout_constraintTop_toBottomOf="@id/keepScreenOnCheckbox"
         app:layout_constraintStart_toStartOf="parent" />
 
     <Button

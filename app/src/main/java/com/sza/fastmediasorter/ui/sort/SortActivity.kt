@@ -74,6 +74,14 @@ class SortActivity : AppCompatActivity() {
         
         supportActionBar?.hide()
         
+        // Initialize preference manager first
+        preferenceManager = PreferenceManager(this)
+        
+        // Keep screen on if enabled
+        if (preferenceManager.isKeepScreenOn()) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        
         // Register delete permission launcher for Android 11+
         deletePermissionLauncher = registerForActivityResult(
             ActivityResultContracts.StartIntentSenderForResult()
@@ -97,7 +105,6 @@ class SortActivity : AppCompatActivity() {
         }
         
         viewModel = ViewModelProvider(this)[ConnectionViewModel::class.java]
-        preferenceManager = PreferenceManager(this)
         
         val configId = intent.getLongExtra("configId", -1)
         if (configId == -1L) {

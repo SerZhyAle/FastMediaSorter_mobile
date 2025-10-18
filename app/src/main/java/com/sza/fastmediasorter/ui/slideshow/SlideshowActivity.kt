@@ -64,6 +64,12 @@ class SlideshowActivity : AppCompatActivity() {
         setContentView(binding.root)
         
         preferenceManager = PreferenceManager(this)
+        
+        // Keep screen on if enabled
+        if (preferenceManager.isKeepScreenOn()) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        
         imageRepository = ImageRepository(SmbClient(), preferenceManager)
         
         isLocalMode = preferenceManager.getConnectionType() == "LOCAL"

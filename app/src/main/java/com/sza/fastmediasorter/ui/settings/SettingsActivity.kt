@@ -374,6 +374,9 @@ class SettingsFragment : Fragment() {
         // Load show controls setting
         binding.showControlsCheckbox.isChecked = preferenceManager.isShowControls()
         
+        // Load keep screen on setting
+        binding.keepScreenOnCheckbox.isChecked = preferenceManager.isKeepScreenOn()
+        
         // Setup User Guide button
         binding.userGuideButton.setOnClickListener {
             val intent = Intent(requireContext(), WelcomeActivity::class.java)
@@ -428,6 +431,11 @@ class SettingsFragment : Fragment() {
         // Save show controls on change
         binding.showControlsCheckbox.setOnCheckedChangeListener { _, isChecked ->
             preferenceManager.setShowControls(isChecked)
+        }
+        
+        // Save keep screen on on change
+        binding.keepScreenOnCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setKeepScreenOn(isChecked)
         }
     }
     

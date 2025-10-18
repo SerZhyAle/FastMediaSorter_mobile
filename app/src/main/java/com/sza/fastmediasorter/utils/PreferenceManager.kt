@@ -36,6 +36,7 @@ class PreferenceManager(context: Context) {
         private const val KEY_ALLOW_DELETE = "allow_delete"
         private const val KEY_CONFIRM_DELETE = "confirm_delete"
         private const val KEY_ALLOW_RENAME = "allow_rename"
+        private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_LOCAL_URI = "local_uri"
         private const val KEY_LOCAL_BUCKET_NAME = "local_bucket_name"
         private const val KEY_CONNECTION_TYPE = "connection_type"
@@ -172,6 +173,13 @@ class PreferenceManager(context: Context) {
     }
     
     fun isAllowRename(): Boolean = prefs.getBoolean(KEY_ALLOW_RENAME, false)
+    
+    // Keep screen on
+    fun setKeepScreenOn(keep: Boolean) {
+        prefs.edit().putBoolean(KEY_KEEP_SCREEN_ON, keep).apply()
+    }
+    
+    fun isKeepScreenOn(): Boolean = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true)
     
     // Show controls in slideshow
     fun setShowControls(show: Boolean) {
