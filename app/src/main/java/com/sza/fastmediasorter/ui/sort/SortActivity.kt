@@ -180,6 +180,10 @@ class SortActivity : AppCompatActivity() {
         binding.backButton.setOnClickListener {
             onBackPressedDispatcher.onBackPressed()
         }
+        
+        binding.refreshButton.setOnClickListener {
+            refreshFileList()
+        }
     }
     
 
@@ -753,6 +757,29 @@ class SortActivity : AppCompatActivity() {
             }
             
             loadImages()
+        }
+    }
+    
+    private fun refreshFileList() {
+        Toast.makeText(this, "Refreshing file list...", Toast.LENGTH_SHORT).show()
+        
+        // Save current file name to restore position after refresh
+        val currentFileName = if (imageFiles.isNotEmpty() && currentIndex < imageFiles.size) {
+            imageFiles[currentIndex].substringAfterLast('/')
+        } else null
+        
+        loadImages()
+        
+        // Try to restore position to same file
+        if (currentFileName != null) {
+            lifecycleScope.launch {
+                kotlinx.coroutines.delay(500) // Wait for loadImages to complete
+                val newIndex = imageFiles.indexOfFirst { it.substringAfterLast('/') == currentFileName }
+                if (newIndex >= 0) {
+                    currentIndex = newIndex
+                    loadMedia()
+                }
+            }
         }
     }
     
