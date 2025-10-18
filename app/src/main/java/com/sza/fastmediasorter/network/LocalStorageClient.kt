@@ -287,7 +287,7 @@ null
 
 suspend fun deleteImage(uri: Uri): Boolean = withContext(Dispatchers.IO) {
 try {
-android.util.Log.d("LocalStorageClient", "Attempting to delete image: $uri")
+android.util.Log.d("LocalStorageClient", "Attempting to delete media: $uri")
 android.util.Log.d("LocalStorageClient", "Android version: ${Build.VERSION.SDK_INT} (${Build.VERSION.RELEASE})")
         
 // First, try using ContentResolver (works for MediaStore URIs)

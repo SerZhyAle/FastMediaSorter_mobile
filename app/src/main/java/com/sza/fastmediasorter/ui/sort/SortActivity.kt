@@ -1268,8 +1268,8 @@ class SortActivity : AppCompatActivity() {
         if (preferenceManager.isConfirmDelete()) {
             // Show confirmation dialog
             android.app.AlertDialog.Builder(this)
-                .setTitle("Delete Image")
-                .setMessage("Are you sure you want to delete this image?")
+                .setTitle("Delete Media")
+                .setMessage("Are you sure you want to delete this media file?")
                 .setPositiveButton("Delete") { _, _ ->
                     performDelete(currentImageUrl)
                 }

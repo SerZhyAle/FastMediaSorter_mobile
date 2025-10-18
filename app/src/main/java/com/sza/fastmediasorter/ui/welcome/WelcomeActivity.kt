@@ -79,9 +79,9 @@ class WelcomeActivity : AppCompatActivity() {
             title = "5. Sort Activity",
             description = "Organize your photos efficiently",
             features = listOf(
-                "✓ Copy images to destinations (keeps original)",
-                "✓ Move images (removes from source)",
-                "✓ Delete images with confirmation",
+                "✓ Copy media to destinations (keeps original)",
+                "✓ Move media (removes from source)",
+                "✓ Delete media with confirmation",
                 "✓ Navigate with touch zones or swipe"
             )
         ),
