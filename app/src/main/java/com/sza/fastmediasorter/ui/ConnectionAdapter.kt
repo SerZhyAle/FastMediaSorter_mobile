@@ -81,17 +81,13 @@ class ConnectionAdapter(
             // Highlight selected item
             itemView.setBackgroundColor(
                 if (isSelected) 
-                    itemView.context.getColor(R.color.primary)
+                    itemView.context.getColor(android.R.color.darker_gray)
                 else 
                     itemView.context.getColor(android.R.color.transparent)
             )
             
-            // Set text color for better readability on selected background
-            val textColor = if (isSelected) {
-                itemView.context.getColor(android.R.color.black)
-            } else {
-                itemView.context.getColor(android.R.color.white)
-            }
+            // Set text color for better readability
+            val textColor = itemView.context.getColor(android.R.color.black)
             nameText.setTextColor(textColor)
             detailsText.setTextColor(textColor)
             
