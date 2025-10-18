@@ -28,6 +28,7 @@ private lateinit var etPassword: TextInputEditText
 private lateinit var etName: TextInputEditText
 private lateinit var btnSave: Button
 private lateinit var btnTest: Button
+private var selectedConfig: ConnectionConfig? = null
 var onConfigSelected: ((ConnectionConfig) -> Unit)? = null
 var onConfigDoubleClick: ((ConnectionConfig) -> Unit)? = null
 
@@ -57,6 +58,7 @@ setupTestButton()
 private fun setupRecyclerView() {
 adapter = ConnectionAdapter(
 onItemClick = { config ->
+selectedConfig = config
 loadConfig(config)
 onConfigSelected?.invoke(config)
 },
@@ -64,6 +66,10 @@ onItemDoubleClick = { config ->
 onConfigDoubleClick?.invoke(config)
 },
 onDeleteClick = { config ->
+if (selectedConfig?.id == config.id) {
+selectedConfig = null
+clearInputs()
+}
 viewModel.deleteConfig(config)
 Toast.makeText(requireContext(), R.string.connection_deleted, Toast.LENGTH_SHORT).show()
 }
@@ -77,7 +83,20 @@ adapter = this@NetworkFragment.adapter
 private fun observeConnections() {
 viewModel.allConfigs.observe(viewLifecycleOwner) { configs ->
 val smbConfigs = configs.filter { it.type == "SMB" }
-adapter.submitList(smbConfigs)
+adapter.submitList(smbConfigs) {
+// Restore selection after list update
+selectedConfig?.let { selected ->
+val position = smbConfigs.indexOfFirst { it.id == selected.id }
+if (position >= 0) {
+adapter.setSelectedPosition(position)
+} else {
+// Selected config no longer exists
+selectedConfig = null
+adapter.clearSelection()
+clearInputs()
+}
+}
+}
 }
 }
 
@@ -200,6 +219,8 @@ etFolderAddress.setText("")
 etUsername.setText("")
 etPassword.setText("")
 etName.setText("")
+selectedConfig = null
+adapter.clearSelection()
 }
 
 private fun saveConnection() {
@@ -225,6 +246,8 @@ password = password,
 lastUsed = System.currentTimeMillis()
 )
 viewModel.updateConfig(config)
+selectedConfig = config
+onConfigSelected?.invoke(config)
 Toast.makeText(requireContext(), "Connection updated", Toast.LENGTH_SHORT).show()
 } else {
 val config = ConnectionConfig(
@@ -238,10 +261,12 @@ interval = 10,
 lastUsed = System.currentTimeMillis(),
 type = "SMB"
 )
-viewModel.insertConfig(config)
+val newId = viewModel.insertConfigAndGetId(config)
+val savedConfig = config.copy(id = newId)
+selectedConfig = savedConfig
+onConfigSelected?.invoke(savedConfig)
 Toast.makeText(requireContext(), R.string.connection_saved, Toast.LENGTH_SHORT).show()
 }
-clearInputs()
 }
 }
 
