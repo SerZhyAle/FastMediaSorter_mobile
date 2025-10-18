@@ -268,6 +268,14 @@ class SlideshowActivity : AppCompatActivity() {
         if (images.isNotEmpty()) {
             val targetIndex = (currentIndex + 1) % images.size
             
+            // Re-shuffle when wrapping around to beginning in shuffle mode
+            if (targetIndex == 0 && isShuffleMode && images.size > 1) {
+                images = sortedImages.shuffled()
+                // Clear preload cache since order changed
+                nextImageData = null
+                nextImageIndex = -1
+            }
+            
             // Check if target image is already preloaded
             if (nextImageIndex == targetIndex && nextImageData != null) {
                 // Use preloaded data - instant switch
@@ -424,6 +432,15 @@ class SlideshowActivity : AppCompatActivity() {
                     
                     if (!isPaused) {
                         val nextIndex = (currentIndex + 1) % images.size
+                        
+                        // Re-shuffle when wrapping around to beginning in shuffle mode
+                        if (nextIndex == 0 && isShuffleMode && images.size > 1) {
+                            images = sortedImages.shuffled()
+                            // Clear preload cache since order changed
+                            nextImageData = null
+                            nextImageIndex = -1
+                        }
+                        
                         // Check if next image is preloaded - if not, start loading now
                         if (nextImageIndex != nextIndex || nextImageData == null) {
                             // Not preloaded, load it now to minimize gap
