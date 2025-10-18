@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.View
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -501,11 +502,7 @@ class SortActivity : AppCompatActivity() {
                 }
                 
                 if (imageFiles.isEmpty()) {
-                    android.widget.Toast.makeText(
-                        this@SortActivity,
-                        "No more images",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
+                    showNoFilesState()
                 } else {
                     loadMedia()
                 }
@@ -585,11 +582,7 @@ class SortActivity : AppCompatActivity() {
                             
                             // Check if list is now empty
                             if (imageFiles.isEmpty()) {
-                                android.widget.Toast.makeText(
-                                    this@SortActivity,
-                                    "No more images",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
+                                showNoFilesState()
                                 return@withContext
                             }
                             
@@ -805,8 +798,33 @@ class SortActivity : AppCompatActivity() {
         }
     }
     
+    private fun showNoFilesState() {
+        // Hide all media views
+        binding.imageView.visibility = View.GONE
+        binding.playerView.visibility = View.GONE
+        binding.videoLoadingLayout.visibility = View.GONE
+        binding.copyProgressLayout.visibility = View.GONE
+        
+        // Show "No files" message
+        binding.fileInfoText.text = "No files in this folder"
+        binding.imageCounterText.text = "0 / 0"
+        
+        // Stop video player if running
+        exoPlayer?.stop()
+        exoPlayer?.clearMediaItems()
+        
+        Toast.makeText(
+            this,
+            "No more files in folder",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+    
     private fun loadMedia() {
-        if (imageFiles.isEmpty()) return
+        if (imageFiles.isEmpty()) {
+            showNoFilesState()
+            return
+        }
         
         // Cancel any ongoing preload
         preloadJob?.cancel()
@@ -1174,11 +1192,7 @@ class SortActivity : AppCompatActivity() {
                 }
                 
                 if (imageFiles.isEmpty()) {
-                    android.widget.Toast.makeText(
-                        this@SortActivity,
-                        "No more images",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
+                    showNoFilesState()
                     return@withContext
                 }
                 
