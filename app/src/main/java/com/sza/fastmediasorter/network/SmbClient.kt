@@ -650,6 +650,11 @@ class SmbClient {
         }
     }
     
+    /**
+     * Clears the SMB context and credentials from memory.
+     * Should be called after completing operations to minimize the time
+     * sensitive credentials remain in memory, improving security.
+     */
     fun disconnect() {
         context = null
     }

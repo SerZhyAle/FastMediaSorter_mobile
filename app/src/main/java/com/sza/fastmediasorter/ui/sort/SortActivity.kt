@@ -391,6 +391,7 @@ class SortActivity : AppCompatActivity() {
     }
     
     private suspend fun copyFromLocalToSmb(localUri: String, destination: ConnectionConfig): SmbClient.CopyResult {
+        val destClient = SmbClient()
         return try {
             val uri = Uri.parse(localUri)
             val imageBytes = localStorageClient?.downloadImage(uri) 
@@ -404,7 +405,6 @@ class SortActivity : AppCompatActivity() {
             android.util.Log.d("SortActivity", "Copying file: $fileName (${imageBytes.size} bytes)")
             
             // Connect to destination SMB if needed
-            val destClient = SmbClient()
             val connected = destClient.connect(destination.serverAddress, destination.username, destination.password)
             if (!connected) {
                 android.util.Log.e("SortActivity", "Failed to connect to ${destination.serverAddress}")
@@ -434,6 +434,9 @@ class SortActivity : AppCompatActivity() {
             android.util.Log.e("SortActivity", "Exception during copy: ${e.message}", e)
             e.printStackTrace()
             SmbClient.CopyResult.UnknownError(e.message ?: "Unknown error")
+        } finally {
+            // Clear credentials from memory immediately after operation
+            destClient.disconnect()
         }
     }
     
@@ -1476,6 +1479,18 @@ class SortActivity : AppCompatActivity() {
                     ).show()
                 }
                 e.printStackTrace()
+            }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Clear SMB credentials from memory when activity is paused
+        if (!isLocalMode) {
+            try {
+                smbClient.disconnect()
+            } catch (e: Exception) {
+                // Ignore disconnect errors on pause
             }
         }
     }

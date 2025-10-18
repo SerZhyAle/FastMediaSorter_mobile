@@ -52,4 +52,8 @@ class ImageRepository(val smbClient: SmbClient, private val preferenceManager: P
     fun getSmbContext(): jcifs.CIFSContext? {
         return smbClient.getContext()
     }
+    
+    fun clearCredentials() {
+        smbClient.disconnect()
+    }
 }
