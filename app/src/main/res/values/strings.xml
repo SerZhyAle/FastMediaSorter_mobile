@@ -22,7 +22,7 @@
     <string name="connection_saved">Connection saved</string>
     <string name="connection_deleted">Connection deleted</string>
     <string name="back">Back</string>
-    <string name="footer_text">sza@ukr.net v1.0.2024</string>
+    <string name="footer_text">sza@ukr.net v1.0.1</string>
     <string name="touch_zones_title">Touch Control Zones</string>
     <string name="touch_zones_description">Diagram showing touch zones in slideshow mode</string>
     <string name="touch_zones_hint">Tap corresponding areas during slideshow to control playback</string>

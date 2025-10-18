@@ -22,7 +22,7 @@
     <string name="connection_saved">Підключення збережено</string>
     <string name="connection_deleted">Підключення видалено</string>
     <string name="back">Назад</string>
-    <string name="footer_text">sza@ukr.net v1.0.2024</string>
+    <string name="footer_text">sza@ukr.net v1.0.1</string>
     <string name="touch_zones_title">Сенсорні зони керування</string>
     <string name="touch_zones_description">Діаграма, що показує сенсорні зони в режимі слайд-шоу</string>
     <string name="touch_zones_hint">Торкайтеся відповідних областей під час слайд-шоу для керування відтворенням</string>
