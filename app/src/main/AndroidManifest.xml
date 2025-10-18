@@ -44,6 +44,11 @@
             android:parentActivityName=".MainActivity" />
             
         <activity
+            android:name=".ui.welcome.WelcomeActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+            
+        <activity
             android:name=".ui.sort.SortActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize"

@@ -160,15 +160,23 @@ class SortActivity : AppCompatActivity() {
         // Check if delete is allowed
         val allowDelete = preferenceManager.isAllowDelete()
         
-        // Hide/show copy section
-        binding.copyToLabel.visibility = if (allowCopy) View.VISIBLE else View.GONE
-        binding.buttonsRow1.visibility = if (allowCopy) View.VISIBLE else View.GONE
-        binding.buttonsRow2.visibility = if (allowCopy) View.VISIBLE else View.GONE
+        // Check if we have destinations
+        val hasDestinations = sortDestinations.isNotEmpty()
         
-        // Hide/show move section
-        binding.moveToLabel.visibility = if (allowMove) View.VISIBLE else View.GONE
-        binding.moveButtonsRow1.visibility = if (allowMove) View.VISIBLE else View.GONE
-        binding.moveButtonsRow2.visibility = if (allowMove) View.VISIBLE else View.GONE
+        // Show warning if no destinations
+        binding.noDestinationsWarning.visibility = if (!hasDestinations && allowDelete) View.VISIBLE else View.GONE
+        
+        // Hide/show copy section (only if we have destinations)
+        val showCopy = allowCopy && hasDestinations
+        binding.copyToLabel.visibility = if (showCopy) View.VISIBLE else View.GONE
+        binding.buttonsRow1.visibility = if (showCopy) View.VISIBLE else View.GONE
+        binding.buttonsRow2.visibility = if (showCopy) View.VISIBLE else View.GONE
+        
+        // Hide/show move section (only if we have destinations)
+        val showMove = allowMove && hasDestinations
+        binding.moveToLabel.visibility = if (showMove) View.VISIBLE else View.GONE
+        binding.moveButtonsRow1.visibility = if (showMove) View.VISIBLE else View.GONE
+        binding.moveButtonsRow2.visibility = if (showMove) View.VISIBLE else View.GONE
         
         // Hide/show delete button
         binding.deleteButton.visibility = if (allowDelete) View.VISIBLE else View.GONE

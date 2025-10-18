@@ -112,6 +112,18 @@
         app:layout_constraintEnd_toEndOf="parent">
 
         <TextView
+            android:id="@+id/noDestinationsWarning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⚠️ No destinations configured. Only delete available.\nGo to Settings → Sort to.. to add destinations."
+            android:textColor="#FFCA28"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"
+            android:gravity="center"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/copyToLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

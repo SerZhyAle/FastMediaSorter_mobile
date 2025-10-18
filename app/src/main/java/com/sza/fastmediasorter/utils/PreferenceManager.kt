@@ -40,6 +40,7 @@ class PreferenceManager(context: Context) {
         private const val KEY_CONNECTION_TYPE = "connection_type"
         private const val KEY_SHOW_CONTROLS = "show_controls"
         private const val KEY_FIRST_LAUNCH = "first_launch"
+        private const val KEY_WELCOME_SHOWN = "welcome_shown"
     }
     
     init {
@@ -173,5 +174,12 @@ class PreferenceManager(context: Context) {
     
     fun setFirstLaunchComplete() {
         prefs.edit().putBoolean(KEY_FIRST_LAUNCH, false).apply()
+    }
+    
+    // Welcome screen shown
+    fun isWelcomeShown(): Boolean = prefs.getBoolean(KEY_WELCOME_SHOWN, false)
+    
+    fun setWelcomeShown() {
+        prefs.edit().putBoolean(KEY_WELCOME_SHOWN, true).apply()
     }
 }

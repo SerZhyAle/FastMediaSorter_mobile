@@ -14,6 +14,7 @@ import com.sza.fastmediasorter.ui.ConnectionViewModel
 import com.sza.fastmediasorter.ui.MainPagerAdapter
 import com.sza.fastmediasorter.ui.network.NetworkFragment
 import com.sza.fastmediasorter.ui.slideshow.SlideshowActivity
+import com.sza.fastmediasorter.ui.welcome.WelcomeActivity
 import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,10 +37,11 @@ preferenceManager = PreferenceManager(this)
 setupViewPager()
 setupClickListeners()
 
-// Check for first launch
-if (preferenceManager.isFirstLaunch()) {
-    preferenceManager.setFirstLaunchComplete()
-    openSettingsForFirstLaunch()
+// Check for first launch - show Welcome activity
+if (!preferenceManager.isWelcomeShown()) {
+    val intent = Intent(this, WelcomeActivity::class.java)
+    intent.putExtra("isFirstLaunch", true)
+    startActivity(intent)
 }
 
 tryAutoResumeSession()
@@ -251,15 +253,10 @@ Toast.makeText(this, "Please select a connection first", Toast.LENGTH_SHORT).sho
 binding.sortButton.setOnClickListener {
 currentConfigId?.let { configId ->
 lifecycleScope.launch {
-val destinations = viewModel.getSortDestinationsCount()
-if (destinations == 0) {
-Toast.makeText(this@MainActivity, "Set destinations first", Toast.LENGTH_LONG).show()
-} else {
 updateConfigInterval(configId)
 val intent = Intent(this@MainActivity, com.sza.fastmediasorter.ui.sort.SortActivity::class.java)
 intent.putExtra("configId", configId)
 startActivity(intent)
-}
 }
 } ?: run {
 Toast.makeText(this, "Please select a connection first", Toast.LENGTH_SHORT).show()
@@ -281,6 +278,15 @@ updateButtonsState()
 private fun updateButtonsState() {
 val isEnabled = currentConfigId != null
 binding.slideshowButton.isEnabled = isEnabled
-binding.sortButton.isEnabled = isEnabled
+// Sort button enabled if folder selected AND (has destinations OR deletion allowed)
+if (isEnabled) {
+lifecycleScope.launch {
+val hasDestinations = viewModel.getSortDestinationsCount() > 0
+val deletionAllowed = preferenceManager.isAllowDelete()
+binding.sortButton.isEnabled = hasDestinations || deletionAllowed
+}
+} else {
+binding.sortButton.isEnabled = false
+}
 }
 }

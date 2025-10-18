@@ -1,5 +1,6 @@
 package com.sza.fastmediasorter.ui.settings
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -24,6 +25,7 @@ import com.sza.fastmediasorter.databinding.FragmentSlideshowHelpBinding
 import com.sza.fastmediasorter.databinding.FragmentSortHelpBinding
 import com.sza.fastmediasorter.databinding.FragmentSettingsBinding
 import com.sza.fastmediasorter.ui.ConnectionViewModel
+import com.sza.fastmediasorter.ui.welcome.WelcomeActivity
 import com.sza.fastmediasorter.utils.PreferenceManager
 
 class SettingsActivity : AppCompatActivity() {
@@ -301,6 +303,13 @@ class SettingsFragment : Fragment() {
         
         // Load show controls setting
         binding.showControlsCheckbox.isChecked = preferenceManager.isShowControls()
+        
+        // Setup User Guide button
+        binding.userGuideButton.setOnClickListener {
+            val intent = Intent(requireContext(), WelcomeActivity::class.java)
+            intent.putExtra("isFirstLaunch", false)
+            startActivity(intent)
+        }
         
         // Setup media access button
         updateMediaAccessButton()
