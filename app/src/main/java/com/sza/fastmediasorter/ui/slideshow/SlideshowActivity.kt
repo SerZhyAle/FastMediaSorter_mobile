@@ -3,7 +3,6 @@ package com.sza.fastmediasorter.ui.slideshow
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Matrix
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
@@ -34,7 +33,6 @@ class SlideshowActivity : AppCompatActivity() {
     private var currentIndex = 0
     private var slideshowJob: Job? = null
     private var isPaused = false
-    private var imageRotation = 0f
     private var currentBitmap: Bitmap? = null
     private var elapsedTime = 0
     private var isShuffleMode = false
@@ -146,20 +144,12 @@ class SlideshowActivity : AppCompatActivity() {
     }
     
     private fun rotateImage(degrees: Float) {
-        imageRotation = (imageRotation + degrees) % 360
-        currentBitmap?.let { bitmap ->
-            val rotatedBitmap = rotateBitmap(bitmap, imageRotation)
-            binding.imageView.setImageBitmap(rotatedBitmap)
-            binding.imageView.rotation = 0f
-        }
+        val currentRotation = binding.imageView.rotation
+        val newRotation = (currentRotation + degrees) % 360
+        binding.imageView.rotation = newRotation
+        
         // Auto-pause on rotation
         isPaused = true
-    }
-    
-    private fun rotateBitmap(source: Bitmap, degrees: Float): Bitmap {
-        val matrix = Matrix()
-        matrix.postRotate(degrees)
-        return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
     }
     
     private fun togglePause() {
@@ -422,14 +412,8 @@ class SlideshowActivity : AppCompatActivity() {
             imageData?.let { data ->
                 val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size)
                 currentBitmap = bitmap
-                
-                if (imageRotation != 0f) {
-                    val rotatedBitmap = rotateBitmap(bitmap, imageRotation)
-                    binding.imageView.setImageBitmap(rotatedBitmap)
-                } else {
-                    binding.imageView.setImageBitmap(bitmap)
-                }
-                binding.imageView.rotation = 0f
+                binding.imageView.setImageBitmap(bitmap)
+                binding.imageView.rotation = 0f // Reset rotation for new image
                 
                 // Save last session state
                 saveSessonState()
