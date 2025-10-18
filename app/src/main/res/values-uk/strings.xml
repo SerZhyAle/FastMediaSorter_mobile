@@ -7,7 +7,7 @@
     <string name="settings">Налаштування</string>
     <string name="server_address">Адреса сервера</string>
     <string name="folder_address">Адреса папки (наприклад, 192.168.1.100\\photos)</string>
-    <string name="username">Ім'я користувача</string>
+    <string name="username">Ім\'я користувача</string>
     <string name="password">Пароль</string>
     <string name="folder_path">Шлях до папки</string>
     <string name="interval">1-300 сек</string>
@@ -15,10 +15,10 @@
     <string name="no_images_found">Зображень не знайдено</string>
     <string name="loading">Завантаження...</string>
     <string name="saved_connections">Збережені підключення</string>
-    <string name="connection_name">Ім'я підключення</string>
+    <string name="connection_name">Ім\'я підключення</string>
     <string name="save">Зберегти</string>
     <string name="delete">Видалити</string>
-    <string name="enter_connection_name">Введіть ім'я підключення</string>
+    <string name="enter_connection_name">Введіть ім\'я підключення</string>
     <string name="connection_saved">Підключення збережено</string>
     <string name="connection_deleted">Підключення видалено</string>
     <string name="back">Назад</string>
