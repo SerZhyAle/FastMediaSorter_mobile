@@ -178,6 +178,7 @@ class SortActivity : AppCompatActivity() {
     
     private fun setupTouchAreas() {
         binding.previousArea.setOnClickListener {
+            android.util.Log.d("SortActivity", "Previous area clicked")
             if (imageFiles.isEmpty()) return@setOnClickListener
             
             currentIndex = if (currentIndex > 0) {
@@ -189,6 +190,7 @@ class SortActivity : AppCompatActivity() {
         }
         
         binding.nextArea.setOnClickListener {
+            android.util.Log.d("SortActivity", "Next area clicked")
             if (imageFiles.isEmpty()) return@setOnClickListener
             
             currentIndex = if (currentIndex < imageFiles.size - 1) {
@@ -201,6 +203,8 @@ class SortActivity : AppCompatActivity() {
 
         // Video control area - show/hide controls on tap
         binding.videoControlArea.setOnClickListener {
+            android.util.Log.d("SortActivity", "Video control area clicked")
+            Toast.makeText(this, "Video control area tapped", Toast.LENGTH_SHORT).show()
             if (binding.playerView.visibility == View.VISIBLE) {
                 // Toggle video controls visibility
                 binding.playerView.showController()
