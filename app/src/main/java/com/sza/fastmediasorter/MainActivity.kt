@@ -85,15 +85,12 @@ private fun setupLocalFragmentCallbacks(fragment: com.sza.fastmediasorter.ui.loc
 fragment.onFolderSelected = { folder ->
 lifecycleScope.launch {
 val config = if (folder.isCustom) {
+// Custom folders from SCAN or manual selection - stored in DB
 viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
 } else {
-var existingConfig = viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
-if (existingConfig == null) {
-val tempConfig = createTempLocalConfig(folder.name, "", folder.name)
-val newId = viewModel.insertConfigAndGetId(tempConfig)
-existingConfig = tempConfig.copy(id = newId)
-}
-existingConfig
+// Standard folders (Camera, Screenshots, Pictures, Download)
+// Use negative ID to indicate temporary/standard folder (not in DB)
+createStandardLocalConfig(folder.name)
 }
 config?.let {
 currentConfigId = it.id
@@ -104,47 +101,55 @@ binding.intervalInput.setText(it.interval.toString())
 fragment.onFolderDoubleClick = { folder ->
 lifecycleScope.launch {
 val config = if (folder.isCustom) {
+// Custom folders - use existing DB record
 viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
 } else {
-var existingConfig = viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
-if (existingConfig == null) {
-val tempConfig = createTempLocalConfig(folder.name, "", folder.name)
-val newId = viewModel.insertConfigAndGetId(tempConfig)
-existingConfig = tempConfig.copy(id = newId)
-}
-existingConfig
+// Standard folders - create temporary config with negative ID
+createStandardLocalConfig(folder.name)
 }
 config?.let {
 val interval = binding.intervalInput.text.toString().toIntOrNull() ?: it.interval
 val updatedConfig = it.copy(interval = interval)
-if (it.id > 0) viewModel.updateConfig(updatedConfig)
+// Only update DB for custom folders (positive ID)
+if (it.id > 0) {
+viewModel.updateConfig(updatedConfig)
+}
 loadConfigAndStartSlideshow(updatedConfig)
 }
 }
 }
 }
 
-private fun createTempLocalConfig(name: String, uri: String, bucketName: String): com.sza.fastmediasorter.data.ConnectionConfig {
+private fun createStandardLocalConfig(bucketName: String): com.sza.fastmediasorter.data.ConnectionConfig {
+// Use negative ID to distinguish standard folders from DB records
+// Camera=-1, Screenshots=-2, Pictures=-3, Download=-4
+val id = when (bucketName) {
+    "Camera" -> -1L
+    "Screenshots" -> -2L
+    "Pictures" -> -3L
+    "Download" -> -4L
+    else -> 0L
+}
 return com.sza.fastmediasorter.data.ConnectionConfig(
-id = 0,
-name = name,
-serverAddress = "",
-username = "",
-password = "",
-folderPath = "",
-interval = binding.intervalInput.text.toString().toIntOrNull() ?: 10,
-lastUsed = System.currentTimeMillis(),
-type = "LOCAL_CUSTOM",
-localUri = uri,
-localDisplayName = bucketName
+    id = id,
+    name = bucketName,
+    serverAddress = "",
+    username = "",
+    password = "",
+    folderPath = "",
+    interval = binding.intervalInput.text.toString().toIntOrNull() ?: 10,
+    lastUsed = System.currentTimeMillis(),
+    type = "LOCAL_STANDARD",
+    localUri = "",
+    localDisplayName = bucketName
 )
 }
 
-private fun tryAutoResumeSession() {
-val lastFolderAddress = preferenceManager.getLastFolderAddress()
-if (lastFolderAddress.isEmpty()) {
-return
-}
+    private fun tryAutoResumeSession() {
+        val lastFolderAddress = preferenceManager.getLastFolderAddress()
+        if (lastFolderAddress.isEmpty()) {
+            return
+        }
 lifecycleScope.launch {
 val config = viewModel.getConfigByFolderAddress(lastFolderAddress)
 if (config != null) {
@@ -156,7 +161,7 @@ preferenceManager.clearLastSession()
 }
 
     private fun loadConfigAndStartSlideshow(config: ConnectionConfig) {
-        if (config.type == "LOCAL_CUSTOM") {
+        if (config.type == "LOCAL_CUSTOM" || config.type == "LOCAL_STANDARD") {
             preferenceManager.saveLocalFolderSettings(
                 config.localUri ?: "",
                 config.localDisplayName ?: "",
@@ -171,7 +176,10 @@ preferenceManager.clearLastSession()
             )
             preferenceManager.setInterval(config.interval)
         }
-        viewModel.updateLastUsed(config.id)
+        // Only update lastUsed for DB records (positive ID)
+        if (config.id > 0) {
+            viewModel.updateLastUsed(config.id)
+        }
         val intent = Intent(this, SlideshowActivity::class.java)
         startActivity(intent)
     }private fun setupClickListeners() {

@@ -420,7 +420,58 @@ class SortActivity : AppCompatActivity() {
     }
     
     private suspend fun loadConnection(configId: Long) {
-        // Get config from database directly
+        // Handle standard local folders (negative IDs)
+        if (configId < 0) {
+            val bucketName = when (configId) {
+                -1L -> "Camera"
+                -2L -> "Screenshots"
+                -3L -> "Pictures"
+                -4L -> "Download"
+                else -> {
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(
+                            this@SortActivity,
+                            "Invalid folder ID",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        finish()
+                    }
+                    return
+                }
+            }
+            
+            currentConfig = com.sza.fastmediasorter.data.ConnectionConfig(
+                id = configId,
+                name = bucketName,
+                serverAddress = "",
+                username = "",
+                password = "",
+                folderPath = "",
+                interval = 10,
+                lastUsed = System.currentTimeMillis(),
+                type = "LOCAL_STANDARD",
+                localUri = "",
+                localDisplayName = bucketName
+            )
+            
+            isLocalMode = true
+            localStorageClient = LocalStorageClient(this@SortActivity)
+            smbClient = SmbClient() // Still need for destinations
+            
+            withContext(Dispatchers.Main) {
+                binding.connectionNameText.text = "Local: $bucketName"
+                android.widget.Toast.makeText(
+                    this@SortActivity,
+                    "Loading local images...",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+            
+            loadImages()
+            return
+        }
+        
+        // Get config from database directly (for custom folders and SMB)
         val database = com.sza.fastmediasorter.data.AppDatabase.getDatabase(applicationContext)
         val config = withContext(Dispatchers.IO) {
             database.connectionConfigDao().getConfigById(configId)
@@ -439,7 +490,7 @@ class SortActivity : AppCompatActivity() {
         }
         
         currentConfig = config
-        isLocalMode = config.type == "LOCAL_CUSTOM"
+        isLocalMode = config.type == "LOCAL_CUSTOM" || config.type == "LOCAL_STANDARD"
         
         if (isLocalMode) {
             localStorageClient = LocalStorageClient(this@SortActivity)
