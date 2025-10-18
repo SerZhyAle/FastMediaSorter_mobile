@@ -902,6 +902,10 @@ class SortActivity : AppCompatActivity() {
         errorDetails.append("3. Reduce video resolution\n")
         errorDetails.append("4. Check file is not corrupted\n")
         errorDetails.append("5. For SMB: ensure stable network\n")
+        errorDetails.append("6. For SMB connection errors: reconnect to share\n")
+        errorDetails.append("\n=== DEBUG INFO ===\n")
+        errorDetails.append("SMB Context Available: ${if (isLocalMode) "N/A (Local)" else smbClient.getContext() != null}\n")
+        errorDetails.append("Full Path: $currentFile\n")
         
         com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
             this,

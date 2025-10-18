@@ -634,6 +634,8 @@ class SlideshowActivity : AppCompatActivity() {
                     // SMB video - need to recreate player with custom data source
                     val smbContext = imageRepository.getSmbContext()
                     if (smbContext != null) {
+                        android.util.Log.d("SlideshowActivity", "SMB Context available, creating player for: $videoUrl")
+                        
                         // Release old player
                         exoPlayer?.release()
                         
@@ -650,12 +652,15 @@ class SlideshowActivity : AppCompatActivity() {
                                 when (playbackState) {
                                     Player.STATE_BUFFERING -> {
                                         binding.videoLoadingLayout.visibility = View.VISIBLE
+                                        android.util.Log.d("SlideshowActivity", "Video buffering...")
                                     }
                                     Player.STATE_READY -> {
                                         binding.videoLoadingLayout.visibility = View.GONE
+                                        android.util.Log.d("SlideshowActivity", "Video ready")
                                     }
                                     Player.STATE_ENDED -> {
                                         binding.videoLoadingLayout.visibility = View.GONE
+                                        android.util.Log.d("SlideshowActivity", "Video ended")
                                         // Auto-advance to next media when video ends
                                         if (waitingForVideoEnd && !isPaused) {
                                             waitingForVideoEnd = false
@@ -667,6 +672,7 @@ class SlideshowActivity : AppCompatActivity() {
                             
                             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                                 binding.videoLoadingLayout.visibility = View.GONE
+                                android.util.Log.e("SlideshowActivity", "Video playback error", error)
                                 
                                 if (preferenceManager.isShowVideoErrorDetails()) {
                                     showVideoErrorDialog(error)
@@ -686,15 +692,21 @@ class SlideshowActivity : AppCompatActivity() {
                         })
                         
                         val mediaItem = MediaItem.fromUri("smb://$videoUrl")
+                        android.util.Log.d("SlideshowActivity", "Setting media item: smb://$videoUrl")
                         exoPlayer?.setMediaItem(mediaItem)
                         exoPlayer?.prepare()
                         exoPlayer?.play()
                     } else {
+                        android.util.Log.e("SlideshowActivity", "SMB context is null! Cannot play video.")
                         Toast.makeText(
                             this@SlideshowActivity,
-                            "SMB connection not available",
+                            "SMB connection not available. Reconnecting may help.",
                             Toast.LENGTH_SHORT
                         ).show()
+                        // Skip to next
+                        if (!isPaused) {
+                            skipToNextImage()
+                        }
                     }
                 }
                 
@@ -803,6 +815,10 @@ class SlideshowActivity : AppCompatActivity() {
         errorDetails.append("3. Reduce video resolution\n")
         errorDetails.append("4. Check file is not corrupted\n")
         errorDetails.append("5. For SMB: ensure stable network\n")
+        errorDetails.append("6. For SMB connection errors: reconnect to share\n")
+        errorDetails.append("\n=== DEBUG INFO ===\n")
+        errorDetails.append("SMB Context Available: ${imageRepository.getSmbContext() != null}\n")
+        errorDetails.append("Full URI: smb://$currentFile\n")
         errorDetails.append("\nSlideshow will skip to next file...\n")
         
         com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
