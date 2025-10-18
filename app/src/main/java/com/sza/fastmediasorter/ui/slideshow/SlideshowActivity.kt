@@ -53,6 +53,17 @@ class SlideshowActivity : AppCompatActivity() {
     private var nextImageIndex: Int = -1
     private var lastLoadTime: Long = 0
     
+    // Error tracking
+    private data class MediaError(
+        val fileName: String,
+        val errorType: String,
+        val errorMessage: String,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+    private val errorLog = mutableListOf<MediaError>()
+    private var consecutiveErrors = 0
+    private val MAX_CONSECUTIVE_ERRORS = 3
+    
     companion object {
         private const val KEY_CURRENT_INDEX = "current_index"
         private const val KEY_IMAGES = "images"
@@ -591,28 +602,17 @@ class SlideshowActivity : AppCompatActivity() {
                     binding.imageView.setImageBitmap(bitmap)
                     binding.imageView.rotation = 0f // Reset rotation for new image
                     
+                    // Reset error counter on successful load
+                    consecutiveErrors = 0
+                    
                     // Save last session state
                     saveSessonState()
                 } else {
-                    android.util.Log.e("SlideshowActivity", "Failed to decode image at index $currentIndex: ${images.getOrNull(currentIndex)}")
-                    android.widget.Toast.makeText(
-                        this@SlideshowActivity,
-                        "⚠ Image corrupted, skipping to next",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                    
-                    // Auto-skip to next image
+                    handleMediaError(imageUrl, "Image Decode", "Failed to decode bitmap")
                     skipToNextImage()
                 }
             } ?: run {
-                android.util.Log.e("SlideshowActivity", "No image data received for index $currentIndex")
-                android.widget.Toast.makeText(
-                    this@SlideshowActivity,
-                    "⚠ Failed to load image, skipping",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
-                
-                // Auto-skip to next image
+                handleMediaError(imageUrl, "Image Load", "No data received")
                 skipToNextImage()
             }
         } catch (e: Exception) {
@@ -702,14 +702,12 @@ class SlideshowActivity : AppCompatActivity() {
                         exoPlayer?.setMediaItem(mediaItem)
                         exoPlayer?.prepare()
                         exoPlayer?.play()
+                        
+                        // Reset error counter on successful load
+                        consecutiveErrors = 0
                     } else {
                         android.util.Log.e("SlideshowActivity", "SMB context is null! Cannot play video.")
-                        Toast.makeText(
-                            this@SlideshowActivity,
-                            "SMB connection not available. Reconnecting may help.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        // Skip to next
+                        handleMediaError(videoUrl, "Video Load", "SMB context not available")
                         if (!isPaused) {
                             skipToNextImage()
                         }
@@ -721,11 +719,7 @@ class SlideshowActivity : AppCompatActivity() {
                 
             } catch (e: Exception) {
                 android.util.Log.e("SlideshowActivity", "Failed to load video: ${e.message}", e)
-                Toast.makeText(
-                    this@SlideshowActivity,
-                    "⚠ Failed to load video, skipping",
-                    Toast.LENGTH_SHORT
-                ).show()
+                handleMediaError(videoUrl, "Video Load", e.message ?: "Unknown error")
                 waitingForVideoEnd = false
                 skipToNextImage()
             }
@@ -878,5 +872,110 @@ class SlideshowActivity : AppCompatActivity() {
         // Clear session when user manually exits
         preferenceManager.clearLastSession()
         super.onBackPressed()
+    }
+    
+    private suspend fun handleMediaError(mediaUrl: String, errorType: String, errorMessage: String) {
+        val fileName = mediaUrl.substringAfterLast('/')
+        errorLog.add(MediaError(fileName, errorType, errorMessage))
+        consecutiveErrors++
+        
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+                // Show detailed error report dialog
+                showErrorReportDialog()
+            } else {
+                // Show simple toast for single errors
+                Toast.makeText(
+                    this@SlideshowActivity,
+                    "⚠ $errorType error, skipping (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS})",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+    
+    private fun showErrorReportDialog() {
+        val recentErrors = errorLog.takeLast(10)
+        val errorSummary = buildString {
+            append("⚠️ MULTIPLE ERRORS DETECTED\n\n")
+            append("Consecutive errors: $consecutiveErrors\n")
+            append("Total errors: ${errorLog.size}\n\n")
+            append("Recent errors:\n")
+            append("━".repeat(40))
+            append("\n\n")
+            
+            recentErrors.forEach { error ->
+                val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                    .format(java.util.Date(error.timestamp))
+                append("[$time] ${error.errorType}\n")
+                append("File: ${error.fileName}\n")
+                append("Error: ${error.errorMessage}\n\n")
+            }
+            
+            append("\nPossible causes:\n")
+            append("• Network connection issues\n")
+            append("• Corrupted or unsupported media files\n")
+            append("• SMB server disconnected\n")
+            append("• Insufficient permissions\n")
+        }
+        
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Media Loading Issues")
+            .setMessage(errorSummary)
+            .setPositiveButton("Continue") { dialog, _ ->
+                consecutiveErrors = 0
+                dialog.dismiss()
+            }
+            .setNegativeButton("View Error Log") { _, _ ->
+                showFullErrorLog()
+            }
+            .setNeutralButton("Exit Slideshow") { _, _ ->
+                finish()
+            }
+            .setCancelable(false)
+            .show()
+    }
+    
+    private fun showFullErrorLog() {
+        val fullLog = buildString {
+            append("FULL ERROR LOG\n")
+            append("Total errors: ${errorLog.size}\n")
+            append("━".repeat(50))
+            append("\n\n")
+            
+            errorLog.reversed().forEach { error ->
+                val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+                    .format(java.util.Date(error.timestamp))
+                append("[$time]\n")
+                append("Type: ${error.errorType}\n")
+                append("File: ${error.fileName}\n")
+                append("Error: ${error.errorMessage}\n")
+                append("\n")
+            }
+        }
+        
+        val scrollView = android.widget.ScrollView(this)
+        val textView = android.widget.TextView(this).apply {
+            text = fullLog
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 12f
+            setPadding(32, 32, 32, 32)
+        }
+        scrollView.addView(textView)
+        
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Error Log (${errorLog.size} entries)")
+            .setView(scrollView)
+            .setPositiveButton("Close") { dialog, _ ->
+                consecutiveErrors = 0
+                dialog.dismiss()
+            }
+            .setNegativeButton("Clear Log") { dialog, _ ->
+                errorLog.clear()
+                consecutiveErrors = 0
+                Toast.makeText(this, "Error log cleared", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            .show()
     }
 }

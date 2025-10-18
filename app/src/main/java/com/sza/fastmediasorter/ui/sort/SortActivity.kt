@@ -62,6 +62,17 @@ class SortActivity : AppCompatActivity() {
     private var nextImageIndex: Int = -1
     private var preloadJob: Job? = null
     
+    // Error tracking
+    private data class MediaError(
+        val fileName: String,
+        val errorType: String,
+        val errorMessage: String,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+    private val errorLog = mutableListOf<MediaError>()
+    private var consecutiveErrors = 0
+    private val MAX_CONSECUTIVE_ERRORS = 5
+    
     // For handling delete permission requests on Android 11+
     private var pendingDeleteUri: Uri? = null
     private var isDeleteFromMove: Boolean = false  // Track if delete is from Move operation
@@ -1006,11 +1017,7 @@ class SortActivity : AppCompatActivity() {
                                     isFirstResource: Boolean
                                 ): Boolean {
                                     android.util.Log.e("SortActivity", "Failed to load image: ${e?.message}", e)
-                                    android.widget.Toast.makeText(
-                                        this@SortActivity,
-                                        "⚠ Image corrupted or unsupported format",
-                                        android.widget.Toast.LENGTH_SHORT
-                                    ).show()
+                                    handleMediaError(imageUrl, "Image Load", e?.message ?: "Glide load failed")
                                     return false
                                 }
                                 
@@ -1021,6 +1028,7 @@ class SortActivity : AppCompatActivity() {
                                     dataSource: DataSource,
                                     isFirstResource: Boolean
                                 ): Boolean {
+                                    consecutiveErrors = 0
                                     return false
                                 }
                             })
@@ -1070,11 +1078,7 @@ class SortActivity : AppCompatActivity() {
                                         isFirstResource: Boolean
                                     ): Boolean {
                                         android.util.Log.e("SortActivity", "Failed to load image: ${e?.message}", e)
-                                        android.widget.Toast.makeText(
-                                            this@SortActivity,
-                                            "⚠ Image corrupted or unsupported format",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
+                                        handleMediaError(imageUrl, "Image Load", e?.message ?: "Glide load failed")
                                         return false
                                     }
                                     
@@ -1085,6 +1089,7 @@ class SortActivity : AppCompatActivity() {
                                         dataSource: DataSource,
                                         isFirstResource: Boolean
                                     ): Boolean {
+                                        consecutiveErrors = 0
                                         return false
                                     }
                                 })
@@ -1092,21 +1097,13 @@ class SortActivity : AppCompatActivity() {
                             
                             updateFileInfo(fileInfo)
                         } else {
-                            android.widget.Toast.makeText(
-                                this@SortActivity,
-                                "Failed to load image: $imageUrl",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
+                            handleMediaError(imageUrl, "Image Download", "No data received")
                         }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
                     withContext(Dispatchers.Main) {
-                        android.widget.Toast.makeText(
-                            this@SortActivity,
-                            "Error: ${e.message}",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
+                        handleMediaError(imageUrl, "Image Load", e.message ?: "Unknown error")
                     }
                 }
                 
@@ -1176,6 +1173,7 @@ class SortActivity : AppCompatActivity() {
                                     
                                     override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                                         binding.videoLoadingLayout.visibility = View.GONE
+                                        handleMediaError(videoUrl, "Video Playback", error.message ?: "Playback error")
                                         
                                         if (preferenceManager.isShowVideoErrorDetails()) {
                                             showVideoErrorDialog(error)
@@ -1193,12 +1191,9 @@ class SortActivity : AppCompatActivity() {
                                 exoPlayer?.setMediaItem(mediaItem)
                                 exoPlayer?.prepare()
                                 exoPlayer?.play()
+                                consecutiveErrors = 0
                             } else {
-                                android.widget.Toast.makeText(
-                                    this@SortActivity,
-                                    "SMB connection not available",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
+                                handleMediaError(videoUrl, "Video Load", "SMB context not available")
                                 return@withContext
                             }
                         }
@@ -1207,21 +1202,13 @@ class SortActivity : AppCompatActivity() {
                         
                     } catch (e: Exception) {
                         android.util.Log.e("SortActivity", "Failed to load video: ${e.message}", e)
-                        android.widget.Toast.makeText(
-                            this@SortActivity,
-                            "⚠ Failed to load video: ${e.message}",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
+                        handleMediaError(videoUrl, "Video Load", e.message ?: "Unknown error")
                     }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(
-                        this@SortActivity,
-                        "Error: ${e.message}",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
+                    handleMediaError(videoUrl, "Video Load", e.message ?: "Unknown error")
                 }
             }
         }
@@ -1591,5 +1578,108 @@ class SortActivity : AppCompatActivity() {
         } catch (e: Exception) {
             // Ignore disconnect errors on destroy
         }
+    }
+    
+    private fun handleMediaError(mediaUrl: String, errorType: String, errorMessage: String) {
+        val fileName = mediaUrl.substringAfterLast('/')
+        errorLog.add(MediaError(fileName, errorType, errorMessage))
+        consecutiveErrors++
+        
+        lifecycleScope.launch(Dispatchers.Main) {
+            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+                showErrorReportDialog()
+            } else {
+                Toast.makeText(
+                    this@SortActivity,
+                    "⚠ $errorType error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS})",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+    
+    private fun showErrorReportDialog() {
+        val recentErrors = errorLog.takeLast(10)
+        val errorSummary = buildString {
+            append("⚠️ MULTIPLE ERRORS DETECTED\n\n")
+            append("Consecutive errors: $consecutiveErrors\n")
+            append("Total errors: ${errorLog.size}\n\n")
+            append("Recent errors:\n")
+            append("━".repeat(40))
+            append("\n\n")
+            
+            recentErrors.forEach { error ->
+                val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                    .format(java.util.Date(error.timestamp))
+                append("[$time] ${error.errorType}\n")
+                append("File: ${error.fileName}\n")
+                append("Error: ${error.errorMessage}\n\n")
+            }
+            
+            append("\nRecommendations:\n")
+            append("• Check network connection\n")
+            append("• Verify SMB server is accessible\n")
+            append("• Check file permissions\n")
+            append("• Some files may be corrupted\n")
+        }
+        
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Media Loading Issues")
+            .setMessage(errorSummary)
+            .setPositiveButton("Continue") { dialog, _ ->
+                consecutiveErrors = 0
+                dialog.dismiss()
+            }
+            .setNegativeButton("View Full Log") { _, _ ->
+                showFullErrorLog()
+            }
+            .setNeutralButton("Exit") { _, _ ->
+                finish()
+            }
+            .setCancelable(false)
+            .show()
+    }
+    
+    private fun showFullErrorLog() {
+        val fullLog = buildString {
+            append("FULL ERROR LOG\n")
+            append("Total errors: ${errorLog.size}\n")
+            append("━".repeat(50))
+            append("\n\n")
+            
+            errorLog.reversed().forEach { error ->
+                val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+                    .format(java.util.Date(error.timestamp))
+                append("[$time]\n")
+                append("Type: ${error.errorType}\n")
+                append("File: ${error.fileName}\n")
+                append("Error: ${error.errorMessage}\n")
+                append("\n")
+            }
+        }
+        
+        val scrollView = android.widget.ScrollView(this)
+        val textView = android.widget.TextView(this).apply {
+            text = fullLog
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 12f
+            setPadding(32, 32, 32, 32)
+        }
+        scrollView.addView(textView)
+        
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Error Log (${errorLog.size} entries)")
+            .setView(scrollView)
+            .setPositiveButton("Close") { dialog, _ ->
+                consecutiveErrors = 0
+                dialog.dismiss()
+            }
+            .setNegativeButton("Clear Log") { dialog, _ ->
+                errorLog.clear()
+                consecutiveErrors = 0
+                Toast.makeText(this, "Error log cleared", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            .show()
     }
 }
