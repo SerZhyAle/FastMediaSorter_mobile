@@ -78,7 +78,6 @@ private fun observeConnections() {
 viewModel.allConfigs.observe(viewLifecycleOwner) { configs ->
 val smbConfigs = configs.filter { it.type == "SMB" }
 adapter.submitList(smbConfigs)
-adapter.clearSelection()
 }
 }
 
@@ -104,7 +103,6 @@ Toast.makeText(requireContext(), "Please enter folder address", Toast.LENGTH_SHO
 return
 }
 
-// Use default credentials if not set
 val preferenceManager = com.sza.fastmediasorter.utils.PreferenceManager(requireContext())
 if (username.isEmpty()) {
 username = preferenceManager.getDefaultUsername()
@@ -124,38 +122,64 @@ val smbClient = com.sza.fastmediasorter.network.SmbClient()
 val connected = smbClient.connect(server, username, password)
 
 if (!connected) {
-androidx.appcompat.app.AlertDialog.Builder(requireContext())
-.setTitle("Test FAILED")
-.setMessage("Connection failed: Unable to connect to server\n\nCheck:\n• Server IP correct?\n• Server running?\n• Firewall settings?")
-.setPositiveButton("OK", null)
-.show()
+com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
+requireContext(),
+"Test FAILED",
+"Connection failed: Unable to connect to server\n\nCheck:\n• Server IP correct?\n• Server running?\n• Firewall settings?",
+false
+)
 btnTest.isEnabled = true
 btnTest.text = "Test"
 return@launch
 }
 
-            val result = smbClient.getImageFiles(server, folder)
+val result = smbClient.getImageFiles(server, folder)
 
 if (result.errorMessage != null) {
-androidx.appcompat.app.AlertDialog.Builder(requireContext())
-.setTitle("Test FAILED")
-.setMessage(result.errorMessage)
-.setPositiveButton("OK", null)
-.show()
+com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
+requireContext(),
+"Test FAILED",
+result.errorMessage,
+false
+)
 } else {
-val msg = "Test PASSED ✓\n\nFound ${result.files.size} image(s) in folder"
-androidx.appcompat.app.AlertDialog.Builder(requireContext())
-.setTitle("Connection Test")
-.setMessage(msg)
-.setPositiveButton("OK", null)
-.show()
+val successMsg = "=== SMB CONNECTION TEST SUCCESS ===\n" +
+"Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n" +
+"Server: $server\n" +
+"Folder: $folder\n\n" +
+"=== RESULTS ===\n" +
+"✓ Connection: SUCCESS\n" +
+"✓ Authentication: SUCCESS\n" +
+"✓ Folder Access: SUCCESS\n" +
+"✓ Images Found: ${result.files.size}\n\n" +
+"=== SYSTEM INFO ===\n" +
+"Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n" +
+"Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n\n" +
+"Connection test completed successfully!"
+
+com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
+requireContext(),
+"Test PASSED ✓",
+successMsg,
+true
+)
 }
 } catch (e: Exception) {
-androidx.appcompat.app.AlertDialog.Builder(requireContext())
-.setTitle("Test FAILED")
-.setMessage("Error: ${e.javaClass.simpleName}\n\n${e.message}")
-.setPositiveButton("OK", null)
-.show()
+val diagnostic = "=== UNEXPECTED ERROR IN TEST ===\n" +
+"Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n\n" +
+"=== ERROR DETAILS ===\n" +
+"Exception: ${e.javaClass.simpleName}\n" +
+"Message: ${e.message ?: "No message"}\n" +
+"Cause: ${e.cause?.javaClass?.simpleName ?: "None"}\n\n" +
+"=== STACK TRACE ===\n" +
+android.util.Log.getStackTraceString(e)
+
+com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
+requireContext(),
+"Test FAILED - Unexpected Error",
+diagnostic,
+false
+)
 }
 
 btnTest.isEnabled = true

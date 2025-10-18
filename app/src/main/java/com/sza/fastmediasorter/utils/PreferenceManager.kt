@@ -4,18 +4,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import org.bouncycastle.jce.provider.BouncyCastleProvider
-import java.security.Security
 
 class PreferenceManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
     private val encryptedPrefs: SharedPreferences by lazy {
-        try {
-            Security.removeProvider("BC")
-            Security.addProvider(BouncyCastleProvider())
-        } catch (e: Exception) {
-            android.util.Log.w("PreferenceManager", "BouncyCastle provider setup warning", e)
-        }
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()

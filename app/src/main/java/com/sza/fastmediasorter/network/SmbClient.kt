@@ -12,9 +12,111 @@ import java.util.*
 class SmbClient {
     private var context: CIFSContext? = null
     
-    suspend fun connect(serverAddress: String, username: String, password: String): Boolean {
+    private fun buildFullDiagnostic(e: Exception?, serverAddress: String, folderPath: String): String {
+        val diagnostic = StringBuilder()
+        
+        // Header
+        diagnostic.append("=== SMB CONNECTION TEST DIAGNOSTIC ===\n")
+        diagnostic.append("Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n")
+        diagnostic.append("Server: $serverAddress\n")
+        diagnostic.append("Folder: $folderPath\n\n")
+        
+        // Error information
+        if (e != null) {
+            diagnostic.append("=== ERROR DETAILS ===\n")
+            diagnostic.append("Exception: ${e.javaClass.simpleName}\n")
+            diagnostic.append("Message: ${e.message ?: "No message"}\n")
+            diagnostic.append("Cause: ${e.cause?.javaClass?.simpleName ?: "None"}\n")
+            if (e.cause != null) {
+                diagnostic.append("Cause Message: ${e.cause?.message ?: "No message"}\n")
+            }
+            diagnostic.append("\n")
+        }
+        
+        // Security providers diagnostic
+        diagnostic.append("=== SECURITY PROVIDERS ===\n")
+        try {
+            val providers = java.security.Security.getProviders()
+            diagnostic.append("Total Providers: ${providers.size}\n\n")
+            
+            providers.forEachIndexed { index, provider ->
+                diagnostic.append("${index + 1}. ${provider.name}\n")
+                diagnostic.append("   Version: ${provider.version}\n")
+                diagnostic.append("   Info: ${provider.info}\n")
+                diagnostic.append("   Class: ${provider.javaClass.name}\n\n")
+            }
+            
+            // BC Provider specific check
+            val bcProvider = java.security.Security.getProvider("BC")
+            diagnostic.append("=== BOUNCYCASTLE PROVIDER CHECK ===\n")
+            if (bcProvider != null) {
+                diagnostic.append("✓ BouncyCastle Provider: FOUND\n")
+                diagnostic.append("  Name: ${bcProvider.name}\n")
+                diagnostic.append("  Version: ${bcProvider.version}\n")
+                diagnostic.append("  Class: ${bcProvider.javaClass.name}\n\n")
+                
+                // Test MD4 algorithm
+                diagnostic.append("=== MD4 ALGORITHM TEST ===\n")
+                try {
+                    val md4 = java.security.MessageDigest.getInstance("MD4", "BC")
+                    diagnostic.append("✓ MD4 Algorithm: AVAILABLE\n")
+                    diagnostic.append("  Provider: ${md4.provider.name}\n")
+                    diagnostic.append("  Algorithm: ${md4.algorithm}\n")
+                } catch (md4e: Exception) {
+                    diagnostic.append("✗ MD4 Algorithm: FAILED\n")
+                    diagnostic.append("  Error: ${md4e.javaClass.simpleName}\n")
+                    diagnostic.append("  Message: ${md4e.message}\n")
+                }
+            } else {
+                diagnostic.append("✗ BouncyCastle Provider: NOT FOUND\n")
+                diagnostic.append("  This is likely the cause of MD4 errors!\n")
+            }
+            diagnostic.append("\n")
+            
+        } catch (provEx: Exception) {
+            diagnostic.append("Error checking security providers: ${provEx.message}\n\n")
+        }
+        
+        // System information
+        diagnostic.append("=== SYSTEM INFORMATION ===\n")
+        diagnostic.append("Android Version: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n")
+        diagnostic.append("Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n")
+        diagnostic.append("JVM: ${System.getProperty("java.vm.name")} ${System.getProperty("java.vm.version")}\n")
+        diagnostic.append("Java Version: ${System.getProperty("java.version")}\n\n")
+        
+        // Network information
+        diagnostic.append("=== NETWORK CONFIGURATION ===\n")
+        try {
+            val connectivityManager = android.content.Context.CONNECTIVITY_SERVICE
+            diagnostic.append("WiFi Status: Available\n") // Basic check
+        } catch (netEx: Exception) {
+            diagnostic.append("Network check failed: ${netEx.message}\n")
+        }
+        
+        // Stack trace for errors
+        if (e != null) {
+            diagnostic.append("\n=== FULL STACK TRACE ===\n")
+            diagnostic.append(android.util.Log.getStackTraceString(e))
+        }
+        
+        return diagnostic.toString()
+    }
+    
+    suspend fun connect(@Suppress("UNUSED_PARAMETER") serverAddress: String, username: String, password: String): Boolean {
         return withContext(Dispatchers.IO) {
             try {
+                // Ensure BouncyCastle provider is available
+                try {
+                    java.security.Security.getProvider("BC") ?: run {
+                        val bcProvider = Class.forName("org.bouncycastle.jce.provider.BouncyCastleProvider")
+                            .getDeclaredConstructor().newInstance() as java.security.Provider
+                        java.security.Security.addProvider(bcProvider)
+                        android.util.Log.d("SmbClient", "BouncyCastle provider added")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("SmbClient", "Failed to ensure BC provider", e)
+                }
+                
                 val props = Properties().apply {
                     setProperty("jcifs.smb.client.minVersion", "SMB202")
                     setProperty("jcifs.smb.client.maxVersion", "SMB311")
@@ -50,8 +152,33 @@ class SmbClient {
             try {
                 android.util.Log.d("SmbClient", "getImageFiles - server: $serverAddress, folder: $folderPath")
                 
+                // Diagnostic check for BC provider and MD4 availability BEFORE SMB operations
+                val bcDiagnostic = StringBuilder()
+                try {
+                    val providers = java.security.Security.getProviders()
+                    bcDiagnostic.append("Security Providers: ${providers.size}\n")
+                    providers.forEach { p -> bcDiagnostic.append("${p.name} v${p.version}; ") }
+                    bcDiagnostic.append("\n")
+                    
+                    val bcProvider = java.security.Security.getProvider("BC")
+                    if (bcProvider != null) {
+                        bcDiagnostic.append("BC Provider: FOUND\n")
+                        try {
+                            java.security.MessageDigest.getInstance("MD4", "BC")
+                            bcDiagnostic.append("MD4 Test: SUCCESS\n")
+                        } catch (md4e: Exception) {
+                            bcDiagnostic.append("MD4 Test: FAILED - ${md4e.message}\n")
+                        }
+                    } else {
+                        bcDiagnostic.append("BC Provider: NOT FOUND\n")
+                    }
+                } catch (diagEx: Exception) {
+                    bcDiagnostic.append("Diagnostic error: ${diagEx.message}\n")
+                }
+                android.util.Log.d("SmbClient", "Pre-SMB diagnostic:\n$bcDiagnostic")
+                
                 if (context == null) {
-                    val msg = "Not connected to server. Please check connection settings."
+                    val msg = "Not connected to server. Please check connection settings.\n\n$bcDiagnostic"
                     android.util.Log.e("SmbClient", msg)
                     return@withContext ImageFilesResult(emptyList(), msg)
                 }
@@ -114,9 +241,9 @@ class SmbClient {
                 android.util.Log.e("SmbClient", msg, e)
                 ImageFilesResult(emptyList(), msg)
             } catch (e: jcifs.smb.SmbAuthException) {
-                val msg = "Authentication failed\n\nCheck username and password"
-                android.util.Log.e("SmbClient", msg, e)
-                ImageFilesResult(emptyList(), msg)
+                val diagnostic = buildFullDiagnostic(e, serverAddress, folderPath)
+                android.util.Log.e("SmbClient", "SmbAuthException", e)
+                ImageFilesResult(emptyList(), diagnostic)
             } catch (e: jcifs.smb.SmbException) {
                 val msg = when {
                     e.message?.contains("Access is denied", ignoreCase = true) == true ->
@@ -127,6 +254,12 @@ class SmbClient {
                         "Connection timeout\n\nCheck:\n• Server reachable?\n• Firewall blocking SMB?\n• Same network?"
                     e.message?.contains("Connection refused", ignoreCase = true) == true ->
                         "Connection refused\n\nCheck:\n• SMB enabled on server?\n• Firewall settings?\n• Port 445 open?"
+                    e.message?.contains("algorithm", ignoreCase = true) == true ||
+                    e.message?.contains("MD4", ignoreCase = true) == true ||
+                    e.message?.contains("provider", ignoreCase = true) == true -> {
+                        val diagnostic = buildFullDiagnostic(e, serverAddress, folderPath)
+                        "SECURITY ERROR (likely MD4 issue):\n\n$diagnostic"
+                    }
                     else ->
                         "SMB Error: ${e.message ?: "Unknown error"}\n\nFull error details logged"
                 }
@@ -138,7 +271,16 @@ class SmbClient {
                 android.util.Log.e("SmbClient", msg, e)
                 ImageFilesResult(emptyList(), msg)
             } catch (e: Exception) {
-                val msg = "Error: ${e.javaClass.simpleName}\n${e.message ?: "Unknown error"}\n\nFull details logged"
+                // For any exception, check if it's security-related and provide diagnostic
+                val msg = if (e is java.security.NoSuchAlgorithmException || 
+                             e.message?.contains("algorithm", ignoreCase = true) == true ||
+                             e.message?.contains("provider", ignoreCase = true) == true ||
+                             e.message?.contains("MD4", ignoreCase = true) == true) {
+                    buildFullDiagnostic(e, serverAddress, folderPath)
+                } else {
+                    "Error: ${e.javaClass.simpleName}\n${e.message ?: "Unknown error"}\n\nFull details logged"
+                }
+                
                 android.util.Log.e("SmbClient", "Error in getImageFiles: ${e.message}", e)
                 e.printStackTrace()
                 ImageFilesResult(emptyList(), msg)

@@ -30,6 +30,17 @@
 -keep class jcifs.** { *; }
 -dontwarn jcifs.**
 
+# Keep BouncyCastle provider and MD4 algorithm for jCIFS-ng
+-keep class org.bouncycastle.** { *; }
+-keep class m6.** { *; }
+-keepclassmembers class org.bouncycastle.jce.provider.BouncyCastleProvider {
+    public *;
+}
+-keep class org.bouncycastle.jce.provider.** { *; }
+-keep class org.bouncycastle.crypto.** { *; }
+-keep class org.bouncycastle.crypto.digests.MD4Digest { *; }
+-dontwarn org.bouncycastle.**
+
 # Keep SLF4J (required by jCIFS-ng)
 -dontwarn org.slf4j.**
 -keep class org.slf4j.** { *; }
