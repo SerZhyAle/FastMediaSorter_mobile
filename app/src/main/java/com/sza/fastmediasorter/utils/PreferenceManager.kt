@@ -41,6 +41,8 @@ class PreferenceManager(context: Context) {
         private const val KEY_SHOW_CONTROLS = "show_controls"
         private const val KEY_FIRST_LAUNCH = "first_launch"
         private const val KEY_WELCOME_SHOWN = "welcome_shown"
+        private const val KEY_VIDEO_ENABLED = "video_enabled"
+        private const val KEY_MAX_VIDEO_SIZE_MB = "max_video_size_mb"
     }
     
     init {
@@ -181,5 +183,18 @@ class PreferenceManager(context: Context) {
     
     fun setWelcomeShown() {
         prefs.edit().putBoolean(KEY_WELCOME_SHOWN, true).apply()
+    }
+    
+    // Video playback settings
+    fun isVideoEnabled(): Boolean = prefs.getBoolean(KEY_VIDEO_ENABLED, false)
+    
+    fun setVideoEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_VIDEO_ENABLED, enabled).apply()
+    }
+    
+    fun getMaxVideoSizeMb(): Int = prefs.getInt(KEY_MAX_VIDEO_SIZE_MB, 100)
+    
+    fun setMaxVideoSizeMb(sizeMb: Int) {
+        prefs.edit().putInt(KEY_MAX_VIDEO_SIZE_MB, sizeMb).apply()
     }
 }

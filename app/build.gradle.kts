@@ -102,6 +102,13 @@ dependencies {
     // Image loading
     implementation("com.github.bumptech.glide:glide:4.16.0")
     
+    // PhotoView for zoom/pinch functionality
+    implementation("com.github.chrisbanes:PhotoView:2.3.0")
+    
+    // ExoPlayer for video playback
+    implementation("androidx.media3:media3-exoplayer:1.2.1")
+    implementation("androidx.media3:media3-ui:1.2.1")
+    
     // Navigation
     implementation("androidx.navigation:navigation-fragment-ktx:2.7.6")
     implementation("androidx.navigation:navigation-ui-ktx:2.7.6")

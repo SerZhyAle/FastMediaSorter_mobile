@@ -86,6 +86,15 @@ class ConnectionAdapter(
                     itemView.context.getColor(android.R.color.transparent)
             )
             
+            // Set text color for better readability on selected background
+            val textColor = if (isSelected) {
+                itemView.context.getColor(android.R.color.black)
+            } else {
+                itemView.context.getColor(android.R.color.white)
+            }
+            nameText.setTextColor(textColor)
+            detailsText.setTextColor(textColor)
+            
             itemView.setOnTouchListener { v, event ->
                 gestureDetector.onTouchEvent(event)
                 v.performClick()
