@@ -21,10 +21,11 @@ import com.sza.fastmediasorter.ui.ConnectionViewModel
 import kotlinx.coroutines.launch
 
 data class LocalFolder(
-val name: String,
-val icon: String,
-val count: Int,
-val isCustom: Boolean = false
+    val name: String,
+    val icon: String,
+    val count: Int,
+    val isCustom: Boolean = false,
+    val configId: Long = 0
 )
 
 class LocalFoldersFragment : Fragment() {
@@ -118,7 +119,8 @@ LocalFolder(
 name = name,
 icon = iconMap[name] ?: "📁",
 count = count,
-isCustom = false
+isCustom = false,
+configId = 0
 )
 )
 }
@@ -128,39 +130,66 @@ adapter.notifyDataSetChanged()
 
 private fun loadCustomFolders() {
 viewModel.localCustomFolders.observe(viewLifecycleOwner) { customConfigs ->
+// Get current counts from scanAllImageFolders
+lifecycleScope.launch {
+val allFolders = localClient.scanAllImageFolders()
 val customFolders = customConfigs.map { config ->
+val folderName = config.localDisplayName ?: "Unknown"
+val count = allFolders[folderName] ?: 0
 LocalFolder(
-name = config.localDisplayName ?: "Unknown",
+name = folderName,
 icon = "📁",
-count = 0, // TODO: count images
-isCustom = true
+count = count,
+isCustom = true,
+configId = config.id
 )
 }
 folders.addAll(customFolders)
 adapter.notifyDataSetChanged()
 }
 }
+}
 
-    private fun scanAllFolders() {
-        lifecycleScope.launch {
-            Toast.makeText(requireContext(), R.string.scanning_folders, Toast.LENGTH_SHORT).show()
-            try {
-                val allFolders = localClient.scanAllImageFolders()
-                var newFoldersCount = 0
-                allFolders.forEach { (folderName, count) ->
-                    if (folderName !in standardFolderNames) {
-                        viewModel.addLocalCustomFolder(folderName, "")
-                        newFoldersCount++
-                    }
-                }
-                Toast.makeText(
-                    requireContext(),
-                    getString(R.string.scan_complete, newFoldersCount),
-                    Toast.LENGTH_LONG
-                ).show()
-            } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Scan failed: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
+private fun scanAllFolders() {
+lifecycleScope.launch {
+Toast.makeText(requireContext(), R.string.scanning_folders, Toast.LENGTH_SHORT).show()
+try {
+val allFolders = localClient.scanAllImageFolders()
+var newFoldersCount = 0
+var updatedFoldersCount = 0
+
+// Get existing custom folders
+val existingFolders = viewModel.localCustomFolders.value?.map { it.localDisplayName } ?: emptyList()
+allFolders.forEach { (folderName, count) ->
+if (folderName !in standardFolderNames) {
+if (folderName !in existingFolders) {
+viewModel.addLocalCustomFolder(folderName, "")
+newFoldersCount++
+} else {
+updatedFoldersCount++
+}
+}
+}
+
+// Reload folders to update counts
+loadStandardFolders()
+loadCustomFolders()
+
+val message = when {
+newFoldersCount > 0 && updatedFoldersCount > 0 ->
+"Added $newFoldersCount, updated $updatedFoldersCount folders"
+newFoldersCount > 0 ->
+getString(R.string.scan_complete, newFoldersCount)
+updatedFoldersCount > 0 ->
+"Updated $updatedFoldersCount folders"
+else ->
+"No new folders found"
+}
+
+Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+} catch (e: Exception) {
+Toast.makeText(requireContext(), "Scan failed: ${e.message}", Toast.LENGTH_LONG).show()
+}
+}
+}
 }
