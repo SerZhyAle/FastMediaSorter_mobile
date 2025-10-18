@@ -24,6 +24,7 @@ private lateinit var binding: ActivityMainBinding
 private lateinit var preferenceManager: PreferenceManager
 private val viewModel: ConnectionViewModel by viewModels()
 private var currentConfigId: Long? = null
+private var currentConfig: ConnectionConfig? = null
 
 override fun onCreate(savedInstanceState: Bundle?) {
 super.onCreate(savedInstanceState)
@@ -53,6 +54,7 @@ tryAutoResumeSession()
             val localFragment = supportFragmentManager.findFragmentByTag("f0") as? com.sza.fastmediasorter.ui.local.LocalFoldersFragment
             localFragment?.let { setupLocalFragmentCallbacks(it) }
         }
+        updateButtonsState()
     }
     
     private fun getIntervalFromInput(): Int? {
@@ -60,6 +62,15 @@ tryAutoResumeSession()
     }
     
     private suspend fun updateConfigInterval(configId: Long): ConnectionConfig? {
+        // For local standard folders (negative IDs), use cached config
+        if (configId < 0) {
+            return currentConfig?.let { config ->
+                val interval = getIntervalFromInput() ?: config.interval
+                config.copy(interval = interval)
+            }
+        }
+        
+        // For DB configs (positive IDs), fetch from database
         val config = viewModel.getConfigById(configId) ?: return null
         val interval = getIntervalFromInput() ?: config.interval
         
@@ -73,8 +84,10 @@ tryAutoResumeSession()
     }private fun setupNetworkFragmentCallbacks(fragment: NetworkFragment) {
 fragment.onConfigSelected = { config ->
 currentConfigId = config.id
+currentConfig = config
 val interval = binding.intervalInput.text.toString().toIntOrNull() ?: config.interval
 binding.intervalInput.setText(interval.toString())
+updateButtonsState()
 }
 fragment.onConfigDoubleClick = { config ->
 loadConfigAndStartSlideshow(config)
@@ -94,7 +107,9 @@ createStandardLocalConfig(folder.name)
 }
 config?.let {
 currentConfigId = it.id
+currentConfig = it
 binding.intervalInput.setText(it.interval.toString())
+updateButtonsState()
 }
 }
 }
@@ -222,6 +237,14 @@ startActivity(intent)
 
 private fun showLoading(show: Boolean) {
 binding.progressBar.visibility = if (show) View.VISIBLE else View.GONE
-binding.slideshowButton.isEnabled = !show
+if (!show) {
+updateButtonsState()
+}
+}
+
+private fun updateButtonsState() {
+val isEnabled = currentConfigId != null
+binding.slideshowButton.isEnabled = isEnabled
+binding.sortButton.isEnabled = isEnabled
 }
 }

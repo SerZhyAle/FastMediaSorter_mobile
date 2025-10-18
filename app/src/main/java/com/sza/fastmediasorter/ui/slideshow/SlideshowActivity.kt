@@ -96,11 +96,22 @@ class SlideshowActivity : AppCompatActivity() {
     
     private fun updateControlsVisibility() {
         val showControls = preferenceManager.isShowControls()
-        val visibility = if (showControls) View.VISIBLE else View.GONE
         
-        binding.topLayout.visibility = visibility
-        binding.controlsLayout.visibility = visibility
-        binding.rotationLayout.visibility = visibility
+        if (showControls) {
+            // Show visible control panel
+            binding.controlPanel.visibility = View.VISIBLE
+            // Hide invisible touch areas
+            binding.topLayout.visibility = View.GONE
+            binding.controlsLayout.visibility = View.GONE
+            binding.rotationLayout.visibility = View.GONE
+        } else {
+            // Hide control panel
+            binding.controlPanel.visibility = View.GONE
+            // Show invisible touch areas (transparent)
+            binding.topLayout.visibility = View.VISIBLE
+            binding.controlsLayout.visibility = View.VISIBLE
+            binding.rotationLayout.visibility = View.VISIBLE
+        }
     }
     
     private fun setupControlAreas() {
@@ -151,6 +162,34 @@ class SlideshowActivity : AppCompatActivity() {
         binding.rotateRightButton.setOnClickListener {
             rotateImage(90f)
         }
+        
+        binding.btnBack.setOnClickListener {
+            onBackPressed()
+        }
+        
+        binding.btnPrevious.setOnClickListener {
+            skipToPreviousImage()
+        }
+        
+        binding.btnPlayPause.setOnClickListener {
+            togglePause()
+        }
+        
+        binding.btnNext.setOnClickListener {
+            skipToNextImage()
+        }
+        
+        binding.btnRotateLeft.setOnClickListener {
+            rotateImage(-90f)
+        }
+        
+        binding.btnRotateRight.setOnClickListener {
+            rotateImage(90f)
+        }
+        
+        binding.btnShuffle.setOnClickListener {
+            toggleShuffleMode()
+        }
     }
     
     private fun rotateImage(degrees: Float) {
@@ -164,12 +203,20 @@ class SlideshowActivity : AppCompatActivity() {
     
     private fun togglePause() {
         isPaused = !isPaused
+        updatePlayPauseIcon()
         
         // Show interval when resuming
         if (!isPaused) {
             val interval = preferenceManager.getInterval()
             showTimerText("$interval", 1000)
         }
+    }
+    
+    private fun updatePlayPauseIcon() {
+        binding.btnPlayPause.setImageResource(
+            if (isPaused) android.R.drawable.ic_media_play
+            else android.R.drawable.ic_media_pause
+        )
     }
     
     private fun toggleShuffleMode() {

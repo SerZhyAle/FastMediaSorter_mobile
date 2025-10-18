@@ -1,8 +1,15 @@
 package com.sza.fastmediasorter.ui.sort
 
+import android.app.Activity
+import android.content.IntentSender
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.view.View
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -37,12 +44,39 @@ class SortActivity : AppCompatActivity() {
     private var nextImageIndex: Int = -1
     private var preloadJob: Job? = null
     
+    // For handling delete permission requests on Android 11+
+    private var pendingDeleteUri: Uri? = null
+    private var isDeleteFromMove: Boolean = false  // Track if delete is from Move operation
+    private lateinit var deletePermissionLauncher: ActivityResultLauncher<IntentSenderRequest>
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySortBinding.inflate(layoutInflater)
         setContentView(binding.root)
         
         supportActionBar?.hide()
+        
+        // Register delete permission launcher for Android 11+
+        deletePermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.StartIntentSenderForResult()
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                android.util.Log.d("SortActivity", "User granted delete permission")
+                pendingDeleteUri?.let { uri ->
+                    lifecycleScope.launch {
+                        handleDeleteSuccess(uri)
+                    }
+                }
+            } else {
+                android.util.Log.w("SortActivity", "User denied delete permission")
+                android.widget.Toast.makeText(
+                    this,
+                    "Delete permission denied",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+            pendingDeleteUri = null
+        }
         
         viewModel = ViewModelProvider(this)[ConnectionViewModel::class.java]
         preferenceManager = PreferenceManager(this)
@@ -277,43 +311,159 @@ class SortActivity : AppCompatActivity() {
     private suspend fun copyFromLocalToSmb(localUri: String, destination: ConnectionConfig): SmbClient.CopyResult {
         return try {
             val uri = Uri.parse(localUri)
-            val imageBytes = localStorageClient?.downloadImage(uri) ?: return SmbClient.CopyResult.UnknownError("Failed to read local file")
-            val fileName = localStorageClient?.getFileInfo(uri)?.name ?: "unknown.jpg"
+            val imageBytes = localStorageClient?.downloadImage(uri) 
+            if (imageBytes == null) {
+                android.util.Log.e("SortActivity", "Failed to read local file: $localUri")
+                return SmbClient.CopyResult.UnknownError("Failed to read local file")
+            }
+            
+            val fileInfo = localStorageClient?.getFileInfo(uri)
+            val fileName = fileInfo?.name ?: "unknown.jpg"
+            android.util.Log.d("SortActivity", "Copying file: $fileName (${imageBytes.size} bytes)")
             
             // Connect to destination SMB if needed
             val destClient = SmbClient()
             val connected = destClient.connect(destination.serverAddress, destination.username, destination.password)
             if (!connected) {
+                android.util.Log.e("SortActivity", "Failed to connect to ${destination.serverAddress}")
                 return SmbClient.CopyResult.NetworkError("Failed to connect to destination")
             }
             
-            // Write file to SMB
-            destClient.writeFile(destination.serverAddress, destination.folderPath, fileName, imageBytes)
+            android.util.Log.d("SortActivity", "Connected to ${destination.serverAddress}, writing to ${destination.folderPath}")
+            
+            // Write file to SMB and return result
+            val result = destClient.writeFile(destination.serverAddress, destination.folderPath, fileName, imageBytes)
+            
+            when (result) {
+                is SmbClient.CopyResult.Success -> 
+                    android.util.Log.d("SortActivity", "File copied successfully: $fileName")
+                is SmbClient.CopyResult.AlreadyExists -> 
+                    android.util.Log.w("SortActivity", "File already exists: $fileName")
+                is SmbClient.CopyResult.NetworkError -> 
+                    android.util.Log.e("SortActivity", "Network error: ${result.message}")
+                is SmbClient.CopyResult.SecurityError -> 
+                    android.util.Log.e("SortActivity", "Security error: ${result.message}")
+                else -> 
+                    android.util.Log.e("SortActivity", "Unknown error during copy")
+            }
+            
+            result
         } catch (e: Exception) {
+            android.util.Log.e("SortActivity", "Exception during copy: ${e.message}", e)
             e.printStackTrace()
             SmbClient.CopyResult.UnknownError(e.message ?: "Unknown error")
         }
     }
     
     private suspend fun moveFromLocalToSmb(localUri: String, destination: ConnectionConfig): SmbClient.MoveResult {
-        return try {
+        try {
+            android.util.Log.d("SortActivity", "Moving from local to SMB: $localUri")
             val copyResult = copyFromLocalToSmb(localUri, destination)
             
             if (copyResult is SmbClient.CopyResult.Success) {
                 val uri = Uri.parse(localUri)
-                val deleted = localStorageClient?.deleteImage(uri) ?: false
                 
-                if (deleted) {
-                    SmbClient.MoveResult.Success
+                // Try to delete with proper permission handling for Android 11+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    deleteImageWithPermission(uri, fromMove = true)
+                    // For Android 11+, return pending status
+                    // Actual success will be handled in the callback
+                    return SmbClient.MoveResult.PendingUserConfirmation
                 } else {
-                    SmbClient.MoveResult.DeleteError("Failed to delete local file after copy")
+                    val deleted = localStorageClient?.deleteImage(uri) ?: false
+                    return if (deleted) {
+                        android.util.Log.d("SortActivity", "File deleted successfully after copy")
+                        SmbClient.MoveResult.Success
+                    } else {
+                        android.util.Log.w("SortActivity", "Failed to delete local file after successful copy")
+                        SmbClient.MoveResult.DeleteError("Failed to delete local file after copy")
+                    }
                 }
             } else {
-                SmbClient.MoveResult.UnknownError("Copy failed")
+                val errorMsg = when (copyResult) {
+                    is SmbClient.CopyResult.AlreadyExists -> "File already exists"
+                    is SmbClient.CopyResult.NetworkError -> "Network: ${copyResult.message}"
+                    is SmbClient.CopyResult.SecurityError -> "Security: ${copyResult.message}"
+                    is SmbClient.CopyResult.UnknownError -> "Copy failed: ${copyResult.message}"
+                    else -> "Copy failed"
+                }
+                android.util.Log.e("SortActivity", "Copy failed: $errorMsg")
+                return SmbClient.MoveResult.UnknownError(errorMsg)
             }
         } catch (e: Exception) {
+            android.util.Log.e("SortActivity", "Exception during move: ${e.message}", e)
             e.printStackTrace()
-            SmbClient.MoveResult.UnknownError(e.message ?: "Unknown error")
+            return SmbClient.MoveResult.UnknownError(e.message ?: "Unknown error")
+        }
+    }
+    
+    private suspend fun deleteImageWithPermission(uri: Uri, fromMove: Boolean = false) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                android.util.Log.d("SortActivity", "Requesting delete permission for Android 11+")
+                
+                val intentSender = MediaStore.createDeleteRequest(
+                    contentResolver,
+                    listOf(uri)
+                ).intentSender
+                
+                pendingDeleteUri = uri
+                isDeleteFromMove = fromMove
+                val request = IntentSenderRequest.Builder(intentSender).build()
+                
+                withContext(Dispatchers.Main) {
+                    deletePermissionLauncher.launch(request)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("SortActivity", "Error requesting delete permission", e)
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Cannot request delete permission: ${e.message}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+    
+    private suspend fun handleDeleteSuccess(uri: Uri) {
+        android.util.Log.d("SortActivity", "File deleted successfully: $uri")
+        
+        withContext(Dispatchers.Main) {
+            // Show success message based on context
+            val message = if (isDeleteFromMove) "File moved" else "File deleted"
+            android.widget.Toast.makeText(
+                this@SortActivity,
+                message,
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            
+            // Reset flag
+            isDeleteFromMove = false
+            
+            // Remove from list and load next
+            if (imageFiles.isNotEmpty()) {
+                imageFiles = imageFiles.toMutableList().apply {
+                    val index = indexOfFirst { it == uri.toString() }
+                    if (index != -1) {
+                        removeAt(index)
+                        if (currentIndex >= size) {
+                            currentIndex = size - 1
+                        }
+                    }
+                }
+                
+                if (imageFiles.isEmpty()) {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "No more images",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    loadImage()
+                }
+            }
         }
     }
     
@@ -358,6 +508,7 @@ class SortActivity : AppCompatActivity() {
                     
                     val message = when (result) {
                         is SmbClient.MoveResult.Success -> "File moved"
+                        is SmbClient.MoveResult.PendingUserConfirmation -> "Confirm file deletion..."
                         is SmbClient.MoveResult.AlreadyExists -> "File already exists"
                         is SmbClient.MoveResult.SameFolder -> "Same folder"
                         is SmbClient.MoveResult.NetworkError -> "Network error: ${result.message}"
@@ -366,14 +517,17 @@ class SortActivity : AppCompatActivity() {
                         is SmbClient.MoveResult.UnknownError -> "Error: ${result.message}"
                     }
                     
-                    android.widget.Toast.makeText(
-                        this@SortActivity,
-                        message,
-                        if (result is SmbClient.MoveResult.Success) 
-                            android.widget.Toast.LENGTH_SHORT 
-                        else 
-                            android.widget.Toast.LENGTH_LONG
-                    ).show()
+                    // Show toast only for non-pending results
+                    if (result !is SmbClient.MoveResult.PendingUserConfirmation) {
+                        android.widget.Toast.makeText(
+                            this@SortActivity,
+                            message,
+                            if (result is SmbClient.MoveResult.Success) 
+                                android.widget.Toast.LENGTH_SHORT 
+                            else 
+                                android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
                     
                     // Remove from list and load next on success
                     if (result is SmbClient.MoveResult.Success) {
@@ -402,6 +556,8 @@ class SortActivity : AppCompatActivity() {
                             loadImage()
                         }
                     }
+                    // For PendingUserConfirmation, the dialog will be shown automatically
+                    // Actual deletion and list update happens in handleDeleteSuccess callback
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -757,49 +913,25 @@ class SortActivity : AppCompatActivity() {
             }
             
             try {
-                val deleted = if (isLocalMode) {
+                if (isLocalMode) {
                     val uri = Uri.parse(imageUrl)
-                    localStorageClient?.deleteImage(uri) ?: false
-                } else {
-                    smbClient.deleteFile(imageUrl)
-                }
-                
-                withContext(Dispatchers.Main) {
-                    binding.copyProgressLayout.visibility = View.GONE
                     
-                    if (deleted) {
-                        android.widget.Toast.makeText(
-                            this@SortActivity,
-                            "File deleted",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                        
-                        // Remove from list and load next
-                        imageFiles = imageFiles.toMutableList().apply {
-                            remove(imageUrl)
+                    // Use permission dialog for Android 11+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        withContext(Dispatchers.Main) {
+                            binding.copyProgressLayout.visibility = View.GONE
                         }
-                        
-                        if (imageFiles.isEmpty()) {
-                            android.widget.Toast.makeText(
-                                this@SortActivity,
-                                "No more images",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                            return@withContext
-                        }
-                        
-                        if (currentIndex >= imageFiles.size) {
-                            currentIndex = imageFiles.size - 1
-                        }
-                        
-                        loadImage()
+                        deleteImageWithPermission(uri)
+                        // Dialog will be shown, actual deletion in callback
                     } else {
-                        android.widget.Toast.makeText(
-                            this@SortActivity,
-                            "Failed to delete file",
-                            android.widget.Toast.LENGTH_LONG
-                        ).show()
+                        // Direct delete for Android 10 and below
+                        val deleted = localStorageClient?.deleteImage(uri) ?: false
+                        handleDeleteResult(deleted, imageUrl)
                     }
+                } else {
+                    // SMB delete
+                    val deleted = smbClient.deleteFile(imageUrl)
+                    handleDeleteResult(deleted, imageUrl)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -811,6 +943,46 @@ class SortActivity : AppCompatActivity() {
                         android.widget.Toast.LENGTH_LONG
                     ).show()
                 }
+            }
+        }
+    }
+    
+    private suspend fun handleDeleteResult(deleted: Boolean, imageUrl: String) {
+        withContext(Dispatchers.Main) {
+            binding.copyProgressLayout.visibility = View.GONE
+            
+            if (deleted) {
+                android.widget.Toast.makeText(
+                    this@SortActivity,
+                    "File deleted",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                
+                // Remove from list and load next
+                imageFiles = imageFiles.toMutableList().apply {
+                    remove(imageUrl)
+                }
+                
+                if (imageFiles.isEmpty()) {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "No more images",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    return@withContext
+                }
+                
+                if (currentIndex >= imageFiles.size) {
+                    currentIndex = imageFiles.size - 1
+                }
+                
+                loadImage()
+            } else {
+                android.widget.Toast.makeText(
+                    this@SortActivity,
+                    "Failed to delete file",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
             }
         }
     }

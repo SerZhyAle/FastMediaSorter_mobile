@@ -165,7 +165,8 @@ return@withContext images
 
 suspend fun downloadImage(uri: Uri): ByteArray? = withContext(Dispatchers.IO) {
 try {
-context.contentResolver.openInputStream(uri)?.use { input ->
+android.util.Log.d("LocalStorageClient", "Reading image from URI: $uri")
+val result = context.contentResolver.openInputStream(uri)?.use { input ->
 val buffer = ByteArrayOutputStream()
 val data = ByteArray(16384)
 var count: Int
@@ -174,34 +175,94 @@ buffer.write(data, 0, count)
 }
 buffer.toByteArray()
 }
+if (result != null) {
+android.util.Log.d("LocalStorageClient", "Successfully read ${result.size} bytes")
+} else {
+android.util.Log.e("LocalStorageClient", "Failed to open input stream for URI: $uri")
+}
+result
 } catch (e: Exception) {
+android.util.Log.e("LocalStorageClient", "Error reading image from URI: $uri", e)
+e.printStackTrace()
 null
 }
 }
 
 fun getFileInfo(uri: Uri): LocalImageInfo? {
 return try {
+android.util.Log.d("LocalStorageClient", "Getting file info for URI: $uri")
 val file = DocumentFile.fromSingleUri(context, uri)
 if (file != null && file.exists()) {
-LocalImageInfo(
+val info = LocalImageInfo(
 uri = uri,
 name = file.name ?: "unknown",
 size = file.length(),
 dateModified = file.lastModified()
 )
+android.util.Log.d("LocalStorageClient", "File info: name=${info.name}, size=${info.size}")
+info
 } else {
+android.util.Log.e("LocalStorageClient", "File does not exist or cannot be accessed: $uri")
 null
 }
 } catch (e: Exception) {
+android.util.Log.e("LocalStorageClient", "Error getting file info for URI: $uri", e)
+e.printStackTrace()
 null
 }
 }
 
 suspend fun deleteImage(uri: Uri): Boolean = withContext(Dispatchers.IO) {
 try {
+android.util.Log.d("LocalStorageClient", "Attempting to delete image: $uri")
+android.util.Log.d("LocalStorageClient", "Android version: ${Build.VERSION.SDK_INT} (${Build.VERSION.RELEASE})")
+        
+// First, try using ContentResolver (works for MediaStore URIs)
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+// Android 11+ (API 30+)
+android.util.Log.d("LocalStorageClient", "Using Android 11+ delete method")
+try {
 val deleted = context.contentResolver.delete(uri, null, null)
-return@withContext deleted > 0
+android.util.Log.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
+if (deleted > 0) return@withContext true
+} catch (e: SecurityException) {
+android.util.Log.w("LocalStorageClient", "ContentResolver delete failed with SecurityException, trying DocumentFile", e)
+}
+} else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+// Android 10 (API 29)
+android.util.Log.d("LocalStorageClient", "Using Android 10 delete method")
+try {
+val deleted = context.contentResolver.delete(uri, null, null)
+android.util.Log.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
+if (deleted > 0) return@withContext true
+} catch (e: SecurityException) {
+android.util.Log.w("LocalStorageClient", "ContentResolver delete failed with SecurityException", e)
+if (e is android.app.RecoverableSecurityException) {
+android.util.Log.e("LocalStorageClient", "RecoverableSecurityException - would need user permission dialog")
+}
+}
+} else {
+// Android 9 and below
+android.util.Log.d("LocalStorageClient", "Using Android 9 and below delete method")
+val deleted = context.contentResolver.delete(uri, null, null)
+android.util.Log.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
+if (deleted > 0) return@withContext true
+}
+        
+// Fallback: Try DocumentFile delete (works for some URIs that ContentResolver can't handle)
+android.util.Log.d("LocalStorageClient", "Trying DocumentFile fallback delete method")
+val documentFile = DocumentFile.fromSingleUri(context, uri)
+if (documentFile != null && documentFile.exists()) {
+val deleted = documentFile.delete()
+android.util.Log.d("LocalStorageClient", "DocumentFile delete result: $deleted")
+return@withContext deleted
+} else {
+android.util.Log.e("LocalStorageClient", "DocumentFile is null or doesn't exist")
+return@withContext false
+}
+        
 } catch (e: Exception) {
+android.util.Log.e("LocalStorageClient", "Exception during delete: ${e.javaClass.simpleName}: ${e.message}", e)
 e.printStackTrace()
 return@withContext false
 }

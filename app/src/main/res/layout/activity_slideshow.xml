@@ -34,26 +34,28 @@
         android:visibility="gone"
         tools:text="in 3" />
 
+    <!-- Invisible touch areas (when controls hidden) -->
     <LinearLayout
         android:id="@+id/topLayout"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_gravity="top"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:visibility="gone">
 
         <View
             android:id="@+id/backButton"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="#20FFFFFF" />
+            android:background="@android:color/transparent" />
 
         <View
             android:id="@+id/shuffleButton"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="#20FFFFFF" />
+            android:background="@android:color/transparent" />
 
     </LinearLayout>
 
@@ -62,28 +64,29 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="horizontal"
-        android:layout_gravity="center">
+        android:layout_gravity="center"
+        android:visibility="gone">
 
         <View
             android:id="@+id/previousButton"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="#20FFFFFF" />
+            android:background="@android:color/transparent" />
 
         <View
             android:id="@+id/pauseButton"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="#20FFFFFF" />
+            android:background="@android:color/transparent" />
 
         <View
             android:id="@+id/nextButton"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="#20FFFFFF" />
+            android:background="@android:color/transparent" />
 
     </LinearLayout>
 
@@ -92,21 +95,108 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_gravity="bottom"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:visibility="gone">
 
         <View
             android:id="@+id/rotateLeftButton"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="#20FFFFFF" />
+            android:background="@android:color/transparent" />
 
         <View
             android:id="@+id/rotateRightButton"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="#20FFFFFF" />
+            android:background="@android:color/transparent" />
+
+    </LinearLayout>
+
+    <!-- Visible control panel (when controls shown) -->
+    <LinearLayout
+        android:id="@+id/controlPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:background="#CC000000"
+        android:paddingVertical="8dp"
+        android:paddingHorizontal="4dp"
+        android:gravity="center"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_revert"
+            android:contentDescription="Back"
+            android:tint="@android:color/white" />
+
+        <ImageButton
+            android:id="@+id/btnPrevious"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_media_previous"
+            android:contentDescription="Previous"
+            android:tint="@android:color/white" />
+
+        <ImageButton
+            android:id="@+id/btnPlayPause"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_media_pause"
+            android:contentDescription="Pause"
+            android:tint="@android:color/white" />
+
+        <ImageButton
+            android:id="@+id/btnNext"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_media_next"
+            android:contentDescription="Next"
+            android:tint="@android:color/white" />
+
+        <ImageButton
+            android:id="@+id/btnRotateLeft"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_rotate"
+            android:contentDescription="Rotate Left"
+            android:rotation="180"
+            android:tint="@android:color/white" />
+
+        <ImageButton
+            android:id="@+id/btnRotateRight"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_rotate"
+            android:contentDescription="Rotate Right"
+            android:tint="@android:color/white" />
+
+        <ImageButton
+            android:id="@+id/btnShuffle"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:contentDescription="Shuffle"
+            android:tint="@android:color/white" />
 
     </LinearLayout>
 

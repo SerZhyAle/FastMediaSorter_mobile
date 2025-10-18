@@ -35,11 +35,27 @@ class LocalFolderAdapter(
         holder.tvFolderCount.text = "(${folder.count})"
         
         // Highlight selected item
+        val isSelected = position == selectedPosition
         holder.itemView.setBackgroundColor(
-            if (position == selectedPosition)
+            if (isSelected)
                 holder.itemView.context.getColor(android.R.color.darker_gray)
             else
                 holder.itemView.context.getColor(android.R.color.transparent)
+        )
+        
+        // Change text colors for selected item
+        holder.tvFolderName.setTextColor(
+            if (isSelected)
+                holder.itemView.context.getColor(android.R.color.white)
+            else
+                holder.itemView.context.getColor(android.R.color.black)
+        )
+        
+        holder.tvFolderCount.setTextColor(
+            if (isSelected)
+                holder.itemView.context.getColor(android.R.color.white)
+            else
+                holder.itemView.context.getColor(android.R.color.darker_gray)
         )
         
         val gestureDetector = GestureDetector(holder.itemView.context, object : GestureDetector.SimpleOnGestureListener() {

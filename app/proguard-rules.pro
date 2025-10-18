@@ -9,6 +9,10 @@
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
+# Suppress warnings for missing annotations
+-dontwarn javax.annotation.**
+-dontwarn javax.annotation.concurrent.**
+
 # Keep Room entities
 -keep class com.sza.fastmediasorter.data.** { *; }
 
@@ -37,6 +41,10 @@
 
 # Keep ViewBinding
 -keep class com.sza.fastmediasorter.databinding.** { *; }
+
+# Keep Google Crypto Tink (for EncryptedSharedPreferences)
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.crypto.tink.**
 
 # If your project uses WebView with JS, uncomment the following
 # and specify the fully qualified class name to the JavaScript interface

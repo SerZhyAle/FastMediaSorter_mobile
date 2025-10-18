@@ -135,6 +135,7 @@ class SmbClient {
     
     sealed class MoveResult {
         object Success : MoveResult()
+        object PendingUserConfirmation : MoveResult()
         object AlreadyExists : MoveResult()
         object SameFolder : MoveResult()
         data class NetworkError(val message: String) : MoveResult()
