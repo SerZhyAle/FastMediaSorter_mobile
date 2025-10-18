@@ -43,6 +43,7 @@ class PreferenceManager(context: Context) {
         private const val KEY_WELCOME_SHOWN = "welcome_shown"
         private const val KEY_VIDEO_ENABLED = "video_enabled"
         private const val KEY_MAX_VIDEO_SIZE_MB = "max_video_size_mb"
+        private const val KEY_SHOW_VIDEO_ERROR_DETAILS = "show_video_error_details"
     }
     
     init {
@@ -196,5 +197,12 @@ class PreferenceManager(context: Context) {
     
     fun setMaxVideoSizeMb(sizeMb: Int) {
         prefs.edit().putInt(KEY_MAX_VIDEO_SIZE_MB, sizeMb).apply()
+    }
+    
+    // Show detailed video error information
+    fun isShowVideoErrorDetails(): Boolean = prefs.getBoolean(KEY_SHOW_VIDEO_ERROR_DETAILS, false)
+    
+    fun setShowVideoErrorDetails(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_VIDEO_ERROR_DETAILS, show).apply()
     }
 }

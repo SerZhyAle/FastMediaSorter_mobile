@@ -116,11 +116,17 @@ class SlideshowActivity : AppCompatActivity() {
             
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 binding.videoLoadingLayout.visibility = View.GONE
-                android.widget.Toast.makeText(
-                    this@SlideshowActivity,
-                    "Video playback error: ${error.message}",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
+                
+                if (preferenceManager.isShowVideoErrorDetails()) {
+                    showVideoErrorDialog(error)
+                } else {
+                    android.widget.Toast.makeText(
+                        this@SlideshowActivity,
+                        "Video playback error: ${error.message}",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+                
                 // Skip to next on error
                 if (!isPaused) {
                     skipToNextImage()
@@ -661,11 +667,17 @@ class SlideshowActivity : AppCompatActivity() {
                             
                             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                                 binding.videoLoadingLayout.visibility = View.GONE
-                                android.widget.Toast.makeText(
-                                    this@SlideshowActivity,
-                                    "Video playback error: ${error.message}",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
+                                
+                                if (preferenceManager.isShowVideoErrorDetails()) {
+                                    showVideoErrorDialog(error)
+                                } else {
+                                    android.widget.Toast.makeText(
+                                        this@SlideshowActivity,
+                                        "Video playback error: ${error.message}",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                                
                                 // Skip to next on error
                                 if (!isPaused) {
                                     skipToNextImage()
@@ -725,6 +737,80 @@ class SlideshowActivity : AppCompatActivity() {
     private fun saveSessonState() {
         val folderAddress = "${preferenceManager.getServerAddress()}\\${preferenceManager.getFolderPath()}"
         preferenceManager.saveLastSession(folderAddress, currentIndex)
+    }
+    
+    private fun showVideoErrorDialog(error: androidx.media3.common.PlaybackException) {
+        val currentFile = if (images.isNotEmpty() && currentIndex < images.size) {
+            images[currentIndex]
+        } else "Unknown"
+        
+        val errorDetails = StringBuilder()
+        errorDetails.append("=== VIDEO PLAYBACK ERROR ===\n")
+        errorDetails.append("Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n\n")
+        
+        errorDetails.append("=== FILE INFO ===\n")
+        errorDetails.append("File: ${currentFile.substringAfterLast('/')}\n")
+        errorDetails.append("Path: $currentFile\n")
+        errorDetails.append("Source: ${if (isLocalMode) "Local Storage" else "SMB Network"}\n")
+        errorDetails.append("Mode: Slideshow\n\n")
+        
+        errorDetails.append("=== ERROR DETAILS ===\n")
+        errorDetails.append("Exception: ${error.javaClass.simpleName}\n")
+        errorDetails.append("Error Code: ${error.errorCode}\n")
+        errorDetails.append("Message: ${error.message ?: "No message"}\n")
+        errorDetails.append("Cause: ${error.cause?.javaClass?.simpleName ?: "None"}\n")
+        if (error.cause != null) {
+            errorDetails.append("Cause Message: ${error.cause?.message ?: "No message"}\n")
+        }
+        errorDetails.append("\n")
+        
+        errorDetails.append("=== PLAYBACK STATE ===\n")
+        errorDetails.append("Video Enabled: ${preferenceManager.isVideoEnabled()}\n")
+        errorDetails.append("Max Video Size: ${preferenceManager.getMaxVideoSizeMb()} MB\n")
+        errorDetails.append("\n")
+        
+        errorDetails.append("=== SYSTEM INFO ===\n")
+        errorDetails.append("Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n")
+        errorDetails.append("Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n")
+        errorDetails.append("\n")
+        
+        errorDetails.append("=== POSSIBLE CAUSES ===\n")
+        when {
+            error.message?.contains("codec", ignoreCase = true) == true -> {
+                errorDetails.append("• Unsupported video codec\n")
+                errorDetails.append("• Try converting to MP4 with H.264 codec\n")
+            }
+            error.message?.contains("source", ignoreCase = true) == true -> {
+                errorDetails.append("• File not accessible\n")
+                errorDetails.append("• Network connection issue (for SMB)\n")
+                errorDetails.append("• File may be corrupted\n")
+            }
+            error.message?.contains("timeout", ignoreCase = true) == true -> {
+                errorDetails.append("• Network timeout (for SMB)\n")
+                errorDetails.append("• File too large or slow connection\n")
+            }
+            else -> {
+                errorDetails.append("• Unsupported video format\n")
+                errorDetails.append("• Corrupted video file\n")
+                errorDetails.append("• Insufficient device resources\n")
+            }
+        }
+        errorDetails.append("\n")
+        
+        errorDetails.append("=== RECOMMENDATIONS ===\n")
+        errorDetails.append("1. Try playing file with another app\n")
+        errorDetails.append("2. Convert to MP4 (H.264 codec)\n")
+        errorDetails.append("3. Reduce video resolution\n")
+        errorDetails.append("4. Check file is not corrupted\n")
+        errorDetails.append("5. For SMB: ensure stable network\n")
+        errorDetails.append("\nSlideshow will skip to next file...\n")
+        
+        com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
+            this,
+            "Video Playback Error",
+            errorDetails.toString(),
+            false
+        )
     }
     
     private fun showError(message: String) {
