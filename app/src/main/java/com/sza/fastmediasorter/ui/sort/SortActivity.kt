@@ -140,6 +140,7 @@ class SortActivity : AppCompatActivity() {
         // Configure player view for better control positioning
         binding.playerView.useController = true
         binding.playerView.controllerAutoShow = false
+        binding.playerView.controllerHideOnTouch = false
         
         exoPlayer?.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -205,14 +206,7 @@ class SortActivity : AppCompatActivity() {
             loadMedia()
         }
 
-        // Video control area - show/hide controls on tap
-        binding.videoControlArea.setOnClickListener {
-            android.util.Log.d("SortActivity", "Video control area clicked")
-            if (binding.playerView.visibility == View.VISIBLE) {
-                // Toggle video controls visibility
-                binding.playerView.showController()
-            }
-        }
+
     }
     
     private fun setupBackButton() {
@@ -251,8 +245,29 @@ class SortActivity : AppCompatActivity() {
         // Check if delete is allowed
         val allowDelete = preferenceManager.isAllowDelete()
         
-        // Check if we have destinations
-        val hasDestinations = sortDestinations.isNotEmpty()
+        // Filter out destinations that are the same as source (pre-calculation for UI logic)
+        val filteredDestinations = sortDestinations.filter { config ->
+            // Skip local folders (defensive check)
+            if (config.type == "LOCAL_CUSTOM") return@filter false
+            
+            // Skip if it's the same as current source connection
+            currentConfig?.let { currentSource ->
+                // For network connections, compare server+folder
+                if (currentSource.type == "SMB" && config.type == "SMB") {
+                    val sameServer = currentSource.serverAddress == config.serverAddress
+                    val sameFolder = currentSource.folderPath == config.folderPath
+                    if (sameServer && sameFolder) return@filter false
+                }
+                // For local connections, compare folder paths
+                if (currentSource.type == "LOCAL" && config.type == "LOCAL") {
+                    if (currentSource.folderPath == config.folderPath) return@filter false
+                }
+            }
+            true
+        }
+        
+        // Check if we have destinations after filtering
+        val hasDestinations = filteredDestinations.isNotEmpty()
         
         // Show warning if no destinations
         binding.noDestinationsWarning.visibility = if (!hasDestinations && allowDelete) View.VISIBLE else View.GONE
@@ -304,12 +319,9 @@ class SortActivity : AppCompatActivity() {
         copyButtons.forEach { it.visibility = View.GONE }
         moveButtons.forEach { it.visibility = View.GONE }
         
-        // Show and configure buttons for active destinations
-        sortDestinations.forEachIndexed { index, config ->
+        // Show and configure buttons for filtered destinations
+        filteredDestinations.forEachIndexed { index, config ->
             if (index < copyButtons.size) {
-                // Skip local folders (defensive check)
-                if (config.type == "LOCAL_CUSTOM") return@forEachIndexed
-                
                 val copyButton = copyButtons[index]
                 copyButton.text = config.sortName
                 copyButton.setBackgroundColor(colors[index])
