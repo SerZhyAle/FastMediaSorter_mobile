@@ -13,11 +13,17 @@ A lightweight and private Android application for viewing, sorting, and managing
     -   ABC (alphabetical) and Random (shuffle) order modes.
 -   **Advanced File Sorting**:
     -   Organize media by copying, moving, or deleting files.
+    -   Rename files with filename validation.
     -   Configure up to 10 custom sort destinations.
     -   Safe by design: uses system permissions for delete/move operations on Android 11+.
 -   **Video Settings**:
     -   Enable or disable video playback in slideshows.
     -   Set a maximum file size for videos to prevent playback of large files.
+    -   Detailed error diagnostics for troubleshooting video playback issues.
+-   **Customizable Settings**:
+    -   Control which operations are allowed (copy, move, delete, rename).
+    -   Prevent device from sleeping during slideshow and sorting.
+    -   Optional confirmation dialogs for destructive operations.
 -   **Privacy-Focused**:
     -   No internet access required (only local network for SMB).
     -   No data collection, analytics, or tracking. All settings are stored locally on your device.
@@ -61,8 +67,32 @@ Enable this mode in **Settings → Slideshow Settings → Show Controls**. A min
 ### Sorting Screen
 
 -   **Navigate**: Swipe left or right to browse through media.
--   **Copy/Move/Delete**: Use the colored buttons at the bottom to sort the current file. These operations can be enabled or disabled in **Settings**.
+-   **Copy/Move/Delete/Rename**: Use the buttons at the bottom to manage files. These operations can be enabled or disabled in **Settings**.
+-   **Refresh**: Tap the refresh button at the top to re-read the folder contents.
 -   **Destinations**: Configure up to 10 sort destinations in the **Settings → Sort to..** tab.
+
+## Settings
+
+### Sort to.. Settings
+
+-   **Allow to Copy**: Enable copying files to destination folders.
+-   **Allow to Move**: Enable moving files to destination folders.
+-   **Allow to Delete**: Enable deleting files with optional confirmation.
+-   **Allow renaming**: Enable renaming files (validates filename and prevents conflicts).
+
+### Slideshow Settings
+
+-   **Show Controls**: Toggle between invisible touch zones and visible button panel.
+
+### Video Settings
+
+-   **Enable Video**: Allow video playback in slideshows.
+-   **Max Video Size**: Set maximum file size for videos (in MB).
+-   **Show detailed video error information**: Display comprehensive error diagnostics when video playback fails.
+
+### General Settings
+
+-   **Not allow device to sleep**: Keep screen on during slideshow and sorting (enabled by default).
 
 ## Build from Source
 
