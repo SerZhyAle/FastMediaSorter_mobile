@@ -34,46 +34,41 @@ setupClickListeners()
 tryAutoResumeSession()
 }
 
-private fun setupViewPager() {
-val adapter = MainPagerAdapter(this)
-binding.viewPager.adapter = adapter
-TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, position ->
-tab.text = when (position) {
-0 -> getString(R.string.local_folders)
-1 -> getString(R.string.network)
-else -> ""
-}
-}.attach()
-binding.viewPager.offscreenPageLimit = 2
-binding.viewPager.post {
-val networkFragment = supportFragmentManager.findFragmentByTag("f1") as? NetworkFragment
-networkFragment?.let { setupNetworkFragmentCallbacks(it) }
-val localFragment = supportFragmentManager.findFragmentByTag("f0") as? com.sza.fastmediasorter.ui.local.LocalFoldersFragment
-localFragment?.let { setupLocalFragmentCallbacks(it) }
-}
-binding.intervalInput.setOnFocusChangeListener { _, hasFocus ->
-if (!hasFocus) {
-saveIntervalIfConfigSelected()
-}
-}
-}
-
-private fun saveIntervalIfConfigSelected() {
-currentConfigId?.let { configId ->
-val interval = binding.intervalInput.text.toString().toIntOrNull()
-if (interval != null && interval in 1..300) {
-lifecycleScope.launch {
-val config = viewModel.getConfigById(configId)
-if (config != null && config.interval != interval) {
-val updatedConfig = config.copy(interval = interval)
-viewModel.updateConfig(updatedConfig)
-}
-}
-}
-}
-}
-
-private fun setupNetworkFragmentCallbacks(fragment: NetworkFragment) {
+    private fun setupViewPager() {
+        val adapter = MainPagerAdapter(this)
+        binding.viewPager.adapter = adapter
+        TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, position ->
+            tab.text = when (position) {
+                0 -> getString(R.string.local_folders)
+                1 -> getString(R.string.network)
+                else -> ""
+            }
+        }.attach()
+        binding.viewPager.offscreenPageLimit = 2
+        binding.viewPager.post {
+            val networkFragment = supportFragmentManager.findFragmentByTag("f1") as? NetworkFragment
+            networkFragment?.let { setupNetworkFragmentCallbacks(it) }
+            val localFragment = supportFragmentManager.findFragmentByTag("f0") as? com.sza.fastmediasorter.ui.local.LocalFoldersFragment
+            localFragment?.let { setupLocalFragmentCallbacks(it) }
+        }
+    }
+    
+    private fun getIntervalFromInput(): Int? {
+        return binding.intervalInput.text.toString().toIntOrNull()?.takeIf { it in 1..300 }
+    }
+    
+    private suspend fun updateConfigInterval(configId: Long): ConnectionConfig? {
+        val config = viewModel.getConfigById(configId) ?: return null
+        val interval = getIntervalFromInput() ?: config.interval
+        
+        return if (config.interval != interval) {
+            val updatedConfig = config.copy(interval = interval)
+            viewModel.updateConfig(updatedConfig)
+            updatedConfig
+        } else {
+            config
+        }
+    }private fun setupNetworkFragmentCallbacks(fragment: NetworkFragment) {
 fragment.onConfigSelected = { config ->
 currentConfigId = config.id
 val interval = binding.intervalInput.text.toString().toIntOrNull() ?: config.interval
@@ -171,12 +166,9 @@ preferenceManager.clearLastSession()
 binding.slideshowButton.setOnClickListener {
 currentConfigId?.let { configId ->
 lifecycleScope.launch {
-val config = viewModel.getConfigById(configId)
+val config = updateConfigInterval(configId)
 if (config != null) {
-val interval = binding.intervalInput.text.toString().toIntOrNull() ?: config.interval
-val updatedConfig = config.copy(interval = interval)
-viewModel.updateConfig(updatedConfig)
-loadConfigAndStartSlideshow(updatedConfig)
+loadConfigAndStartSlideshow(config)
 } else {
 Toast.makeText(this@MainActivity, "Please select a connection first", Toast.LENGTH_SHORT).show()
 }
@@ -192,6 +184,7 @@ val destinations = viewModel.getSortDestinationsCount()
 if (destinations == 0) {
 Toast.makeText(this@MainActivity, "Set destinations first", Toast.LENGTH_LONG).show()
 } else {
+updateConfigInterval(configId)
 val intent = Intent(this@MainActivity, com.sza.fastmediasorter.ui.sort.SortActivity::class.java)
 intent.putExtra("configId", configId)
 startActivity(intent)
@@ -210,10 +203,5 @@ startActivity(intent)
 private fun showLoading(show: Boolean) {
 binding.progressBar.visibility = if (show) View.VISIBLE else View.GONE
 binding.slideshowButton.isEnabled = !show
-}
-
-override fun onPause() {
-super.onPause()
-saveIntervalIfConfigSelected()
 }
 }
