@@ -4,7 +4,7 @@ import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class ImageRepository(private val smbClient: SmbClient, private val preferenceManager: PreferenceManager) {
+class ImageRepository(val smbClient: SmbClient, private val preferenceManager: PreferenceManager) {
     
     suspend fun loadImages(): Result<List<String>> {
         return withContext(Dispatchers.IO) {
@@ -47,5 +47,9 @@ class ImageRepository(private val smbClient: SmbClient, private val preferenceMa
     
     suspend fun downloadImage(imageUrl: String): ByteArray? {
         return smbClient.downloadImage(imageUrl)
+    }
+    
+    fun getSmbContext(): jcifs.CIFSContext? {
+        return smbClient.getContext()
     }
 }
