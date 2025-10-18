@@ -266,11 +266,6 @@ binding.settingsButton.setOnClickListener {
 val intent = Intent(this, com.sza.fastmediasorter.ui.settings.SettingsActivity::class.java)
 startActivity(intent)
 }
-binding.helpButton.setOnClickListener {
-val intent = Intent(this, WelcomeActivity::class.java)
-intent.putExtra("isFirstLaunch", false)
-startActivity(intent)
-}
 }
 
 private fun showLoading(show: Boolean) {
