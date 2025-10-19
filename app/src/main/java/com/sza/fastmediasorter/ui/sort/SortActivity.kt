@@ -969,6 +969,125 @@ class SortActivity : LocaleActivity() {
         )
     }
     
+    private fun showVideoValidationError(fileName: String, validationResult: com.sza.fastmediasorter.utils.MediaValidator.ValidationResult) {
+        val errorDetails = StringBuilder()
+        errorDetails.append("=== VIDEO FILE VALIDATION ERROR ===\n")
+        errorDetails.append("Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n\n")
+        
+        errorDetails.append("=== FILE INFO ===\n")
+        errorDetails.append("File: $fileName\n")
+        errorDetails.append("Extension: .${fileName.substringAfterLast('.', "unknown")}\n")
+        errorDetails.append("Source: ${if (isLocalMode) "Local Storage" else "SMB Network"}\n\n")
+        
+        errorDetails.append("=== PRE-VALIDATION RESULT ===\n")
+        errorDetails.append("Status: FAILED (file rejected before playback attempt)\n")
+        errorDetails.append("Error Type: ${validationResult.errorType}\n")
+        errorDetails.append("Details: ${validationResult.errorDetails}\n\n")
+        
+        errorDetails.append("=== WHY THIS HAPPENED ===\n")
+        errorDetails.append("This file was rejected INSTANTLY (< 100ms) by header validation.\n")
+        errorDetails.append("No playback was attempted, avoiding errors and delays.\n\n")
+        
+        errorDetails.append("=== DIAGNOSIS ===\n")
+        when {
+            validationResult.errorType?.contains("Size mismatch", ignoreCase = true) == true -> {
+                errorDetails.append("▶ FILE TRUNCATED OR CORRUPTED\n")
+                errorDetails.append("  The file header declares one size, but actual file is different.\n")
+                errorDetails.append("  This causes ArrayIndexOutOfBoundsException during playback.\n")
+                errorDetails.append("  File was likely damaged during transfer or incomplete download.\n\n")
+            }
+            validationResult.errorType?.contains("Invalid", ignoreCase = true) == true -> {
+                errorDetails.append("▶ INVALID FILE FORMAT\n")
+                errorDetails.append("  File header doesn't match expected format signature.\n")
+                errorDetails.append("  File may be renamed, corrupted, or not a valid video.\n\n")
+            }
+            validationResult.errorType?.contains("Truncated", ignoreCase = true) == true -> {
+                errorDetails.append("▶ FILE TOO SMALL\n")
+                errorDetails.append("  File doesn't have enough bytes for a valid header.\n")
+                errorDetails.append("  File is incomplete or severely damaged.\n\n")
+            }
+        }
+        
+        errorDetails.append("=== RECOMMENDATION ===\n")
+        errorDetails.append("${validationResult.recommendation}\n\n")
+        
+        errorDetails.append("=== ACTIONS TAKEN ===\n")
+        errorDetails.append("✓ File validation failed\n")
+        errorDetails.append("✓ No playback attempted\n")
+        errorDetails.append("✓ Error logged for review\n")
+        
+        com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
+            this,
+            "Video Validation Failed",
+            errorDetails.toString(),
+            false
+        )
+    }
+    
+    private fun showImageValidationError(fileName: String, validationResult: com.sza.fastmediasorter.utils.MediaValidator.ValidationResult) {
+        val errorDetails = StringBuilder()
+        errorDetails.append("=== IMAGE FILE VALIDATION ERROR ===\n")
+        errorDetails.append("Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n\n")
+        
+        errorDetails.append("=== FILE INFO ===\n")
+        errorDetails.append("File: $fileName\n")
+        errorDetails.append("Extension: .${fileName.substringAfterLast('.', "unknown")}\n")
+        errorDetails.append("Source: ${if (isLocalMode) "Local Storage" else "SMB Network"}\n\n")
+        
+        errorDetails.append("=== PRE-VALIDATION RESULT ===\n")
+        errorDetails.append("Status: FAILED (file rejected before loading)\n")
+        errorDetails.append("Error Type: ${validationResult.errorType}\n")
+        errorDetails.append("Details: ${validationResult.errorDetails}\n\n")
+        
+        errorDetails.append("=== WHY THIS HAPPENED ===\n")
+        errorDetails.append("This file was rejected INSTANTLY (< 100ms) by header validation.\n")
+        errorDetails.append("No loading attempt was made.\n\n")
+        
+        errorDetails.append("=== DIAGNOSIS ===\n")
+        when {
+            validationResult.errorType?.contains("Size mismatch", ignoreCase = true) == true -> {
+                errorDetails.append("▶ FILE TRUNCATED OR CORRUPTED\n")
+                errorDetails.append("  The file header declares one size, but actual file is different.\n")
+                errorDetails.append("  File was likely damaged during transfer or incomplete download.\n\n")
+            }
+            validationResult.errorType?.contains("Invalid", ignoreCase = true) == true -> {
+                errorDetails.append("▶ INVALID FILE FORMAT\n")
+                errorDetails.append("  File header doesn't match expected format signature.\n")
+                errorDetails.append("  File may be renamed, corrupted, or not a valid image.\n\n")
+            }
+            validationResult.errorType?.contains("Truncated", ignoreCase = true) == true -> {
+                errorDetails.append("▶ FILE TOO SMALL\n")
+                errorDetails.append("  File doesn't have enough bytes for a valid header.\n")
+                errorDetails.append("  File is incomplete or severely damaged.\n\n")
+            }
+            validationResult.errorType?.contains("SOI marker", ignoreCase = true) == true -> {
+                errorDetails.append("▶ INVALID JPEG SIGNATURE\n")
+                errorDetails.append("  JPEG files must start with 0xFFD8 marker.\n")
+                errorDetails.append("  File is not a valid JPEG or is corrupted.\n\n")
+            }
+            validationResult.errorType?.contains("PNG", ignoreCase = true) == true -> {
+                errorDetails.append("▶ INVALID PNG SIGNATURE\n")
+                errorDetails.append("  PNG files must start with specific 8-byte signature.\n")
+                errorDetails.append("  File is not a valid PNG or is corrupted.\n\n")
+            }
+        }
+        
+        errorDetails.append("=== RECOMMENDATION ===\n")
+        errorDetails.append("${validationResult.recommendation}\n\n")
+        
+        errorDetails.append("=== ACTIONS TAKEN ===\n")
+        errorDetails.append("✓ File validation failed\n")
+        errorDetails.append("✓ No loading attempted\n")
+        errorDetails.append("✓ Fast rejection prevents decode errors\n")
+        
+        com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
+            this,
+            "Image Validation Failed",
+            errorDetails.toString(),
+            false
+        )
+    }
+    
     private fun showNoFilesState() {
         // Hide all media views
         binding.imageView.visibility = View.GONE
@@ -1041,6 +1160,57 @@ class SortActivity : LocaleActivity() {
     private fun loadImage(imageUrl: String) {
         if (imageFiles.isEmpty()) return
         
+        // FAST PRE-VALIDATION for SMB images
+        if (!isLocalMode) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val fileName = imageUrl.substringAfterLast('/')
+                val extension = imageUrl.substringAfterLast('.', "").lowercase()
+                Logger.d("SortActivity", "▶ Pre-validating SMB image file: $fileName")
+                val validationStartTime = System.currentTimeMillis()
+                val validationResult = com.sza.fastmediasorter.utils.MediaValidator.validateSmbMedia(
+                    imageUrl,
+                    smbClient.getContext()?.let { smbClient },
+                    isVideo = false
+                )
+                val validationTime = System.currentTimeMillis() - validationStartTime
+                Logger.d("SortActivity", "  Validation completed in ${validationTime}ms")
+                
+                if (!validationResult.isValid) {
+                    Logger.e("SortActivity", "═══════════════════════════════════════════")
+                    Logger.e("SortActivity", "▶▶▶ IMAGE FILE VALIDATION FAILED ▶▶▶")
+                    Logger.e("SortActivity", "  File: $fileName")
+                    Logger.e("SortActivity", "  Extension: .$extension")
+                    Logger.e("SortActivity", "  Error Type: ${validationResult.errorType}")
+                    Logger.e("SortActivity", "  Details: ${validationResult.errorDetails}")
+                    Logger.e("SortActivity", "  SKIPPING WITHOUT ATTEMPTING LOAD")
+                    Logger.e("SortActivity", "═══════════════════════════════════════════")
+                    
+                    withContext(Dispatchers.Main) {
+                        if (preferenceManager.isShowVideoErrorDetails()) {
+                            showImageValidationError(fileName, validationResult)
+                        } else {
+                            Toast.makeText(
+                                this@SortActivity,
+                                "Image file corrupted: $fileName",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        
+                        handleMediaError(imageUrl, "Image Validation", validationResult.errorDetails ?: "File corrupted")
+                    }
+                    return@launch
+                }
+                
+                // Continue with normal loading if validation passed
+                loadImageAfterValidation(imageUrl)
+            }
+        } else {
+            // Local mode - load directly
+            loadImageAfterValidation(imageUrl)
+        }
+    }
+    
+    private fun loadImageAfterValidation(imageUrl: String) {
         // Check if we have preloaded this image
         if (nextImageIndex == currentIndex && nextImageData != null) {
             // Use preloaded data
@@ -1163,6 +1333,53 @@ class SortActivity : LocaleActivity() {
     private fun loadVideo(videoUrl: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                val fileName = videoUrl.substringAfterLast('/')
+                val extension = videoUrl.substringAfterLast('.', "").lowercase()
+                
+                // FAST PRE-VALIDATION: Check video file integrity BEFORE ExoPlayer
+                if (!isLocalMode) {
+                    Logger.d("SortActivity", "▶ Pre-validating SMB video file: $fileName")
+                    val validationStartTime = System.currentTimeMillis()
+                    val validationResult = com.sza.fastmediasorter.utils.MediaValidator.validateSmbMedia(
+                        videoUrl,
+                        smbClient.getContext()?.let { smbClient },
+                        isVideo = true
+                    )
+                    val validationTime = System.currentTimeMillis() - validationStartTime
+                    Logger.d("SortActivity", "  Validation completed in ${validationTime}ms")
+                    
+                    if (!validationResult.isValid) {
+                        Logger.e("SortActivity", "═══════════════════════════════════════════")
+                        Logger.e("SortActivity", "▶▶▶ VIDEO FILE VALIDATION FAILED ▶▶▶")
+                        Logger.e("SortActivity", "  File: $fileName")
+                        Logger.e("SortActivity", "  Extension: .$extension")
+                        Logger.e("SortActivity", "  Error Type: ${validationResult.errorType}")
+                        Logger.e("SortActivity", "  Details: ${validationResult.errorDetails}")
+                        Logger.e("SortActivity", "  Recommendation: ${validationResult.recommendation}")
+                        Logger.e("SortActivity", "  SKIPPING WITHOUT ATTEMPTING PLAYBACK")
+                        Logger.e("SortActivity", "═══════════════════════════════════════════")
+                        
+                        withContext(Dispatchers.Main) {
+                            binding.videoLoadingLayout.visibility = View.GONE
+                            
+                            if (preferenceManager.isShowVideoErrorDetails()) {
+                                showVideoValidationError(fileName, validationResult)
+                            } else {
+                                Toast.makeText(
+                                    this@SortActivity,
+                                    "Video file corrupted: $fileName",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                            
+                            handleMediaError(videoUrl, "Video Validation", validationResult.errorDetails ?: "File corrupted")
+                        }
+                        return@launch
+                    } else if (validationResult.errorDetails != null) {
+                        Logger.w("SortActivity", "⚠ Validation warning: ${validationResult.errorDetails}")
+                    }
+                }
+                
                 // Get file info for display
                 val fileInfo = if (isLocalMode) {
                     localStorageClient?.getFileInfo(Uri.parse(videoUrl))?.let {
