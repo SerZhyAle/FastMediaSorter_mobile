@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.Toast
@@ -28,6 +29,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class SlideshowActivity : AppCompatActivity() {
+    
     private lateinit var binding: ActivitySlideshowBinding
     private lateinit var imageRepository: ImageRepository
     private lateinit var preferenceManager: PreferenceManager
@@ -65,6 +67,7 @@ class SlideshowActivity : AppCompatActivity() {
     private val MAX_CONSECUTIVE_ERRORS = 3
     
     companion object {
+        private const val TAG = "SlideshowActivity"
         private const val KEY_CURRENT_INDEX = "current_index"
         private const val KEY_IMAGES = "images"
     }
@@ -108,25 +111,42 @@ class SlideshowActivity : AppCompatActivity() {
     }
     
     private fun setupExoPlayer() {
+        // Release any existing player first
+        exoPlayer?.let { player ->
+            player.stop()
+            player.release()
+        }
+        
         exoPlayer = ExoPlayer.Builder(this).build()
         binding.playerView.player = exoPlayer
+        
+        // Enable controls for video playback in slideshow
+        binding.playerView.useController = true
+        binding.playerView.controllerAutoShow = true
+        binding.playerView.controllerHideOnTouch = false
         
         exoPlayer?.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 when (playbackState) {
                     Player.STATE_BUFFERING -> {
                         binding.videoLoadingLayout.visibility = View.VISIBLE
+                        Log.d(TAG, "ExoPlayer: Buffering")
                     }
                     Player.STATE_READY -> {
                         binding.videoLoadingLayout.visibility = View.GONE
+                        Log.d(TAG, "ExoPlayer: Ready")
                     }
                     Player.STATE_ENDED -> {
                         binding.videoLoadingLayout.visibility = View.GONE
+                        Log.d(TAG, "ExoPlayer: Playback ended")
                         // Auto-advance to next media when video ends
                         if (waitingForVideoEnd && !isPaused) {
                             waitingForVideoEnd = false
                             skipToNextImage()
                         }
+                    }
+                    Player.STATE_IDLE -> {
+                        Log.d(TAG, "ExoPlayer: Idle state")
                     }
                 }
             }
@@ -273,6 +293,21 @@ class SlideshowActivity : AppCompatActivity() {
         
         // Auto-pause on rotation
         isPaused = true
+    }
+    
+    private fun updateRotationAreas() {
+        // Disable rotation areas for videos, enable for images
+        val enableRotation = !isCurrentMediaVideo
+        
+        // Disable click listeners for rotation areas during video playback
+        binding.rotationLayout.isClickable = enableRotation
+        binding.rotateLeftButton.isEnabled = enableRotation
+        binding.rotateRightButton.isEnabled = enableRotation
+        binding.btnRotateLeft.isEnabled = enableRotation
+        binding.btnRotateRight.isEnabled = enableRotation
+        
+        // Make rotation layout transparent during video to allow player controls
+        binding.rotationLayout.alpha = if (enableRotation) 1.0f else 0.0f
     }
     
     private fun togglePause() {
@@ -563,6 +598,9 @@ class SlideshowActivity : AppCompatActivity() {
             // Determine if current media is video
             isCurrentMediaVideo = MediaUtils.isVideo(mediaUrl)
             
+            // Update rotation areas based on media type
+            updateRotationAreas()
+            
             if (isCurrentMediaVideo) {
                 // Load video
                 binding.imageView.visibility = View.GONE
@@ -831,6 +869,19 @@ class SlideshowActivity : AppCompatActivity() {
     
     private fun showError(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        finishSafely()
+    }
+    
+    private fun finishSafely() {
+        Log.d(TAG, "finishSafely: Cleaning up before finish")
+        
+        // Cancel slideshow
+        slideshowJob?.cancel()
+        slideshowJob = null
+        
+        // Stop video playback
+        exoPlayer?.stop()
+        
         finish()
     }
     
@@ -846,6 +897,20 @@ class SlideshowActivity : AppCompatActivity() {
         updateControlsVisibility()
     }
     
+    override fun onPause() {
+        super.onPause()
+        // Pause video playback to prevent resource leaks
+        exoPlayer?.playWhenReady = false
+        Log.d(TAG, "Activity paused, video playback paused")
+    }
+    
+    override fun onStop() {
+        super.onStop()
+        // Cancel slideshow when activity is no longer visible
+        slideshowJob?.cancel()
+        Log.d(TAG, "Activity stopped, slideshow cancelled")
+    }
+    
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         setupFullscreen()
@@ -857,20 +922,49 @@ class SlideshowActivity : AppCompatActivity() {
     }
     
     override fun onDestroy() {
-        super.onDestroy()
+        Log.d(TAG, "onDestroy: Starting cleanup")
+        
+        // Cancel any running coroutines first
         slideshowJob?.cancel()
-        exoPlayer?.release()
-        exoPlayer = null
+        slideshowJob = null
+        
+        // Release media player resources
+        try {
+            exoPlayer?.stop()
+            exoPlayer?.release()
+            exoPlayer = null
+            Log.d(TAG, "ExoPlayer released successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error releasing ExoPlayer: ${e.message}")
+        }
+        
         // Clear SMB credentials from memory
         if (!isLocalMode) {
-            imageRepository.smbClient.disconnect()
+            try {
+                imageRepository.smbClient.disconnect()
+                Log.d(TAG, "SMB client disconnected")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error disconnecting SMB client: ${e.message}")
+            }
         }
+        
+        super.onDestroy()
+        Log.d(TAG, "onDestroy: Cleanup completed")
     }
     
     override fun onBackPressed() {
+        Log.d(TAG, "onBackPressed: Cleaning up before exit")
+        
+        // Cancel slideshow
         slideshowJob?.cancel()
+        slideshowJob = null
+        
+        // Stop video playback
+        exoPlayer?.stop()
+        
         // Clear session when user manually exits
         preferenceManager.clearLastSession()
+        
         super.onBackPressed()
     }
     
@@ -930,7 +1024,7 @@ class SlideshowActivity : AppCompatActivity() {
                 showFullErrorLog()
             }
             .setNeutralButton("Exit Slideshow") { _, _ ->
-                finish()
+                finishSafely()
             }
             .setCancelable(false)
             .show()

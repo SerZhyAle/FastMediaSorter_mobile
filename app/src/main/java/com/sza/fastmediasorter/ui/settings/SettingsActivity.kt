@@ -1,9 +1,15 @@
 package com.sza.fastmediasorter.ui.settings
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.widget.Toast
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -384,6 +390,11 @@ class SettingsFragment : Fragment() {
             startActivity(intent)
         }
         
+        // Setup View Logs button
+        binding.viewLogsButton.setOnClickListener {
+            showLogsDialog()
+        }
+        
         // Setup media access button
         updateMediaAccessButton()
         binding.requestMediaAccessButton.setOnClickListener {
@@ -462,6 +473,58 @@ class SettingsFragment : Fragment() {
     private fun saveDefaultPassword() {
         val password = binding.defaultPasswordInput.text.toString().trim()
         preferenceManager.setDefaultPassword(password)
+    }
+    
+    private fun showLogsDialog() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val logs = getLast1000LogLines()
+            
+            withContext(Dispatchers.Main) {
+                AlertDialog.Builder(requireContext())
+                    .setTitle(getString(R.string.logs_title))
+                    .setMessage(logs.ifEmpty { getString(R.string.logs_empty) })
+                    .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+                    .setNeutralButton(getString(R.string.copy_logs)) { _, _ ->
+                        copyLogsToClipboard(logs)
+                    }
+                    .show()
+            }
+        }
+    }
+    
+    private fun getLast1000LogLines(): String {
+        return try {
+            val process = Runtime.getRuntime().exec("logcat -d")
+            val bufferedReader = BufferedReader(InputStreamReader(process.inputStream))
+            
+            val allLines = bufferedReader.readLines()
+            val appLines = allLines.filter { line ->
+                line.contains("fastmediasorter", ignoreCase = true) ||
+                line.contains("FastMediaSorter", ignoreCase = true) ||
+                line.contains("SortActivity", ignoreCase = true) ||
+                line.contains("SlideshowActivity", ignoreCase = true) ||
+                line.contains("MainActivity", ignoreCase = true) ||
+                line.contains("SmbClient", ignoreCase = true) ||
+                line.contains("com.sza.fastmediasorter", ignoreCase = true)
+            }
+            
+            val last1000 = if (appLines.size > 1000) {
+                appLines.takeLast(1000)
+            } else {
+                appLines
+            }
+            
+            last1000.joinToString("\n")
+        } catch (e: Exception) {
+            "Error reading logs: ${e.message}"
+        }
+    }
+    
+    private fun copyLogsToClipboard(logs: String) {
+        val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("Application Logs", logs)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(requireContext(), getString(R.string.logs_copied), Toast.LENGTH_SHORT).show()
     }
     
     override fun onPause() {

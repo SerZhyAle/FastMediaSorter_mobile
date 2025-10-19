@@ -80,6 +80,12 @@
     <string name="grant_media_access">Grant Media Access</string>
     <string name="help">Help</string>
     <string name="user_guide">User Guide</string>
+    <string name="debug">Debug</string>
+    <string name="view_logs">View Application Logs</string>
+    <string name="logs_title">Application Logs (Last 1000 lines)</string>
+    <string name="logs_empty">No logs available</string>
+    <string name="copy_logs">Copy Logs</string>
+    <string name="logs_copied">Logs copied to clipboard</string>
     <!-- Network Fragment -->
     <string name="add_also_to_destinations_list">Add also to destinations list</string>
     <string name="test">Test</string>

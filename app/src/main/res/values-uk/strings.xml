@@ -80,6 +80,12 @@
     <string name="grant_media_access">Надати доступ до медіафайлів</string>
     <string name="help">Довідка</string>
     <string name="user_guide">Керівництво користувача</string>
+    <string name="debug">Налагодження</string>
+    <string name="view_logs">Переглянути логи програми</string>
+    <string name="logs_title">Логи програми (Останні 1000 рядків)</string>
+    <string name="logs_empty">Логи недоступні</string>
+    <string name="copy_logs">Копіювати логи</string>
+    <string name="logs_copied">Логи скопійовано в буфер обміну</string>
     <!-- Network Fragment -->
     <string name="add_also_to_destinations_list">Додати також до списку призначень</string>
     <string name="test">Тест</string>
