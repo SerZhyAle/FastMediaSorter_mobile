@@ -4,9 +4,24 @@
     android:layout_height="match_parent">
 
 <LinearLayout
-    android:id="@+id/touchZonesContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+<CheckBox
+    android:id="@+id/showControlsCheckbox"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:text="@string/show_controls"
+    android:textSize="16sp"
+    android:layout_marginBottom="16dp" />
+
+<LinearLayout
+    android:id="@+id/touchZonesContainer"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
     android:orientation="vertical"
     android:gravity="center"
     android:padding="16dp">
@@ -157,12 +172,15 @@
 <TextView
     android:id="@+id/buttonControlsInfo"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
     android:gravity="center"
     android:padding="32dp"
     android:text="@string/button_controls_description"
     android:textSize="16sp"
     android:textColor="@android:color/white"
     android:visibility="gone" />
+
+</LinearLayout>
 
 </FrameLayout>

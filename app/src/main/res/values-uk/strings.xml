@@ -1,9 +1,9 @@
 <resources>
     <string name="app_name">FastMediaSorter</string>
     <string name="action_settings">Налаштування</string>
-    <string name="slideshow">Слайд-шоу</string>
+    <string name="slideshow">Слайд</string>
     <string name="connect">Підключитися</string>
-    <string name="sort">Сортування..</string>
+    <string name="sort">Сорт..</string>
     <string name="settings">Налаштування</string>
     <string name="server_address">Адреса сервера</string>
     <string name="folder_address">Адреса папки (наприклад, 192.168.1.100\\photos)</string>
@@ -36,7 +36,9 @@
     <string name="tab_sort_to">Сортування..</string>
     <string name="tab_slideshow">Слайд-шоу</string>
     <string name="tab_video">Відео</string>
-    <string name="tab_settings">Налаштування</string>
+    <string name="tab_settings">Інше</string>
+    <string name="subtab_destinations">Призначення</string>
+    <string name="subtab_sort_settings">Налаштування</string>
     <!-- Video Settings -->
     <string name="video_playback_settings">Налаштування відтворення відео</string>
     <string name="enable_video_playback">Увімкнути відтворення відео</string>
@@ -51,7 +53,7 @@
     <string name="add_destination">+ Додати папку</string>
     <string name="no_destinations_message">Папки не додано\nНатисніть + для додавання з підключень</string>
     <string name="back_button">← Назад</string>
-    <string name="abc_rnd">АБВ/ВИПАДКОВО</string>
+    <string name="abc_rnd">АБВ/ВИП</string>
     <string name="prev_button">◄ Попер</string>
     <string name="pause_play">▐▐ / ▶</string>
     <!-- Toast Messages -->
@@ -88,7 +90,9 @@
     <string name="user_guide">Керівництво користувача</string>
     <string name="debug">Налагодження</string>
     <string name="view_logs">Переглянути логи програми</string>
+    <string name="view_session_logs">Логи поточної сесії</string>
     <string name="logs_title">Логи програми (Останні 1000 рядків)</string>
+    <string name="session_logs_title">Логи сесії (Поточна сесія)</string>
     <string name="logs_empty">Логи недоступні</string>
     <string name="copy_logs">Копіювати логи</string>
     <string name="logs_copied">Логи скопійовано в буфер обміну</string>

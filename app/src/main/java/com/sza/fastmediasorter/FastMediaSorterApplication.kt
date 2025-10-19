@@ -9,8 +9,16 @@ import java.security.Security
 import java.util.Locale
 
 class FastMediaSorterApplication : Application() {
+    
+    companion object {
+        // Timestamp when application started (session start time)
+        val sessionStartTime: Long = System.currentTimeMillis()
+    }
+    
     override fun onCreate() {
         super.onCreate()
+        
+        Logger.d("Application", "Session started at: $sessionStartTime")
         
         // Apply saved language
         applySavedLanguage()
@@ -33,9 +41,11 @@ class FastMediaSorterApplication : Application() {
             val locale = Locale(savedLanguage)
             Locale.setDefault(locale)
             
-            val config = Configuration()
-            config.setLocale(locale)
-            resources.updateConfiguration(config, resources.displayMetrics)
+            val configuration = Configuration(resources.configuration)
+            configuration.setLocale(locale)
+            
+            // Update configuration for app context
+            resources.updateConfiguration(configuration, resources.displayMetrics)
             
             Logger.d("Application", "Applied language: $savedLanguage")
         } catch (e: Exception) {

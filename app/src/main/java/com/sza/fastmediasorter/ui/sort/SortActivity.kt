@@ -12,7 +12,6 @@ import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
@@ -33,6 +32,7 @@ import com.sza.fastmediasorter.utils.Logger
 import com.sza.fastmediasorter.network.SmbDataSource
 import com.sza.fastmediasorter.network.SmbDataSourceFactory
 import com.sza.fastmediasorter.ui.ConnectionViewModel
+import com.sza.fastmediasorter.ui.base.LocaleActivity
 import com.sza.fastmediasorter.utils.MediaUtils
 import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Dispatchers
@@ -41,7 +41,7 @@ import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class SortActivity : AppCompatActivity() {
+class SortActivity : LocaleActivity() {
     private lateinit var binding: ActivitySortBinding
     private lateinit var viewModel: ConnectionViewModel
     private lateinit var smbClient: SmbClient
@@ -161,6 +161,10 @@ class SortActivity : AppCompatActivity() {
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 binding.videoLoadingLayout.visibility = View.GONE
                 
+                // Log error consistently
+                val currentMediaUrl = imageFiles.getOrNull(currentIndex) ?: "unknown"
+                handleMediaError(currentMediaUrl, "Video Playback", error.message ?: "Playback error")
+                
                 if (preferenceManager.isShowVideoErrorDetails()) {
                     showVideoErrorDialog(error)
                 } else {
@@ -248,8 +252,8 @@ class SortActivity : AppCompatActivity() {
         
         // Filter out destinations that are the same as source (pre-calculation for UI logic)
         val filteredDestinations = sortDestinations.filter { config ->
-            // Skip local folders (defensive check)
-            if (config.type == "LOCAL_CUSTOM") return@filter false
+            // Skip local folders (defensive check - destinations cannot be local)
+            if (config.type == "LOCAL_CUSTOM" || config.type == "LOCAL_STANDARD") return@filter false
             
             // Skip if it's the same as current source connection
             currentConfig?.let { currentSource ->
@@ -258,10 +262,6 @@ class SortActivity : AppCompatActivity() {
                     val sameServer = currentSource.serverAddress == config.serverAddress
                     val sameFolder = currentSource.folderPath == config.folderPath
                     if (sameServer && sameFolder) return@filter false
-                }
-                // For local connections, compare folder paths
-                if (currentSource.type == "LOCAL" && config.type == "LOCAL") {
-                    if (currentSource.folderPath == config.folderPath) return@filter false
                 }
             }
             true

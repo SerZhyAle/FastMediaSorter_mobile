@@ -5,13 +5,13 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.tabs.TabLayoutMediator
 import com.sza.fastmediasorter.data.ConnectionConfig
 import com.sza.fastmediasorter.databinding.ActivityMainBinding
 import com.sza.fastmediasorter.ui.ConnectionViewModel
 import com.sza.fastmediasorter.ui.MainPagerAdapter
+import com.sza.fastmediasorter.ui.base.LocaleActivity
 import com.sza.fastmediasorter.ui.network.NetworkFragment
 import com.sza.fastmediasorter.ui.slideshow.SlideshowActivity
 import com.sza.fastmediasorter.ui.welcome.WelcomeActivity
@@ -20,7 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : LocaleActivity() {
 private lateinit var binding: ActivityMainBinding
 private lateinit var preferenceManager: PreferenceManager
 private val viewModel: ConnectionViewModel by viewModels()
@@ -205,11 +205,14 @@ preferenceManager.clearLastSession()
     }
 
     private fun loadConfigAndStartSlideshow(config: ConnectionConfig) {
+        // Get current interval from input field (use config.interval as fallback)
+        val currentInterval = binding.intervalInput.text.toString().toIntOrNull()?.takeIf { it in 1..300 } ?: config.interval
+        
         if (config.type == "LOCAL_CUSTOM" || config.type == "LOCAL_STANDARD") {
             preferenceManager.saveLocalFolderSettings(
                 config.localUri ?: "",
                 config.localDisplayName ?: "",
-                config.interval
+                currentInterval
             )
         } else {
             preferenceManager.saveConnectionSettings(
@@ -218,7 +221,7 @@ preferenceManager.clearLastSession()
                 config.password,
                 config.folderPath
             )
-            preferenceManager.setInterval(config.interval)
+            preferenceManager.setInterval(currentInterval)
         }
         // Only update lastUsed for DB records (positive ID)
         if (config.id > 0) {

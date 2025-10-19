@@ -22,7 +22,10 @@
         android:layout_height="match_parent"
         android:visibility="gone"
         app:show_buffering="never"
-        app:use_controller="false" />
+        app:use_controller="true"
+        app:auto_show="true"
+        app:show_timeout="3000"
+        app:controller_layout_id="@layout/custom_player_control_view" />
 
     <ProgressBar
         android:id="@+id/progressBar"
@@ -235,6 +238,61 @@
             android:src="@android:drawable/ic_menu_sort_by_size"
             android:contentDescription="Shuffle"
             android:tint="@android:color/white" />
+
+    </LinearLayout>
+
+    <!-- Video control overlay - 3 rows: top (Back|Shuffle), middle (Prev|Next), bottom (player controls) -->
+    <LinearLayout
+        android:id="@+id/videoControlOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- Row 1: Back | Shuffle -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="250dp"
+            android:orientation="horizontal">
+
+            <View
+                android:id="@+id/btnVideoBack"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent" />
+
+            <View
+                android:id="@+id/btnVideoShuffle"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent" />
+
+        </LinearLayout>
+
+        <!-- Row 2: Previous | Next -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="250dp"
+            android:orientation="horizontal">
+
+            <View
+                android:id="@+id/btnVideoPrevious"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent" />
+
+            <View
+                android:id="@+id/btnVideoNext"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

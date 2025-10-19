@@ -36,7 +36,9 @@
     <string name="tab_sort_to">Sort to..</string>
     <string name="tab_slideshow">Slideshow</string>
     <string name="tab_video">Video</string>
-    <string name="tab_settings">Settings</string>
+    <string name="tab_settings">Other</string>
+    <string name="subtab_destinations">Destinations</string>
+    <string name="subtab_sort_settings">Settings</string>
     <!-- Video Settings -->
     <string name="video_playback_settings">Video Playback Settings</string>
     <string name="enable_video_playback">Enable video playback</string>
@@ -88,7 +90,9 @@
     <string name="user_guide">User Guide</string>
     <string name="debug">Debug</string>
     <string name="view_logs">View Application Logs</string>
+    <string name="view_session_logs">View Session Logs</string>
     <string name="logs_title">Application Logs (Last 1000 lines)</string>
+    <string name="session_logs_title">Session Logs (Current Session)</string>
     <string name="logs_empty">No logs available</string>
     <string name="copy_logs">Copy Logs</string>
     <string name="logs_copied">Logs copied to clipboard</string>

@@ -5,15 +5,15 @@ import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.viewpager2.widget.ViewPager2
 import com.sza.fastmediasorter.MainActivity
 import com.sza.fastmediasorter.R
 import com.sza.fastmediasorter.databinding.ActivityWelcomeBinding
+import com.sza.fastmediasorter.ui.base.LocaleActivity
 import com.sza.fastmediasorter.utils.PreferenceManager
 
-class WelcomeActivity : AppCompatActivity() {
+class WelcomeActivity : LocaleActivity() {
     private lateinit var binding: ActivityWelcomeBinding
     private lateinit var preferenceManager: PreferenceManager
     private lateinit var adapter: WelcomePagerAdapter

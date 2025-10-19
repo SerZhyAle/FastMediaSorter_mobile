@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.content.res.Configuration
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -13,7 +12,6 @@ import android.widget.AutoCompleteTextView
 import android.widget.Toast
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.util.Locale
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -21,7 +19,6 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -33,16 +30,16 @@ import com.sza.fastmediasorter.R
 import com.sza.fastmediasorter.data.ConnectionConfig
 import com.sza.fastmediasorter.databinding.ActivitySettingsBinding
 import com.sza.fastmediasorter.databinding.FragmentSlideshowHelpBinding
-import com.sza.fastmediasorter.databinding.FragmentSortHelpBinding
 import com.sza.fastmediasorter.databinding.FragmentSettingsBinding
 import com.sza.fastmediasorter.ui.ConnectionViewModel
+import com.sza.fastmediasorter.ui.base.LocaleActivity
 import com.sza.fastmediasorter.ui.welcome.WelcomeActivity
 import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class SettingsActivity : AppCompatActivity() {
+class SettingsActivity : LocaleActivity() {
     private lateinit var binding: ActivitySettingsBinding
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,16 +86,16 @@ class SettingsActivity : AppCompatActivity() {
     }
 }
 
-class SettingsPagerAdapter(activity: AppCompatActivity) : FragmentStateAdapter(activity) {
+class SettingsPagerAdapter(activity: LocaleActivity) : FragmentStateAdapter(activity) {
     override fun getItemCount(): Int = 4
     
     override fun createFragment(position: Int): Fragment {
         return when (position) {
-            0 -> SortHelpFragment()
+            0 -> SortContainerFragment()
             1 -> SlideshowHelpFragment()
             2 -> VideoSettingsFragment()
             3 -> SettingsFragment()
-            else -> SortHelpFragment()
+            else -> SortContainerFragment()
         }
     }
 }
@@ -116,6 +113,14 @@ class SlideshowHelpFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         preferenceManager = PreferenceManager(requireContext())
+        
+        binding.showControlsCheckbox.isChecked = preferenceManager.isShowControls()
+        
+        binding.showControlsCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setShowControls(isChecked)
+            updateVisibility()
+        }
+        
         updateVisibility()
     }
     
@@ -136,15 +141,49 @@ class SlideshowHelpFragment : Fragment() {
     }
 }
 
-class SortHelpFragment : Fragment() {
-    private var _binding: FragmentSortHelpBinding? = null
-    private val binding get() = _binding!!
+class SortContainerFragment : Fragment() {
+    
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        return inflater.inflate(R.layout.fragment_sort_container, container, false)
+    }
+    
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        
+        val viewPager = view.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.sortSubViewPager)
+        val tabLayout = view.findViewById<com.google.android.material.tabs.TabLayout>(R.id.sortSubTabLayout)
+        
+        val adapter = SortSubPagerAdapter(this)
+        viewPager.adapter = adapter
+        
+        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+            tab.text = when (position) {
+                0 -> getString(R.string.subtab_destinations)
+                1 -> getString(R.string.subtab_sort_settings)
+                else -> ""
+            }
+        }.attach()
+    }
+}
+
+class SortSubPagerAdapter(fragment: Fragment) : FragmentStateAdapter(fragment) {
+    override fun getItemCount(): Int = 2
+    
+    override fun createFragment(position: Int): Fragment {
+        return when (position) {
+            0 -> SortDestinationsFragment()
+            1 -> SortSettingsFragment()
+            else -> SortDestinationsFragment()
+        }
+    }
+}
+
+class SortDestinationsFragment : Fragment() {
     private lateinit var viewModel: ConnectionViewModel
     private lateinit var adapter: SortDestinationAdapter
     
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        _binding = FragmentSortHelpBinding.inflate(inflater, container, false)
-        return binding.root
+        return inflater.inflate(R.layout.fragment_sort_destinations, container, false)
     }
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -152,30 +191,34 @@ class SortHelpFragment : Fragment() {
         
         viewModel = ViewModelProvider(requireActivity())[ConnectionViewModel::class.java]
         
-        setupRecyclerView()
-        setupObservers()
+        val destinationsRecyclerView = view.findViewById<RecyclerView>(R.id.destinationsRecyclerView)
+        val addDestinationButton = view.findViewById<Button>(R.id.addDestinationButton)
+        val emptyText = view.findViewById<TextView>(R.id.emptyText)
         
-        binding.addDestinationButton.setOnClickListener {
+        setupRecyclerView(destinationsRecyclerView)
+        setupObservers(destinationsRecyclerView, emptyText)
+        
+        addDestinationButton.setOnClickListener {
             showAddDestinationDialog()
         }
     }
     
-    private fun setupRecyclerView() {
+    private fun setupRecyclerView(recyclerView: RecyclerView) {
         adapter = SortDestinationAdapter(
             onMoveUp = { config -> moveDestination(config, -1) },
             onMoveDown = { config -> moveDestination(config, 1) },
             onDelete = { config -> deleteDestination(config) }
         )
         
-        binding.destinationsRecyclerView.adapter = adapter
-        binding.destinationsRecyclerView.layoutManager = LinearLayoutManager(requireContext())
+        recyclerView.adapter = adapter
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
     }
     
-    private fun setupObservers() {
+    private fun setupObservers(recyclerView: RecyclerView, emptyText: TextView) {
         viewModel.sortDestinations.observe(viewLifecycleOwner) { destinations ->
             adapter.submitList(destinations)
-            binding.emptyText.visibility = if (destinations.isEmpty()) View.VISIBLE else View.GONE
-            binding.destinationsRecyclerView.visibility = if (destinations.isEmpty()) View.GONE else View.VISIBLE
+            emptyText.visibility = if (destinations.isEmpty()) View.VISIBLE else View.GONE
+            recyclerView.visibility = if (destinations.isEmpty()) View.GONE else View.VISIBLE
         }
     }
     
@@ -273,10 +316,51 @@ class SortHelpFragment : Fragment() {
     private fun deleteDestination(config: ConnectionConfig) {
         viewModel.removeSortDestination(config.id)
     }
+}
+
+class SortSettingsFragment : Fragment() {
+    private lateinit var preferenceManager: PreferenceManager
     
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        return inflater.inflate(R.layout.fragment_sort_settings, container, false)
+    }
+    
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        
+        preferenceManager = PreferenceManager(requireContext())
+        
+        val allowCopyCheckbox = view.findViewById<android.widget.CheckBox>(R.id.allowCopyCheckbox)
+        val allowMoveCheckbox = view.findViewById<android.widget.CheckBox>(R.id.allowMoveCheckbox)
+        val allowDeleteCheckbox = view.findViewById<android.widget.CheckBox>(R.id.allowDeleteCheckbox)
+        val confirmDeleteCheckbox = view.findViewById<android.widget.CheckBox>(R.id.confirmDeleteCheckbox)
+        val allowRenameCheckbox = view.findViewById<android.widget.CheckBox>(R.id.allowRenameCheckbox)
+        
+        allowCopyCheckbox.isChecked = preferenceManager.isAllowCopy()
+        allowMoveCheckbox.isChecked = preferenceManager.isAllowMove()
+        allowDeleteCheckbox.isChecked = preferenceManager.isAllowDelete()
+        confirmDeleteCheckbox.isChecked = preferenceManager.isConfirmDelete()
+        allowRenameCheckbox.isChecked = preferenceManager.isAllowRename()
+        
+        allowCopyCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setAllowCopy(isChecked)
+        }
+        
+        allowMoveCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setAllowMove(isChecked)
+        }
+        
+        allowDeleteCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setAllowDelete(isChecked)
+        }
+        
+        confirmDeleteCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setConfirmDelete(isChecked)
+        }
+        
+        allowRenameCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setAllowRename(isChecked)
+        }
     }
 }
 
@@ -366,24 +450,6 @@ class SettingsFragment : Fragment() {
         binding.defaultUsernameInput.setText(preferenceManager.getDefaultUsername())
         binding.defaultPasswordInput.setText(preferenceManager.getDefaultPassword())
         
-        // Load allow move setting
-        binding.allowMoveCheckbox.isChecked = preferenceManager.isAllowMove()
-        
-        // Load allow copy setting
-        binding.allowCopyCheckbox.isChecked = preferenceManager.isAllowCopy()
-        
-        // Load allow delete setting
-        binding.allowDeleteCheckbox.isChecked = preferenceManager.isAllowDelete()
-        
-        // Load confirm delete setting
-        binding.confirmDeleteCheckbox.isChecked = preferenceManager.isConfirmDelete()
-        
-        // Load allow rename setting
-        binding.allowRenameCheckbox.isChecked = preferenceManager.isAllowRename()
-        
-        // Load show controls setting
-        binding.showControlsCheckbox.isChecked = preferenceManager.isShowControls()
-        
         // Load keep screen on setting
         binding.keepScreenOnCheckbox.isChecked = preferenceManager.isKeepScreenOn()
         
@@ -400,6 +466,11 @@ class SettingsFragment : Fragment() {
         // Setup View Logs button
         binding.viewLogsButton.setOnClickListener {
             showLogsDialog()
+        }
+        
+        // Setup View Session Logs button
+        binding.viewSessionLogsButton.setOnClickListener {
+            showSessionLogsDialog()
         }
         
         // Setup media access button
@@ -419,36 +490,6 @@ class SettingsFragment : Fragment() {
             if (!hasFocus) {
                 saveDefaultPassword()
             }
-        }
-        
-        // Save allow move on change
-        binding.allowMoveCheckbox.setOnCheckedChangeListener { _, isChecked ->
-            preferenceManager.setAllowMove(isChecked)
-        }
-        
-        // Save allow copy on change
-        binding.allowCopyCheckbox.setOnCheckedChangeListener { _, isChecked ->
-            preferenceManager.setAllowCopy(isChecked)
-        }
-        
-        // Save allow delete on change
-        binding.allowDeleteCheckbox.setOnCheckedChangeListener { _, isChecked ->
-            preferenceManager.setAllowDelete(isChecked)
-        }
-        
-        // Save confirm delete on change
-        binding.confirmDeleteCheckbox.setOnCheckedChangeListener { _, isChecked ->
-            preferenceManager.setConfirmDelete(isChecked)
-        }
-        
-        // Save allow rename on change
-        binding.allowRenameCheckbox.setOnCheckedChangeListener { _, isChecked ->
-            preferenceManager.setAllowRename(isChecked)
-        }
-        
-        // Save show controls on change
-        binding.showControlsCheckbox.setOnCheckedChangeListener { _, isChecked ->
-            preferenceManager.setShowControls(isChecked)
         }
         
         // Save keep screen on on change
@@ -499,6 +540,23 @@ class SettingsFragment : Fragment() {
         }
     }
     
+    private fun showSessionLogsDialog() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val logs = getSessionLogLines()
+            
+            withContext(Dispatchers.Main) {
+                AlertDialog.Builder(requireContext())
+                    .setTitle(getString(R.string.session_logs_title))
+                    .setMessage(logs.ifEmpty { getString(R.string.logs_empty) })
+                    .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+                    .setNeutralButton(getString(R.string.copy_logs)) { _, _ ->
+                        copyLogsToClipboard(logs)
+                    }
+                    .show()
+            }
+        }
+    }
+    
     private fun getLast1000LogLines(): String {
         return try {
             val process = Runtime.getRuntime().exec("logcat -d")
@@ -524,6 +582,70 @@ class SettingsFragment : Fragment() {
             last1000.joinToString("\n")
         } catch (e: Exception) {
             "Error reading logs: ${e.message}"
+        }
+    }
+    
+    private fun getSessionLogLines(): String {
+        return try {
+            val sessionStartTime = com.sza.fastmediasorter.FastMediaSorterApplication.sessionStartTime
+            
+            val process = Runtime.getRuntime().exec("logcat -d -v time")
+            val bufferedReader = BufferedReader(InputStreamReader(process.inputStream))
+            
+            val allLines = bufferedReader.readLines()
+            
+            // Filter by app name and session time
+            val appLines = allLines.filter { line ->
+                // Check if line contains app-related tags
+                val isAppRelated = line.contains("fastmediasorter", ignoreCase = true) ||
+                    line.contains("FastMediaSorter", ignoreCase = true) ||
+                    line.contains("SortActivity", ignoreCase = true) ||
+                    line.contains("SlideshowActivity", ignoreCase = true) ||
+                    line.contains("MainActivity", ignoreCase = true) ||
+                    line.contains("SmbClient", ignoreCase = true) ||
+                    line.contains("com.sza.fastmediasorter", ignoreCase = true)
+                
+                if (!isAppRelated) return@filter false
+                
+                // Parse timestamp from logcat format: "10-19 20:34:31.368"
+                val timestampMatch = Regex("""(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})\.(\d{3})""").find(line)
+                if (timestampMatch != null) {
+                    try {
+                        val (month, day, hour, minute, second, millis) = timestampMatch.destructured
+                        
+                        // Create calendar for log line timestamp (assuming current year)
+                        val logCalendar = java.util.Calendar.getInstance()
+                        logCalendar.set(java.util.Calendar.MONTH, month.toInt() - 1)
+                        logCalendar.set(java.util.Calendar.DAY_OF_MONTH, day.toInt())
+                        logCalendar.set(java.util.Calendar.HOUR_OF_DAY, hour.toInt())
+                        logCalendar.set(java.util.Calendar.MINUTE, minute.toInt())
+                        logCalendar.set(java.util.Calendar.SECOND, second.toInt())
+                        logCalendar.set(java.util.Calendar.MILLISECOND, millis.toInt())
+                        
+                        val logTimestamp = logCalendar.timeInMillis
+                        
+                        // Include only logs from current session
+                        return@filter logTimestamp >= sessionStartTime
+                    } catch (e: Exception) {
+                        // If parsing fails, include the line
+                        return@filter true
+                    }
+                }
+                
+                // If no timestamp found, include the line
+                true
+            }
+            
+            // Take last 1000 lines from session
+            val last1000 = if (appLines.size > 1000) {
+                appLines.takeLast(1000)
+            } else {
+                appLines
+            }
+            
+            last1000.joinToString("\n")
+        } catch (e: Exception) {
+            "Error reading session logs: ${e.message}"
         }
     }
     
@@ -554,29 +676,10 @@ class SettingsFragment : Fragment() {
             if (selectedLanguage != preferenceManager.getLanguage()) {
                 preferenceManager.setLanguage(selectedLanguage)
                 
-                // Show restart notification
-                Toast.makeText(
-                    requireContext(),
-                    getString(R.string.restart_required),
-                    Toast.LENGTH_LONG
-                ).show()
-                
-                // Apply language change immediately
-                setAppLocale(selectedLanguage)
-                
-                // Restart activity to apply changes
+                // Restart activity to apply changes to all screens
                 requireActivity().recreate()
             }
         }
-    }
-    
-    private fun setAppLocale(languageCode: String) {
-        val locale = Locale(languageCode)
-        Locale.setDefault(locale)
-        
-        val config = Configuration()
-        config.setLocale(locale)
-        requireContext().resources.updateConfiguration(config, requireContext().resources.displayMetrics)
     }
     
     override fun onPause() {

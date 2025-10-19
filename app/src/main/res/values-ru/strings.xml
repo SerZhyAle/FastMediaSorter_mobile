@@ -1,9 +1,9 @@
 <resources>
     <string name="app_name">FastMediaSorter</string>
     <string name="action_settings">Настройки</string>
-    <string name="slideshow">Слайд-шоу</string>
+    <string name="slideshow">Слайд</string>
     <string name="connect">Подключиться</string>
-    <string name="sort">Сортировка..</string>
+    <string name="sort">Сорт..</string>
     <string name="settings">Настройки</string>
     <string name="server_address">Адрес сервера</string>
     <string name="folder_address">Адрес папки (например, 192.168.1.100\\photos)</string>
@@ -36,7 +36,9 @@
     <string name="tab_sort_to">Сортировка..</string>
     <string name="tab_slideshow">Слайд-шоу</string>
     <string name="tab_video">Видео</string>
-    <string name="tab_settings">Настройки</string>
+    <string name="tab_settings">Другое</string>
+    <string name="subtab_destinations">Назначения</string>
+    <string name="subtab_sort_settings">Настройки</string>
     <!-- Video Settings -->
     <string name="video_playback_settings">Настройки воспроизведения видео</string>
     <string name="enable_video_playback">Включить воспроизведение видео</string>
@@ -51,7 +53,7 @@
     <string name="add_destination">+ Добавить папку</string>
     <string name="no_destinations_message">Папки не добавлены\nНажмите + для добавления из подключений</string>
     <string name="back_button">← Назад</string>
-    <string name="abc_rnd">АБВ/СЛУЧАЙНО</string>
+    <string name="abc_rnd">АБВ/СЛ</string>
     <string name="prev_button">◄ Пред</string>
     <string name="pause_play">▐▐ / ▶</string>
     <!-- Toast Messages -->
@@ -88,7 +90,9 @@
     <string name="user_guide">Руководство пользователя</string>
     <string name="debug">Отладка</string>
     <string name="view_logs">Просмотр логов приложения</string>
+    <string name="view_session_logs">Логи текущей сессии</string>
     <string name="logs_title">Логи приложения (Последние 1000 строк)</string>
+    <string name="session_logs_title">Логи сессии (Текущая сессия)</string>
     <string name="logs_empty">Логи недоступны</string>
     <string name="copy_logs">Копировать логи</string>
     <string name="logs_copied">Логи скопированы в буфер обмена</string>
