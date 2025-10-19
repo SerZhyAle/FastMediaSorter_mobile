@@ -75,6 +75,12 @@
     <string name="slideshow_settings">Настройки слайд-шоу</string>
     <string name="show_controls">Показывать элементы управления</string>
     <string name="general_settings">Общие настройки</string>
+    <string name="language">Язык</string>
+    <string name="select_language">Выберите язык</string>
+    <string name="language_english">English</string>
+    <string name="language_russian">Русский</string>
+    <string name="language_ukrainian">Українська</string>
+    <string name="restart_required">Необходим перезапуск для применения смены языка</string>
     <string name="not_allow_device_to_sleep">Не давать устройству засыпать</string>
     <string name="local_storage_access">Доступ к локальному хранилищу</string>
     <string name="grant_media_access">Предоставить доступ к медиафайлам</string>

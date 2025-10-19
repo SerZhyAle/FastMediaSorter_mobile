@@ -46,6 +46,7 @@ class PreferenceManager(context: Context) {
         private const val KEY_VIDEO_ENABLED = "video_enabled"
         private const val KEY_MAX_VIDEO_SIZE_MB = "max_video_size_mb"
         private const val KEY_SHOW_VIDEO_ERROR_DETAILS = "show_video_error_details"
+        private const val KEY_LANGUAGE = "language"
     }
     
     init {
@@ -220,5 +221,12 @@ class PreferenceManager(context: Context) {
     
     fun setShowVideoErrorDetails(show: Boolean) {
         prefs.edit().putBoolean(KEY_SHOW_VIDEO_ERROR_DETAILS, show).apply()
+    }
+    
+    // Language settings
+    fun getLanguage(): String = prefs.getString(KEY_LANGUAGE, "en") ?: "en"
+    
+    fun setLanguage(language: String) {
+        prefs.edit().putString(KEY_LANGUAGE, language).apply()
     }
 }

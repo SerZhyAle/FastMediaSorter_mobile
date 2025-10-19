@@ -14,6 +14,15 @@ object MediaUtils {
         return extension in VIDEO_EXTENSIONS
     }
     
+    // Alias methods for backward compatibility and testing
+    fun isImageFile(filename: String): Boolean = isImage(filename)
+    
+    fun isVideoFile(filename: String): Boolean = isVideo(filename)
+    
+    fun getFileExtension(filename: String): String {
+        return filename.substringAfterLast('.', "")
+    }
+    
     fun getImageExtensions(): Set<String> = IMAGE_EXTENSIONS
     
     fun getVideoExtensions(): Set<String> = VIDEO_EXTENSIONS
@@ -22,10 +31,20 @@ object MediaUtils {
     
     fun formatFileSize(bytes: Long): String {
         return when {
+            bytes == 0L -> "0 B"
             bytes < 1024 -> "$bytes B"
-            bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-            bytes < 1024 * 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
-            else -> String.format("%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0))
+            bytes < 1024 * 1024 -> {
+                val kb = bytes / 1024.0
+                if (kb == kb.toInt().toDouble()) "${kb.toInt()} KB" else "${"%.1f".format(kb)} KB"
+            }
+            bytes < 1024 * 1024 * 1024 -> {
+                val mb = bytes / (1024.0 * 1024.0)
+                if (mb == mb.toInt().toDouble()) "${mb.toInt()} MB" else "${"%.1f".format(mb)} MB"
+            }
+            else -> {
+                val gb = bytes / (1024.0 * 1024.0 * 1024.0)
+                "${"%.1f".format(gb)} GB"
+            }
         }
     }
 }

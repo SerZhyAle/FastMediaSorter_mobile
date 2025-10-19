@@ -4,7 +4,7 @@ import java.io.FileInputStream
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.devtools.ksp") version "1.9.10-1.0.13"
+    id("com.google.devtools.ksp") version "2.0.21-1.0.28"
 }
 
 android {
@@ -15,8 +15,8 @@ android {
         applicationId = "com.sza.fastmediasorter"
         minSdk = 28
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -45,7 +45,20 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Disable logging in release
+            buildConfigField("boolean", "ENABLE_LOGGING", "false")
         }
+        debug {
+            isTestCoverageEnabled = true
+            isDebuggable = true
+            // Enable logging in debug
+            buildConfigField("boolean", "ENABLE_LOGGING", "true")
+        }
+    }
+    
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+        animationsDisabled = true
     }
     
     applicationVariants.all {
@@ -56,13 +69,14 @@ android {
     }
     
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "21"
     }
     buildFeatures {
+        buildConfig = true
         viewBinding = true
     }
     
@@ -121,7 +135,38 @@ dependencies {
     // Preferences
     implementation("androidx.preference:preference-ktx:1.2.1")
     
+    // Testing dependencies
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.mockito:mockito-core:5.7.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    
+    // Instrumented tests
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation("androidx.test.espresso:espresso-intents:3.5.1")
+    androidTestImplementation("androidx.test.espresso:espresso-contrib:3.5.1")
+    androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation("androidx.test:rules:1.5.0")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.2.0")
+}
+
+// Custom test tasks
+tasks.register("runAllTests") {
+    dependsOn("testDebugUnitTest", "connectedDebugAndroidTest")
+    group = "verification"
+    description = "Run all unit and instrumented tests"
+}
+
+tasks.register("runUnitTests") {
+    dependsOn("testDebugUnitTest")
+    group = "verification"
+    description = "Run unit tests only"
+}
+
+tasks.register("runInstrumentedTests") {
+    dependsOn("connectedDebugAndroidTest")
+    group = "verification"
+    description = "Run instrumented tests only (requires connected device/emulator)"
 }

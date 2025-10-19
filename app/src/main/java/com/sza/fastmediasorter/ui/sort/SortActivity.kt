@@ -29,6 +29,7 @@ import com.sza.fastmediasorter.data.ConnectionConfig
 import com.sza.fastmediasorter.databinding.ActivitySortBinding
 import com.sza.fastmediasorter.network.LocalStorageClient
 import com.sza.fastmediasorter.network.SmbClient
+import com.sza.fastmediasorter.utils.Logger
 import com.sza.fastmediasorter.network.SmbDataSource
 import com.sza.fastmediasorter.network.SmbDataSourceFactory
 import com.sza.fastmediasorter.ui.ConnectionViewModel
@@ -98,14 +99,14 @@ class SortActivity : AppCompatActivity() {
             ActivityResultContracts.StartIntentSenderForResult()
         ) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-                android.util.Log.d("SortActivity", "User granted delete permission")
+                Logger.d("SortActivity", "User granted delete permission")
                 pendingDeleteUri?.let { uri ->
                     lifecycleScope.launch {
                         handleDeleteSuccess(uri)
                     }
                 }
             } else {
-                android.util.Log.w("SortActivity", "User denied delete permission")
+                Logger.w("SortActivity", "User denied delete permission")
                 android.widget.Toast.makeText(
                     this,
                     "Delete permission denied",
@@ -183,7 +184,7 @@ class SortActivity : AppCompatActivity() {
     
     private fun setupTouchAreas() {
         binding.previousArea.setOnClickListener {
-            android.util.Log.d("SortActivity", "Previous area clicked")
+            Logger.d("SortActivity", "Previous area clicked")
             if (imageFiles.isEmpty()) return@setOnClickListener
             
             currentIndex = if (currentIndex > 0) {
@@ -195,7 +196,7 @@ class SortActivity : AppCompatActivity() {
         }
         
         binding.nextArea.setOnClickListener {
-            android.util.Log.d("SortActivity", "Next area clicked")
+            Logger.d("SortActivity", "Next area clicked")
             if (imageFiles.isEmpty()) return@setOnClickListener
             
             currentIndex = if (currentIndex < imageFiles.size - 1) {
@@ -434,42 +435,42 @@ class SortActivity : AppCompatActivity() {
             val uri = Uri.parse(localUri)
             val imageBytes = localStorageClient?.downloadImage(uri) 
             if (imageBytes == null) {
-                android.util.Log.e("SortActivity", "Failed to read local file: $localUri")
+                Logger.e("SortActivity", "Failed to read local file: $localUri")
                 return SmbClient.CopyResult.UnknownError("Failed to read local file")
             }
             
             val fileInfo = localStorageClient?.getFileInfo(uri)
             val fileName = fileInfo?.name ?: "unknown.jpg"
-            android.util.Log.d("SortActivity", "Copying file: $fileName (${imageBytes.size} bytes)")
+            Logger.d("SortActivity", "Copying file: $fileName (${imageBytes.size} bytes)")
             
             // Connect to destination SMB if needed
             val connected = destClient.connect(destination.serverAddress, destination.username, destination.password)
             if (!connected) {
-                android.util.Log.e("SortActivity", "Failed to connect to ${destination.serverAddress}")
+                Logger.e("SortActivity", "Failed to connect to ${destination.serverAddress}")
                 return SmbClient.CopyResult.NetworkError("Failed to connect to destination")
             }
             
-            android.util.Log.d("SortActivity", "Connected to ${destination.serverAddress}, writing to ${destination.folderPath}")
+            Logger.d("SortActivity", "Connected to ${destination.serverAddress}, writing to ${destination.folderPath}")
             
             // Write file to SMB and return result
             val result = destClient.writeFile(destination.serverAddress, destination.folderPath, fileName, imageBytes)
             
             when (result) {
                 is SmbClient.CopyResult.Success -> 
-                    android.util.Log.d("SortActivity", "File copied successfully: $fileName")
+                    Logger.d("SortActivity", "File copied successfully: $fileName")
                 is SmbClient.CopyResult.AlreadyExists -> 
-                    android.util.Log.w("SortActivity", "File already exists: $fileName")
+                    Logger.w("SortActivity", "File already exists: $fileName")
                 is SmbClient.CopyResult.NetworkError -> 
-                    android.util.Log.e("SortActivity", "Network error: ${result.message}")
+                    Logger.e("SortActivity", "Network error: ${result.message}")
                 is SmbClient.CopyResult.SecurityError -> 
-                    android.util.Log.e("SortActivity", "Security error: ${result.message}")
+                    Logger.e("SortActivity", "Security error: ${result.message}")
                 else -> 
-                    android.util.Log.e("SortActivity", "Unknown error during copy")
+                    Logger.e("SortActivity", "Unknown error during copy")
             }
             
             result
         } catch (e: Exception) {
-            android.util.Log.e("SortActivity", "Exception during copy: ${e.message}", e)
+            Logger.e("SortActivity", "Exception during copy: ${e.message}", e)
             e.printStackTrace()
             SmbClient.CopyResult.UnknownError(e.message ?: "Unknown error")
         } finally {
@@ -480,7 +481,7 @@ class SortActivity : AppCompatActivity() {
     
     private suspend fun moveFromLocalToSmb(localUri: String, destination: ConnectionConfig): SmbClient.MoveResult {
         try {
-            android.util.Log.d("SortActivity", "Moving from local to SMB: $localUri")
+            Logger.d("SortActivity", "Moving from local to SMB: $localUri")
             val copyResult = copyFromLocalToSmb(localUri, destination)
             
             if (copyResult is SmbClient.CopyResult.Success) {
@@ -495,10 +496,10 @@ class SortActivity : AppCompatActivity() {
                 } else {
                     val deleted = localStorageClient?.deleteImage(uri) ?: false
                     return if (deleted) {
-                        android.util.Log.d("SortActivity", "File deleted successfully after copy")
+                        Logger.d("SortActivity", "File deleted successfully after copy")
                         SmbClient.MoveResult.Success
                     } else {
-                        android.util.Log.w("SortActivity", "Failed to delete local file after successful copy")
+                        Logger.w("SortActivity", "Failed to delete local file after successful copy")
                         SmbClient.MoveResult.DeleteError("Failed to delete local file after copy")
                     }
                 }
@@ -510,11 +511,11 @@ class SortActivity : AppCompatActivity() {
                     is SmbClient.CopyResult.UnknownError -> "Copy failed: ${copyResult.message}"
                     else -> "Copy failed"
                 }
-                android.util.Log.e("SortActivity", "Copy failed: $errorMsg")
+                Logger.e("SortActivity", "Copy failed: $errorMsg")
                 return SmbClient.MoveResult.UnknownError(errorMsg)
             }
         } catch (e: Exception) {
-            android.util.Log.e("SortActivity", "Exception during move: ${e.message}", e)
+            Logger.e("SortActivity", "Exception during move: ${e.message}", e)
             e.printStackTrace()
             return SmbClient.MoveResult.UnknownError(e.message ?: "Unknown error")
         }
@@ -523,7 +524,7 @@ class SortActivity : AppCompatActivity() {
     private suspend fun deleteImageWithPermission(uri: Uri, fromMove: Boolean = false) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
-                android.util.Log.d("SortActivity", "Requesting delete permission for Android 11+")
+                Logger.d("SortActivity", "Requesting delete permission for Android 11+")
                 
                 val intentSender = MediaStore.createDeleteRequest(
                     contentResolver,
@@ -538,7 +539,7 @@ class SortActivity : AppCompatActivity() {
                     deletePermissionLauncher.launch(request)
                 }
             } catch (e: Exception) {
-                android.util.Log.e("SortActivity", "Error requesting delete permission", e)
+                Logger.e("SortActivity", "Error requesting delete permission", e)
                 withContext(Dispatchers.Main) {
                     android.widget.Toast.makeText(
                         this@SortActivity,
@@ -551,7 +552,7 @@ class SortActivity : AppCompatActivity() {
     }
     
     private suspend fun handleDeleteSuccess(uri: Uri) {
-        android.util.Log.d("SortActivity", "File deleted successfully: $uri")
+        Logger.d("SortActivity", "File deleted successfully: $uri")
         
         withContext(Dispatchers.Main) {
             // Show success message based on context
@@ -1033,7 +1034,7 @@ class SortActivity : AppCompatActivity() {
             binding.videoControlGuideline.layoutParams = params
             
             // Debug log
-            android.util.Log.d("VideoControl", "Media height: $mediaAreaHeight, Control zone starts at: $controlZoneStart")
+            Logger.d("VideoControl", "Media height: $mediaAreaHeight, Control zone starts at: $controlZoneStart")
         }
     }
     
@@ -1062,7 +1063,7 @@ class SortActivity : AppCompatActivity() {
                                     target: Target<android.graphics.drawable.Drawable>,
                                     isFirstResource: Boolean
                                 ): Boolean {
-                                    android.util.Log.e("SortActivity", "Failed to load image: ${e?.message}", e)
+                                    Logger.e("SortActivity", "Failed to load image: ${e?.message}", e)
                                     handleMediaError(imageUrl, "Image Load", e?.message ?: "Glide load failed")
                                     return false
                                 }
@@ -1123,7 +1124,7 @@ class SortActivity : AppCompatActivity() {
                                         target: Target<android.graphics.drawable.Drawable>,
                                         isFirstResource: Boolean
                                     ): Boolean {
-                                        android.util.Log.e("SortActivity", "Failed to load image: ${e?.message}", e)
+                                        Logger.e("SortActivity", "Failed to load image: ${e?.message}", e)
                                         handleMediaError(imageUrl, "Image Load", e?.message ?: "Glide load failed")
                                         return false
                                     }
@@ -1247,7 +1248,7 @@ class SortActivity : AppCompatActivity() {
                         updateFileInfo(fileInfo)
                         
                     } catch (e: Exception) {
-                        android.util.Log.e("SortActivity", "Failed to load video: ${e.message}", e)
+                        Logger.e("SortActivity", "Failed to load video: ${e.message}", e)
                         handleMediaError(videoUrl, "Video Load", e.message ?: "Unknown error")
                     }
                 }
@@ -1729,3 +1730,4 @@ class SortActivity : AppCompatActivity() {
             .show()
     }
 }
+

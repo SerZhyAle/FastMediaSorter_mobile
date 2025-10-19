@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.documentfile.provider.DocumentFile
+import com.sza.fastmediasorter.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -238,7 +239,7 @@ return@withContext mediaFiles.sortedBy { it.name }
 
 suspend fun downloadImage(uri: Uri): ByteArray? = withContext(Dispatchers.IO) {
 try {
-android.util.Log.d("LocalStorageClient", "Reading image from URI: $uri")
+Logger.d("LocalStorageClient", "Reading image from URI: $uri")
 val result = context.contentResolver.openInputStream(uri)?.use { input ->
 val buffer = ByteArrayOutputStream()
 val data = ByteArray(16384)
@@ -249,13 +250,13 @@ buffer.write(data, 0, count)
 buffer.toByteArray()
 }
 if (result != null) {
-android.util.Log.d("LocalStorageClient", "Successfully read ${result.size} bytes")
+Logger.d("LocalStorageClient", "Successfully read ${result.size} bytes")
 } else {
-android.util.Log.e("LocalStorageClient", "Failed to open input stream for URI: $uri")
+Logger.e("LocalStorageClient", "Failed to open input stream for URI: $uri")
 }
 result
 } catch (e: Exception) {
-android.util.Log.e("LocalStorageClient", "Error reading image from URI: $uri", e)
+Logger.e("LocalStorageClient", "Error reading image from URI: $uri", e)
 e.printStackTrace()
 null
 }
@@ -263,7 +264,7 @@ null
 
 fun getFileInfo(uri: Uri): LocalImageInfo? {
 return try {
-android.util.Log.d("LocalStorageClient", "Getting file info for URI: $uri")
+Logger.d("LocalStorageClient", "Getting file info for URI: $uri")
 val file = DocumentFile.fromSingleUri(context, uri)
 if (file != null && file.exists()) {
 val info = LocalImageInfo(
@@ -272,14 +273,14 @@ name = file.name ?: "unknown",
 size = file.length(),
 dateModified = file.lastModified()
 )
-android.util.Log.d("LocalStorageClient", "File info: name=${info.name}, size=${info.size}")
+Logger.d("LocalStorageClient", "File info: name=${info.name}, size=${info.size}")
 info
 } else {
-android.util.Log.e("LocalStorageClient", "File does not exist or cannot be accessed: $uri")
+Logger.e("LocalStorageClient", "File does not exist or cannot be accessed: $uri")
 null
 }
 } catch (e: Exception) {
-android.util.Log.e("LocalStorageClient", "Error getting file info for URI: $uri", e)
+Logger.e("LocalStorageClient", "Error getting file info for URI: $uri", e)
 e.printStackTrace()
 null
 }
@@ -287,55 +288,55 @@ null
 
 suspend fun deleteImage(uri: Uri): Boolean = withContext(Dispatchers.IO) {
 try {
-android.util.Log.d("LocalStorageClient", "Attempting to delete media: $uri")
-android.util.Log.d("LocalStorageClient", "Android version: ${Build.VERSION.SDK_INT} (${Build.VERSION.RELEASE})")
+Logger.d("LocalStorageClient", "Attempting to delete media: $uri")
+Logger.d("LocalStorageClient", "Android version: ${Build.VERSION.SDK_INT} (${Build.VERSION.RELEASE})")
         
 // First, try using ContentResolver (works for MediaStore URIs)
 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
 // Android 11+ (API 30+)
-android.util.Log.d("LocalStorageClient", "Using Android 11+ delete method")
+Logger.d("LocalStorageClient", "Using Android 11+ delete method")
 try {
 val deleted = context.contentResolver.delete(uri, null, null)
-android.util.Log.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
+Logger.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
 if (deleted > 0) return@withContext true
 } catch (e: SecurityException) {
-android.util.Log.w("LocalStorageClient", "ContentResolver delete failed with SecurityException, trying DocumentFile", e)
+Logger.w("LocalStorageClient", "ContentResolver delete failed with SecurityException, trying DocumentFile", e)
 }
 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
 // Android 10 (API 29)
-android.util.Log.d("LocalStorageClient", "Using Android 10 delete method")
+Logger.d("LocalStorageClient", "Using Android 10 delete method")
 try {
 val deleted = context.contentResolver.delete(uri, null, null)
-android.util.Log.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
+Logger.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
 if (deleted > 0) return@withContext true
 } catch (e: SecurityException) {
-android.util.Log.w("LocalStorageClient", "ContentResolver delete failed with SecurityException", e)
+Logger.w("LocalStorageClient", "ContentResolver delete failed with SecurityException", e)
 if (e is android.app.RecoverableSecurityException) {
-android.util.Log.e("LocalStorageClient", "RecoverableSecurityException - would need user permission dialog")
+Logger.e("LocalStorageClient", "RecoverableSecurityException - would need user permission dialog")
 }
 }
 } else {
 // Android 9 and below
-android.util.Log.d("LocalStorageClient", "Using Android 9 and below delete method")
+Logger.d("LocalStorageClient", "Using Android 9 and below delete method")
 val deleted = context.contentResolver.delete(uri, null, null)
-android.util.Log.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
+Logger.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
 if (deleted > 0) return@withContext true
 }
         
 // Fallback: Try DocumentFile delete (works for some URIs that ContentResolver can't handle)
-android.util.Log.d("LocalStorageClient", "Trying DocumentFile fallback delete method")
+Logger.d("LocalStorageClient", "Trying DocumentFile fallback delete method")
 val documentFile = DocumentFile.fromSingleUri(context, uri)
 if (documentFile != null && documentFile.exists()) {
 val deleted = documentFile.delete()
-android.util.Log.d("LocalStorageClient", "DocumentFile delete result: $deleted")
+Logger.d("LocalStorageClient", "DocumentFile delete result: $deleted")
 return@withContext deleted
 } else {
-android.util.Log.e("LocalStorageClient", "DocumentFile is null or doesn't exist")
+Logger.e("LocalStorageClient", "DocumentFile is null or doesn't exist")
 return@withContext false
 }
         
 } catch (e: Exception) {
-android.util.Log.e("LocalStorageClient", "Exception during delete: ${e.javaClass.simpleName}: ${e.message}", e)
+Logger.e("LocalStorageClient", "Exception during delete: ${e.javaClass.simpleName}: ${e.message}", e)
 e.printStackTrace()
 return@withContext false
 }
@@ -355,7 +356,7 @@ android.content.pm.PackageManager.PERMISSION_GRANTED
 
 suspend fun renameFile(uri: Uri, newFileName: String): Pair<Boolean, String>? = withContext(Dispatchers.IO) {
 try {
-android.util.Log.d("LocalStorageClient", "Attempting to rename file: $uri to $newFileName")
+Logger.d("LocalStorageClient", "Attempting to rename file: $uri to $newFileName")
 
 // Get current file info
 val projection = arrayOf(
@@ -378,8 +379,8 @@ val oldName = it.getString(nameColumn)
 val relativePath = it.getString(pathColumn)
 val mimeType = it.getString(mimeColumn)
 
-android.util.Log.d("LocalStorageClient", "Old name: $oldName, New name: $newFileName")
-android.util.Log.d("LocalStorageClient", "Path: $relativePath, MIME: $mimeType")
+Logger.d("LocalStorageClient", "Old name: $oldName, New name: $newFileName")
+Logger.d("LocalStorageClient", "Path: $relativePath, MIME: $mimeType")
 
 // Check if file with new name already exists
 val collection = when {
@@ -395,7 +396,7 @@ val exists = checkCursor?.use { it.count > 0 } ?: false
 checkCursor?.close()
 
 if (exists) {
-android.util.Log.d("LocalStorageClient", "File with new name already exists")
+Logger.d("LocalStorageClient", "File with new name already exists")
 return@withContext Pair(false, uri.toString())
 }
 
@@ -406,23 +407,24 @@ put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, newFileName)
 
 val updated = context.contentResolver.update(uri, values, null, null)
 if (updated > 0) {
-android.util.Log.d("LocalStorageClient", "File renamed successfully")
+Logger.d("LocalStorageClient", "File renamed successfully")
 // Create new URI for renamed file
 val newUri = android.content.ContentUris.withAppendedId(collection, id)
 return@withContext Pair(true, newUri.toString())
 } else {
-android.util.Log.d("LocalStorageClient", "Failed to rename file")
+Logger.d("LocalStorageClient", "Failed to rename file")
 return@withContext Pair(false, uri.toString())
 }
 }
 }
 
-android.util.Log.d("LocalStorageClient", "Failed to query file info")
+Logger.d("LocalStorageClient", "Failed to query file info")
 return@withContext Pair(false, uri.toString())
 } catch (e: Exception) {
-android.util.Log.e("LocalStorageClient", "Error renaming file", e)
+Logger.e("LocalStorageClient", "Error renaming file", e)
 return@withContext Pair(false, uri.toString())
 }
 }
 }
+
 

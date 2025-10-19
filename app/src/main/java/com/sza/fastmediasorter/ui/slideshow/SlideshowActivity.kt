@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.Toast
@@ -22,6 +21,7 @@ import com.sza.fastmediasorter.network.ImageRepository
 import com.sza.fastmediasorter.network.LocalStorageClient
 import com.sza.fastmediasorter.network.SmbClient
 import com.sza.fastmediasorter.network.SmbDataSourceFactory
+import com.sza.fastmediasorter.utils.Logger
 import com.sza.fastmediasorter.utils.MediaUtils
 import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Job
@@ -130,15 +130,15 @@ class SlideshowActivity : AppCompatActivity() {
                 when (playbackState) {
                     Player.STATE_BUFFERING -> {
                         binding.videoLoadingLayout.visibility = View.VISIBLE
-                        Log.d(TAG, "ExoPlayer: Buffering")
+                        Logger.d(TAG, "ExoPlayer: Buffering")
                     }
                     Player.STATE_READY -> {
                         binding.videoLoadingLayout.visibility = View.GONE
-                        Log.d(TAG, "ExoPlayer: Ready")
+                        Logger.d(TAG, "ExoPlayer: Ready")
                     }
                     Player.STATE_ENDED -> {
                         binding.videoLoadingLayout.visibility = View.GONE
-                        Log.d(TAG, "ExoPlayer: Playback ended")
+                        Logger.d(TAG, "ExoPlayer: Playback ended")
                         // Auto-advance to next media when video ends
                         if (waitingForVideoEnd && !isPaused) {
                             waitingForVideoEnd = false
@@ -146,7 +146,7 @@ class SlideshowActivity : AppCompatActivity() {
                         }
                     }
                     Player.STATE_IDLE -> {
-                        Log.d(TAG, "ExoPlayer: Idle state")
+                        Logger.d(TAG, "ExoPlayer: Idle state")
                     }
                 }
             }
@@ -678,7 +678,7 @@ class SlideshowActivity : AppCompatActivity() {
                     // SMB video - need to recreate player with custom data source
                     val smbContext = imageRepository.getSmbContext()
                     if (smbContext != null) {
-                        android.util.Log.d("SlideshowActivity", "SMB Context available, creating player for: $videoUrl")
+                        Logger.d("SlideshowActivity", "SMB Context available, creating player for: $videoUrl")
                         
                         // Release old player
                         exoPlayer?.release()
@@ -696,15 +696,15 @@ class SlideshowActivity : AppCompatActivity() {
                                 when (playbackState) {
                                     Player.STATE_BUFFERING -> {
                                         binding.videoLoadingLayout.visibility = View.VISIBLE
-                                        android.util.Log.d("SlideshowActivity", "Video buffering...")
+                                        Logger.d("SlideshowActivity", "Video buffering...")
                                     }
                                     Player.STATE_READY -> {
                                         binding.videoLoadingLayout.visibility = View.GONE
-                                        android.util.Log.d("SlideshowActivity", "Video ready")
+                                        Logger.d("SlideshowActivity", "Video ready")
                                     }
                                     Player.STATE_ENDED -> {
                                         binding.videoLoadingLayout.visibility = View.GONE
-                                        android.util.Log.d("SlideshowActivity", "Video ended")
+                                        Logger.d("SlideshowActivity", "Video ended")
                                         // Auto-advance to next media when video ends
                                         if (waitingForVideoEnd && !isPaused) {
                                             waitingForVideoEnd = false
@@ -716,7 +716,7 @@ class SlideshowActivity : AppCompatActivity() {
                             
                             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                                 binding.videoLoadingLayout.visibility = View.GONE
-                                android.util.Log.e("SlideshowActivity", "Video playback error", error)
+                                Logger.e("SlideshowActivity", "Video playback error", error)
                                 
                                 if (preferenceManager.isShowVideoErrorDetails()) {
                                     showVideoErrorDialog(error)
@@ -736,7 +736,7 @@ class SlideshowActivity : AppCompatActivity() {
                         })
                         
                         val mediaItem = MediaItem.fromUri(videoUrl)
-                        android.util.Log.d("SlideshowActivity", "Setting media item: $videoUrl")
+                        Logger.d("SlideshowActivity", "Setting media item: $videoUrl")
                         exoPlayer?.setMediaItem(mediaItem)
                         exoPlayer?.prepare()
                         exoPlayer?.play()
@@ -744,7 +744,7 @@ class SlideshowActivity : AppCompatActivity() {
                         // Reset error counter on successful load
                         consecutiveErrors = 0
                     } else {
-                        android.util.Log.e("SlideshowActivity", "SMB context is null! Cannot play video.")
+                        Logger.e("SlideshowActivity", "SMB context is null! Cannot play video.")
                         handleMediaError(videoUrl, "Video Load", "SMB context not available")
                         if (!isPaused) {
                             skipToNextImage()
@@ -756,7 +756,7 @@ class SlideshowActivity : AppCompatActivity() {
                 saveSessonState()
                 
             } catch (e: Exception) {
-                android.util.Log.e("SlideshowActivity", "Failed to load video: ${e.message}", e)
+                Logger.e("SlideshowActivity", "Failed to load video: ${e.message}", e)
                 handleMediaError(videoUrl, "Video Load", e.message ?: "Unknown error")
                 waitingForVideoEnd = false
                 skipToNextImage()
@@ -873,7 +873,7 @@ class SlideshowActivity : AppCompatActivity() {
     }
     
     private fun finishSafely() {
-        Log.d(TAG, "finishSafely: Cleaning up before finish")
+        Logger.d(TAG, "finishSafely: Cleaning up before finish")
         
         // Cancel slideshow
         slideshowJob?.cancel()
@@ -901,14 +901,14 @@ class SlideshowActivity : AppCompatActivity() {
         super.onPause()
         // Pause video playback to prevent resource leaks
         exoPlayer?.playWhenReady = false
-        Log.d(TAG, "Activity paused, video playback paused")
+        Logger.d(TAG, "Activity paused, video playback paused")
     }
     
     override fun onStop() {
         super.onStop()
         // Cancel slideshow when activity is no longer visible
         slideshowJob?.cancel()
-        Log.d(TAG, "Activity stopped, slideshow cancelled")
+        Logger.d(TAG, "Activity stopped, slideshow cancelled")
     }
     
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -922,7 +922,7 @@ class SlideshowActivity : AppCompatActivity() {
     }
     
     override fun onDestroy() {
-        Log.d(TAG, "onDestroy: Starting cleanup")
+        Logger.d(TAG, "onDestroy: Starting cleanup")
         
         // Cancel any running coroutines first
         slideshowJob?.cancel()
@@ -933,27 +933,27 @@ class SlideshowActivity : AppCompatActivity() {
             exoPlayer?.stop()
             exoPlayer?.release()
             exoPlayer = null
-            Log.d(TAG, "ExoPlayer released successfully")
+            Logger.d(TAG, "ExoPlayer released successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "Error releasing ExoPlayer: ${e.message}")
+            Logger.e(TAG, "Error releasing ExoPlayer: ${e.message}")
         }
         
         // Clear SMB credentials from memory
         if (!isLocalMode) {
             try {
                 imageRepository.smbClient.disconnect()
-                Log.d(TAG, "SMB client disconnected")
+                Logger.d(TAG, "SMB client disconnected")
             } catch (e: Exception) {
-                Log.e(TAG, "Error disconnecting SMB client: ${e.message}")
+                Logger.e(TAG, "Error disconnecting SMB client: ${e.message}")
             }
         }
         
         super.onDestroy()
-        Log.d(TAG, "onDestroy: Cleanup completed")
+        Logger.d(TAG, "onDestroy: Cleanup completed")
     }
     
     override fun onBackPressed() {
-        Log.d(TAG, "onBackPressed: Cleaning up before exit")
+        Logger.d(TAG, "onBackPressed: Cleaning up before exit")
         
         // Cancel slideshow
         slideshowJob?.cancel()

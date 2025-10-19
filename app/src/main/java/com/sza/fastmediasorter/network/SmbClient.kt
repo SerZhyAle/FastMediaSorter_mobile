@@ -1,5 +1,6 @@
 package com.sza.fastmediasorter.network
 
+import com.sza.fastmediasorter.utils.Logger
 import jcifs.CIFSContext
 import jcifs.config.PropertyConfiguration
 import jcifs.context.BaseContext
@@ -113,10 +114,10 @@ class SmbClient {
                         val bcProvider = Class.forName("org.bouncycastle.jce.provider.BouncyCastleProvider")
                             .getDeclaredConstructor().newInstance() as java.security.Provider
                         java.security.Security.addProvider(bcProvider)
-                        android.util.Log.d("SmbClient", "BouncyCastle provider added")
+                        Logger.d("SmbClient", "BouncyCastle provider added")
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("SmbClient", "Failed to ensure BC provider", e)
+                    Logger.e("SmbClient", "Failed to ensure BC provider", e)
                 }
                 
                 val props = Properties().apply {
@@ -134,7 +135,7 @@ class SmbClient {
                     try {
                         (it as? AutoCloseable)?.close()
                     } catch (e: Exception) {
-                        android.util.Log.w("SmbClient", "Failed to close previous context", e)
+                        Logger.w("SmbClient", "Failed to close previous context", e)
                     }
                 }
                 context = null
@@ -167,7 +168,7 @@ class SmbClient {
     ): ImageFilesResult {
         return withContext(Dispatchers.IO) {
             try {
-                android.util.Log.d("SmbClient", "getImageFiles - server: $serverAddress, folder: $folderPath, videoEnabled: $isVideoEnabled")
+                Logger.d("SmbClient", "getImageFiles - server: $serverAddress, folder: $folderPath, videoEnabled: $isVideoEnabled")
                 
                 // Diagnostic check for BC provider and MD4 availability BEFORE SMB operations
                 val bcDiagnostic = StringBuilder()
@@ -192,11 +193,11 @@ class SmbClient {
                 } catch (diagEx: Exception) {
                     bcDiagnostic.append("Diagnostic error: ${diagEx.message}\n")
                 }
-                android.util.Log.d("SmbClient", "Pre-SMB diagnostic:\n$bcDiagnostic")
+                Logger.d("SmbClient", "Pre-SMB diagnostic:\n$bcDiagnostic")
                 
                 if (context == null) {
                     val msg = "Not connected to server. Please check connection settings.\n\n$bcDiagnostic"
-                    android.util.Log.e("SmbClient", msg)
+                    Logger.e("SmbClient", msg)
                     return@withContext ImageFilesResult(emptyList(), msg)
                 }
                 
@@ -211,21 +212,21 @@ class SmbClient {
                     .replace("\\", "/")
                 
                 val smbUrl = "smb://$cleanServer/$cleanFolder/"
-                android.util.Log.d("SmbClient", "Final SMB URL: $smbUrl")
+                Logger.d("SmbClient", "Final SMB URL: $smbUrl")
                 
                 val smbFile = SmbFile(smbUrl, context)
                 
-                android.util.Log.d("SmbClient", "Checking SMB path...")
+                Logger.d("SmbClient", "Checking SMB path...")
                 
                 if (!smbFile.exists()) {
                     val msg = "Path not found: smb://$cleanServer/$cleanFolder/\n\nCheck:\n• Server IP correct?\n• Folder name correct?\n• Network connection?"
-                    android.util.Log.e("SmbClient", msg)
+                    Logger.e("SmbClient", msg)
                     return@withContext ImageFilesResult(emptyList(), msg)
                 }
                 
                 if (!smbFile.isDirectory()) {
                     val msg = "Path is not a folder: smb://$cleanServer/$cleanFolder/"
-                    android.util.Log.e("SmbClient", msg)
+                    Logger.e("SmbClient", msg)
                     return@withContext ImageFilesResult(emptyList(), msg)
                 }
                 
@@ -233,7 +234,7 @@ class SmbClient {
                 val maxVideoSizeBytes = maxVideoSizeMb * 1024L * 1024L
                 
                 val files = smbFile.listFiles()
-                android.util.Log.d("SmbClient", "Found ${files?.size ?: 0} files in directory")
+                Logger.d("SmbClient", "Found ${files?.size ?: 0} files in directory")
                 
                 files?.forEach { file ->
                     if (file.isFile()) {
@@ -242,7 +243,7 @@ class SmbClient {
                         // Check if it's an image
                         if (com.sza.fastmediasorter.utils.MediaUtils.isImage(filename)) {
                             mediaFiles.add(file.url.toString())
-                            android.util.Log.d("SmbClient", "Added image: $filename")
+                            Logger.d("SmbClient", "Added image: $filename")
                         }
                         // Check if it's a video and video is enabled
                         else if (isVideoEnabled && com.sza.fastmediasorter.utils.MediaUtils.isVideo(filename)) {
@@ -251,15 +252,15 @@ class SmbClient {
                             
                             if (fileSize <= maxVideoSizeBytes) {
                                 mediaFiles.add(file.url.toString())
-                                android.util.Log.d("SmbClient", "Added video: $filename (${fileSizeMb}MB)")
+                                Logger.d("SmbClient", "Added video: $filename (${fileSizeMb}MB)")
                             } else {
-                                android.util.Log.d("SmbClient", "Skipped video (too large): $filename (${fileSizeMb}MB > ${maxVideoSizeMb}MB)")
+                                Logger.d("SmbClient", "Skipped video (too large): $filename (${fileSizeMb}MB > ${maxVideoSizeMb}MB)")
                             }
                         }
                     }
                 }
                 
-                android.util.Log.d("SmbClient", "Total media files found: ${mediaFiles.size}")
+                Logger.d("SmbClient", "Total media files found: ${mediaFiles.size}")
                 
                 if (mediaFiles.isEmpty()) {
                     val formats = if (isVideoEnabled) {
@@ -274,11 +275,11 @@ class SmbClient {
                 ImageFilesResult(mediaFiles.sorted())
             } catch (e: java.net.UnknownHostException) {
                 val msg = "Cannot reach server: $serverAddress\n\nCheck:\n• Server IP correct?\n• Same WiFi network?\n• Server running?"
-                android.util.Log.e("SmbClient", msg, e)
+                Logger.e("SmbClient", msg, e)
                 ImageFilesResult(emptyList(), msg)
             } catch (e: jcifs.smb.SmbAuthException) {
                 val diagnostic = buildFullDiagnostic(e, serverAddress, folderPath)
-                android.util.Log.e("SmbClient", "SmbAuthException", e)
+                Logger.e("SmbClient", "SmbAuthException", e)
                 ImageFilesResult(emptyList(), diagnostic)
             } catch (e: jcifs.smb.SmbException) {
                 val msg = when {
@@ -299,12 +300,12 @@ class SmbClient {
                     else ->
                         "SMB Error: ${e.message ?: "Unknown error"}\n\nFull error details logged"
                 }
-                android.util.Log.e("SmbClient", "SmbException details: ${e.message}", e)
+                Logger.e("SmbClient", "SmbException details: ${e.message}", e)
                 e.printStackTrace()
                 ImageFilesResult(emptyList(), msg)
             } catch (e: java.net.SocketTimeoutException) {
                 val msg = "Connection timeout\n\nCheck:\n• Server running?\n• Network stable?\n• VPN not blocking?"
-                android.util.Log.e("SmbClient", msg, e)
+                Logger.e("SmbClient", msg, e)
                 ImageFilesResult(emptyList(), msg)
             } catch (e: Exception) {
                 // For any exception, check if it's security-related and provide diagnostic
@@ -317,7 +318,7 @@ class SmbClient {
                     "Error: ${e.javaClass.simpleName}\n${e.message ?: "Unknown error"}\n\nFull details logged"
                 }
                 
-                android.util.Log.e("SmbClient", "Error in getImageFiles: ${e.message}", e)
+                Logger.e("SmbClient", "Error in getImageFiles: ${e.message}", e)
                 e.printStackTrace()
                 ImageFilesResult(emptyList(), msg)
             }
@@ -718,7 +719,7 @@ class SmbClient {
             try {
                 (it as? AutoCloseable)?.close()
             } catch (e: Exception) {
-                android.util.Log.w("SmbClient", "Failed to close context during disconnect", e)
+                Logger.w("SmbClient", "Failed to close context during disconnect", e)
             }
         }
         context = null

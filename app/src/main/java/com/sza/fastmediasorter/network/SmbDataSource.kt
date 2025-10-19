@@ -5,6 +5,7 @@ import androidx.media3.common.C
 import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
+import com.sza.fastmediasorter.utils.Logger
 import jcifs.smb.SmbFile
 import jcifs.smb.SmbRandomAccessFile
 import java.io.IOException
@@ -28,7 +29,7 @@ class SmbDataSource(
             uri = dataSpec.uri
             val smbUrl = uri.toString()
             
-            android.util.Log.d("SmbDataSource", "Opening SMB file: $smbUrl")
+            Logger.d("SmbDataSource", "Opening SMB file: $smbUrl")
             
             // Create SMB file instance
             smbFile = SmbFile(smbUrl, smbClient.getContext())
@@ -61,7 +62,7 @@ class SmbDataSource(
             opened = true
             transferStarted(dataSpec)
             
-            android.util.Log.d("SmbDataSource", "Opened: position=$position, bytesRemaining=$bytesRemaining, fileLength=$fileLength")
+            Logger.d("SmbDataSource", "Opened: position=$position, bytesRemaining=$bytesRemaining, fileLength=$fileLength")
             
             return if (bytesRemaining == C.LENGTH_UNSET.toLong()) {
                 fileLength
@@ -70,7 +71,7 @@ class SmbDataSource(
             }
             
         } catch (e: Exception) {
-            android.util.Log.e("SmbDataSource", "Error opening SMB file", e)
+            Logger.e("SmbDataSource", "Error opening SMB file", e)
             throw IOException("Failed to open SMB file: ${e.message}", e)
         }
     }
@@ -103,7 +104,7 @@ class SmbDataSource(
             return bytesRead
             
         } catch (e: Exception) {
-            android.util.Log.e("SmbDataSource", "Error reading from SMB file", e)
+            Logger.e("SmbDataSource", "Error reading from SMB file", e)
             throw IOException("Failed to read from SMB file: ${e.message}", e)
         }
     }
@@ -118,7 +119,7 @@ class SmbDataSource(
         try {
             smbRandomAccessFile?.close()
         } catch (e: Exception) {
-            android.util.Log.e("SmbDataSource", "Error closing SmbRandomAccessFile", e)
+            Logger.e("SmbDataSource", "Error closing SmbRandomAccessFile", e)
         } finally {
             smbRandomAccessFile = null
         }
@@ -130,7 +131,7 @@ class SmbDataSource(
             transferEnded()
         }
         
-        android.util.Log.d("SmbDataSource", "Closed SMB data source")
+        Logger.d("SmbDataSource", "Closed SMB data source")
     }
 }
 
@@ -145,3 +146,4 @@ class SmbDataSourceFactory(
         return SmbDataSource(smbClient)
     }
 }
+

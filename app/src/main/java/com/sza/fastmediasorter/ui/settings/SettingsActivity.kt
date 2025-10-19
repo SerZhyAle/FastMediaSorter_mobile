@@ -4,12 +4,16 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import android.widget.Toast
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.util.Locale
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -383,6 +387,9 @@ class SettingsFragment : Fragment() {
         // Load keep screen on setting
         binding.keepScreenOnCheckbox.isChecked = preferenceManager.isKeepScreenOn()
         
+        // Setup language spinner
+        setupLanguageSpinner()
+        
         // Setup User Guide button
         binding.userGuideButton.setOnClickListener {
             val intent = Intent(requireContext(), WelcomeActivity::class.java)
@@ -525,6 +532,51 @@ class SettingsFragment : Fragment() {
         val clip = ClipData.newPlainText("Application Logs", logs)
         clipboard.setPrimaryClip(clip)
         Toast.makeText(requireContext(), getString(R.string.logs_copied), Toast.LENGTH_SHORT).show()
+    }
+    
+    private fun setupLanguageSpinner() {
+        val languageEntries = resources.getStringArray(R.array.language_entries)
+        val languageValues = resources.getStringArray(R.array.language_values)
+        
+        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, languageEntries)
+        binding.languageSpinner.setAdapter(adapter)
+        
+        // Set current language
+        val currentLanguage = preferenceManager.getLanguage()
+        val currentIndex = languageValues.indexOf(currentLanguage)
+        if (currentIndex >= 0) {
+            binding.languageSpinner.setText(languageEntries[currentIndex], false)
+        }
+        
+        // Handle language selection
+        binding.languageSpinner.setOnItemClickListener { _, _, position, _ ->
+            val selectedLanguage = languageValues[position]
+            if (selectedLanguage != preferenceManager.getLanguage()) {
+                preferenceManager.setLanguage(selectedLanguage)
+                
+                // Show restart notification
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.restart_required),
+                    Toast.LENGTH_LONG
+                ).show()
+                
+                // Apply language change immediately
+                setAppLocale(selectedLanguage)
+                
+                // Restart activity to apply changes
+                requireActivity().recreate()
+            }
+        }
+    }
+    
+    private fun setAppLocale(languageCode: String) {
+        val locale = Locale(languageCode)
+        Locale.setDefault(locale)
+        
+        val config = Configuration()
+        config.setLocale(locale)
+        requireContext().resources.updateConfiguration(config, requireContext().resources.displayMetrics)
     }
     
     override fun onPause() {
