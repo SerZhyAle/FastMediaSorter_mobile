@@ -6,7 +6,7 @@
     <string name="sort">Sort..</string>
     <string name="settings">Settings</string>
     <string name="server_address">Server Address</string>
-    <string name="folder_address">Folder Address (e.g. 192.168.1.100\photos)</string>
+    <string name="folder_address">Folder Address (e.g. 192.168.1.100\photos or SERVER\photos)</string>
     <string name="username">Username</string>
     <string name="password">Password</string>
     <string name="folder_path">Folder Path</string>
@@ -17,6 +17,8 @@
     <string name="saved_connections">Saved Connections</string>
     <string name="connection_name">Connection Name</string>
     <string name="save">Save</string>
+    <string name="test">Test</string>
+    <string name="scan_and_add_shares">🔍 Scan &amp; Add Shares</string>
     <string name="delete">Delete</string>
     <string name="enter_connection_name">Please enter connection name</string>
     <string name="connection_saved">Connection saved</string>
@@ -98,7 +100,6 @@
     <string name="logs_copied">Logs copied to clipboard</string>
     <!-- Network Fragment -->
     <string name="add_also_to_destinations_list">Add also to destinations list</string>
-    <string name="test">Test</string>
     <!-- Slideshow Help -->
     <string name="next_button">Next ►</string>
     <string name="rotate_left">↺ Rotate</string>

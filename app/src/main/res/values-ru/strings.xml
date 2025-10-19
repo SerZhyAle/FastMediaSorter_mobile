@@ -6,7 +6,7 @@
     <string name="sort">Сорт..</string>
     <string name="settings">Настройки</string>
     <string name="server_address">Адрес сервера</string>
-    <string name="folder_address">Адрес папки (например, 192.168.1.100\\photos)</string>
+    <string name="folder_address">Адрес папки (например, 192.168.1.100\\photos или SERVER\\photos)</string>
     <string name="username">Имя пользователя</string>
     <string name="password">Пароль</string>
     <string name="folder_path">Путь к папке</string>
@@ -17,6 +17,8 @@
     <string name="saved_connections">Сохраненные подключения</string>
     <string name="connection_name">Имя подключения</string>
     <string name="save">Сохранить</string>
+    <string name="test">Тест</string>
+    <string name="scan_and_add_shares">🔍 Сканировать и добавить папки</string>
     <string name="delete">Удалить</string>
     <string name="enter_connection_name">Введите имя подключения</string>
     <string name="connection_saved">Подключение сохранено</string>
@@ -98,7 +100,6 @@
     <string name="logs_copied">Логи скопированы в буфер обмена</string>
     <!-- Network Fragment -->
     <string name="add_also_to_destinations_list">Добавить также в список назначений</string>
-    <string name="test">Тест</string>
     <!-- Slideshow Help -->
     <string name="next_button">След ►</string>
     <string name="rotate_left">↺ Поворот</string>

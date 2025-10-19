@@ -23,77 +23,81 @@ class WelcomeActivity : LocaleActivity() {
         WelcomePage(
             icon = "👋",
             title = "Welcome to FastMediaSorter!",
-            description = "Quick tour of what you can do with this app",
+            description = "Before you start, let's configure the app properly",
             features = listOf(
-                "View photos from local folders or network shares",
-                "Organize images with quick sort functionality",
-                "Enjoy slideshow with customizable controls"
+                "⚠️ IMPORTANT: The app needs initial setup",
+                "⚠️ Without setup, main screens will be empty",
+                "✓ Follow these steps to configure everything",
+                "✓ Takes only 2-3 minutes"
             )
         ),
         WelcomePage(
-            icon = "📁",
-            title = "1. Local Folder Access",
-            description = "Access photos from your device",
+            icon = "⚙️",
+            title = "STEP 1: Open Settings",
+            description = "All configuration happens in Settings tab",
             features = listOf(
-                "✓ Grant media permission to access device photos",
-                "✓ Standard folders: Camera, Screenshots, Pictures, Download",
-                "✓ Add custom folders with Storage Access Framework",
-                "⚠️ Optional - you can skip if using only network folders"
+                "📍 Tap Settings icon (gear ⚙️) at the bottom",
+                "📍 This is where you configure everything",
+                "📍 You MUST do this before using other tabs",
+                "⚠️ Skip this = empty main screen"
             )
         ),
         WelcomePage(
             icon = "🌐",
-            title = "2. Network Connections",
-            description = "Connect to SMB/CIFS shares on your local network",
+            title = "STEP 2: Add Network Connection",
+            description = "Connect to your NAS or network share",
             features = listOf(
-                "✓ Add network folders: \\\\server\\folder",
-                "✓ Save multiple connections with credentials",
-                "✓ Test connection before saving",
-                "✓ Works with NAS, Windows shares, Samba servers"
+                "📍 In Settings → tap 'Network' section",
+                "📍 Enter server: \\\\192.168.1.100\\Photos",
+                "📍 Add username/password if needed",
+                "📍 Tap 'Test Connection' to verify",
+                "📍 Tap Save (💾) to store connection"
             )
         ),
         WelcomePage(
             icon = "🎯",
-            title = "3. Sort Destinations",
-            description = "Set up folders where you want to copy/move photos",
+            title = "STEP 3: Configure Destinations",
+            description = "Set up folders for sorting photos",
             features = listOf(
-                "✓ Create up to 10 colored destinations",
-                "✓ Use saved network connections",
-                "✓ Give each destination a short name",
-                "✓ Quick access during sorting"
+                "📍 In Settings → tap 'Sort to..' section",
+                "📍 Create 2-10 colored destinations",
+                "📍 Each destination = folder for sorted files",
+                "📍 Example: 'Family', 'Work', 'Trash'",
+                "⚠️ Without destinations, sorting won't work"
             )
         ),
         WelcomePage(
-            icon = "🖼️",
-            title = "4. Slideshow Mode",
-            description = "View your photos with automatic transitions",
+            icon = "�",
+            title = "STEP 4 (Optional): Local Folders",
+            description = "Access device photos - optional if using network",
             features = listOf(
-                "✓ Set interval: 1-300 seconds",
-                "✓ Touch zones: Navigate, pause, shuffle",
-                "✓ Button controls: Optional overlay panel",
-                "✓ Fullscreen experience"
+                "📍 In Settings → tap 'Grant Media Access'",
+                "📍 Allow permission to see Camera, Screenshots",
+                "📍 Or add custom folders via '+' button",
+                "✓ Skip if only using network shares"
             )
         ),
         WelcomePage(
-            icon = "📤",
-            title = "5. Sort Activity",
-            description = "Organize your photos efficiently",
+            icon = "✅",
+            title = "Setup Complete!",
+            description = "Now you can use the app",
             features = listOf(
-                "✓ Copy media to destinations (keeps original)",
-                "✓ Move media (removes from source)",
-                "✓ Delete media with confirmation",
-                "✓ Navigate with touch zones or swipe"
+                "🎬 Slideshow tab: View photos automatically",
+                "📤 Sort tab: Organize photos to destinations",
+                "⚠️ If tabs are empty → check Settings again",
+                "💡 Tip: Use 'Test' button to verify connections"
             )
         ),
         WelcomePage(
             icon = "🚀",
-            title = "Ready to Start!",
-            description = "You're all set to use FastMediaSorter",
+            title = "Quick Start Checklist",
+            description = "Did you complete these steps?",
             features = listOf(
-                "💡 Tip: Start by adding a network connection or granting media access",
-                "💡 Tip: Configure sort destinations in Settings",
-                "💡 Tip: Use Test button to verify network connections",
-                "📖 You can always return to this guide from Settings"
+                "☐ Opened Settings tab (⚙️)",
+                "☐ Added at least 1 network connection OR granted media access",
+                "☐ Created at least 2 sort destinations",
+                "☐ Tested connection with 'Test' button",
+                "✅ If YES to all → tap 'Start Using App' below"
             )
         )
     )

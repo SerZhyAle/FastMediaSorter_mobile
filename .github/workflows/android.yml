@@ -34,7 +34,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: release-apk
-        path: app/build/outputs/apk/release/app-release-unsigned.apk
+        path: app/build/outputs/apk/release/fastmediasorter.apk
 
   release:
     needs: build
@@ -71,6 +71,9 @@ jobs:
         echo "keyAlias=$KEY_ALIAS" >> keystore.properties
         echo "storeFile=../fastmediasorter.keystore" >> keystore.properties
 
+    - name: Build Signed Release AAB
+      run: ./gradlew bundleRelease
+
     - name: Build Signed Release APK
       run: ./gradlew assembleRelease
 
@@ -84,6 +87,16 @@ jobs:
         release_name: Release v${{ github.run_number }}
         draft: false
         prerelease: false
+
+    - name: Upload Release AAB
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: app/build/outputs/bundle/release/app-release.aab
+        asset_name: FastMediaSorter-v${{ github.run_number }}.aab
+        asset_content_type: application/octet-stream
 
     - name: Upload Release APK
       uses: actions/upload-release-asset@v1

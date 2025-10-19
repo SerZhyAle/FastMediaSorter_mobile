@@ -155,6 +155,46 @@ class SmbClient {
         }
     }
     
+    suspend fun listShares(serverAddress: String): List<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (context == null) {
+                    Logger.e("SmbClient", "Not connected to server")
+                    return@withContext emptyList()
+                }
+                
+                val serverUrl = "smb://$serverAddress/"
+                Logger.d("SmbClient", "Listing shares from: $serverUrl")
+                
+                val serverFile = SmbFile(serverUrl, context)
+                val shares = mutableListOf<String>()
+                
+                serverFile.listFiles()?.forEach { share ->
+                    if (share.isDirectory) {
+                        val shareName = share.name.trimEnd('/')
+                        // Filter out administrative shares
+                        if (!shareName.endsWith("$") && shareName.isNotEmpty()) {
+                            // Test if readable
+                            try {
+                                share.listFiles() // Try to list contents
+                                shares.add(shareName)
+                                Logger.d("SmbClient", "Found accessible share: $shareName")
+                            } catch (e: Exception) {
+                                Logger.d("SmbClient", "Share not accessible: $shareName - ${e.message}")
+                            }
+                        }
+                    }
+                }
+                
+                Logger.d("SmbClient", "Total accessible shares found: ${shares.size}")
+                shares
+            } catch (e: Exception) {
+                Logger.e("SmbClient", "Failed to list shares: ${e.message}", e)
+                emptyList()
+            }
+        }
+    }
+    
     data class ImageFilesResult(
         val files: List<String>,
         val errorMessage: String? = null

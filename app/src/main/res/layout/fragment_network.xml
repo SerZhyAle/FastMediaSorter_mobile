@@ -106,7 +106,7 @@ android:layout_marginStart="16dp"
 android:layout_marginTop="8dp"
 android:layout_marginEnd="8dp"
 android:hint="@string/connection_name"
-app:layout_constraintEnd_toStartOf="@+id/testButton"
+app:layout_constraintEnd_toStartOf="@+id/scanButton"
 app:layout_constraintStart_toStartOf="parent"
 app:layout_constraintTop_toBottomOf="@+id/addToDestinationsCheckbox">
 <com.google.android.material.textfield.TextInputEditText
@@ -115,6 +115,18 @@ android:layout_width="match_parent"
 android:layout_height="wrap_content"
 android:inputType="text"/>
 </com.google.android.material.textfield.TextInputLayout>
+<com.google.android.material.button.MaterialButton
+android:id="@+id/scanButton"
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:layout_marginStart="8dp"
+android:layout_marginTop="8dp"
+android:layout_marginEnd="8dp"
+android:text="🔍"
+style="@style/Widget.Material3.Button.OutlinedButton"
+app:layout_constraintTop_toBottomOf="@+id/usernameLayout"
+app:layout_constraintEnd_toStartOf="@+id/testButton"
+app:layout_constraintStart_toEndOf="@+id/nameLayout"/>
 <com.google.android.material.button.MaterialButton
 android:id="@+id/testButton"
 android:layout_width="wrap_content"
@@ -127,7 +139,7 @@ android:textColor="@color/primary"
 style="@style/Widget.Material3.Button.OutlinedButton"
 app:layout_constraintTop_toBottomOf="@+id/usernameLayout"
 app:layout_constraintEnd_toStartOf="@+id/saveButton"
-app:layout_constraintStart_toEndOf="@+id/nameLayout"/>
+app:layout_constraintStart_toEndOf="@+id/scanButton"/>
 <com.google.android.material.button.MaterialButton
 android:id="@+id/saveButton"
 android:layout_width="wrap_content"

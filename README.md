@@ -5,6 +5,11 @@ A lightweight and private Android application for viewing, sorting, and managing
 ## Key Features
 
 -   **Dual Media Access**: Seamlessly browse media from both local device folders (Camera, Screenshots, etc.) and remote SMB network shares.
+-   **Smart Network Setup**:
+    -   Adaptive subnet detection - automatically suggests IP templates based on your current network.
+    -   DNS resolution with NetBIOS fallback for server names.
+    -   Auto-discovery - scan and add all accessible SMB shares from a server with one tap.
+    -   Connection testing with comprehensive diagnostics.
 -   **Powerful Slideshow**:
     -   Supports both images and videos.
     -   Configurable interval (1-300 seconds).
@@ -44,10 +49,14 @@ A lightweight and private Android application for viewing, sorting, and managing
 ### 2. Accessing a Network (SMB) Share
 
 1.  On the main screen, switch to the **Network** tab.
-2.  Enter the server address and folder path (e.g., `192.168.1.100\Photos`).
+2.  Enter the server address and folder path (e.g., `192.168.1.100\Photos` or `MYSERVER\Photos`).
+    -   The app automatically detects your current subnet and suggests the appropriate IP template.
+    -   You can use either IP addresses or server names (DNS resolution with NetBIOS fallback).
 3.  Provide a username and password, or leave them blank for guest access.
 4.  Optionally, enter a name for the connection and tap the **Save** icon (💾).
-5.  Tap **Slideshow** or **Sort** to begin.
+5.  **Auto-discovery**: Tap the **🔍** button to automatically scan and add all accessible shares from the server.
+6.  Tap **Test** to verify the connection before saving.
+7.  Tap **Slideshow** or **Sort** to begin.
 
 ## Usage Guide
 
