@@ -76,6 +76,8 @@ class SmbDataSource(
         }
     }
 
+    private var totalBytesRead = 0L
+    
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
         if (length == 0) {
             return 0
@@ -95,6 +97,11 @@ class SmbDataSource(
             val bytesRead = smbRandomAccessFile?.read(buffer, offset, bytesToRead) ?: C.RESULT_END_OF_INPUT
             
             if (bytesRead > 0) {
+                totalBytesRead += bytesRead
+                if (totalBytesRead <= 10000 || totalBytesRead % 100000 == 0L) {
+                    Logger.e("SmbDataSource", "READ: requested=$bytesToRead actual=$bytesRead total=$totalBytesRead remaining=$bytesRemaining file=${uri?.lastPathSegment}")
+                }
+                
                 if (bytesRemaining != C.LENGTH_UNSET.toLong()) {
                     bytesRemaining -= bytesRead.toLong()
                 }

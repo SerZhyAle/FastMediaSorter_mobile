@@ -247,14 +247,20 @@ class SmbClient {
                         }
                         // Check if it's a video and video is enabled
                         else if (isVideoEnabled && com.sza.fastmediasorter.utils.MediaUtils.isVideo(filename)) {
-                            val fileSize = file.length()
-                            val fileSizeMb = fileSize / (1024 * 1024)
-                            
-                            if (fileSize <= maxVideoSizeBytes) {
-                                mediaFiles.add(file.url.toString())
-                                Logger.d("SmbClient", "Added video: $filename (${fileSizeMb}MB)")
+                            // Skip AVI format - incompatible with jCIFS-ng SMB streaming
+                            val extension = filename.substringAfterLast('.', "").lowercase()
+                            if (extension == "avi") {
+                                Logger.d("SmbClient", "Skipped video (AVI format not supported): $filename")
                             } else {
-                                Logger.d("SmbClient", "Skipped video (too large): $filename (${fileSizeMb}MB > ${maxVideoSizeMb}MB)")
+                                val fileSize = file.length()
+                                val fileSizeMb = fileSize / (1024 * 1024)
+                                
+                                if (fileSize <= maxVideoSizeBytes) {
+                                    mediaFiles.add(file.url.toString())
+                                    Logger.d("SmbClient", "Added video: $filename (${fileSizeMb}MB)")
+                                } else {
+                                    Logger.d("SmbClient", "Skipped video (too large): $filename (${fileSizeMb}MB > ${maxVideoSizeMb}MB)")
+                                }
                             }
                         }
                     }
@@ -264,11 +270,11 @@ class SmbClient {
                 
                 if (mediaFiles.isEmpty()) {
                     val formats = if (isVideoEnabled) {
-                        "JPG, PNG, GIF, BMP, WEBP, MP4, MKV, AVI, MOV, WEBM, 3GP"
+                        "JPG, PNG, GIF, BMP, WEBP, MP4, MKV, MOV, WEBM, 3GP"
                     } else {
                         "JPG, PNG, GIF, BMP, WEBP"
                     }
-                    val msg = "No media files found in: smb://$cleanServer/$cleanFolder/\n\nSupported formats: $formats"
+                    val msg = "No media files found in: smb://$cleanServer/$cleanFolder/\n\nSupported formats: $formats\n\nNote: AVI format not supported for SMB streaming"
                     return@withContext ImageFilesResult(emptyList(), msg)
                 }
                 

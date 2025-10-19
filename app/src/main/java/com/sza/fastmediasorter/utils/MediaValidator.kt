@@ -80,7 +80,7 @@ object MediaValidator {
      */
     private fun validateVideoFormat(smbFile: SmbFile, fileSize: Long, extension: String): ValidationResult {
         return when (extension) {
-            "avi" -> validateAviHeader(smbFile, fileSize)
+            // Note: AVI format filtered at file discovery level (SmbClient) due to jCIFS-ng incompatibility
             "mp4", "m4v" -> validateMp4Header(smbFile, fileSize)
             "mkv" -> validateMkvHeader(smbFile, fileSize)
             "mov" -> validateMovHeader(smbFile, fileSize)
@@ -101,83 +101,6 @@ object MediaValidator {
             "bmp" -> validateBmpHeader(smbFile, fileSize)
             "webp" -> validateWebpHeader(smbFile, fileSize)
             else -> ValidationResult(true) // Unknown format, let viewer try
-        }
-    }
-    
-    /**
-     * Validate AVI file header
-     * AVI format: RIFF header with "AVI " signature
-     */
-    private fun validateAviHeader(smbFile: SmbFile, fileSize: Long): ValidationResult {
-        return try {
-            val inputStream = smbFile.inputStream
-            val header = ByteArray(256) // Read first 256 bytes
-            val bytesRead = inputStream.read(header)
-            inputStream.close()
-            
-            if (bytesRead < 12) {
-                return ValidationResult(
-                    isValid = false,
-                    errorType = "AVI File Truncated",
-                    errorDetails = "File too small (${bytesRead} bytes), minimum 12 bytes required for AVI header",
-                    recommendation = "File is damaged. Convert to MP4 or re-download original file"
-                )
-            }
-            
-            // Check RIFF signature
-            val riffSignature = String(header.sliceArray(0..3), Charsets.US_ASCII)
-            if (riffSignature != "RIFF") {
-                return ValidationResult(
-                    isValid = false,
-                    errorType = "Invalid AVI Header",
-                    errorDetails = "Missing RIFF signature (found: '$riffSignature')",
-                    recommendation = "File is not a valid AVI. Try converting to MP4"
-                )
-            }
-            
-            // Check AVI signature at offset 8
-            val aviSignature = String(header.sliceArray(8..11), Charsets.US_ASCII)
-            if (aviSignature != "AVI ") {
-                return ValidationResult(
-                    isValid = false,
-                    errorType = "Invalid AVI Format",
-                    errorDetails = "Missing 'AVI ' signature (found: '$aviSignature')",
-                    recommendation = "File is corrupted. Convert to MP4"
-                )
-            }
-            
-            // Read declared file size from RIFF header (bytes 4-7, little-endian)
-            val declaredSize = ((header[4].toInt() and 0xFF) or
-                              ((header[5].toInt() and 0xFF) shl 8) or
-                              ((header[6].toInt() and 0xFF) shl 16) or
-                              ((header[7].toInt() and 0xFF) shl 24)).toLong() + 8
-            
-            // Compare with actual file size
-            if (Math.abs(declaredSize - fileSize) > 1024) { // Allow 1KB tolerance
-                return ValidationResult(
-                    isValid = false,
-                    errorType = "AVI File Corrupted",
-                    errorDetails = "Size mismatch: header declares ${declaredSize} bytes, actual file is ${fileSize} bytes",
-                    recommendation = "File is truncated or corrupted. This is the ArrayIndexOutOfBoundsException root cause"
-                )
-            }
-            
-            // All checks passed
-            ValidationResult(
-                isValid = true,
-                errorType = null,
-                errorDetails = "AVI header valid, but format is legacy (1992). May have codec issues",
-                recommendation = "For best compatibility, convert to MP4 (H.264/AAC)"
-            )
-            
-        } catch (e: Exception) {
-            Logger.e(TAG, "Error reading AVI header", e)
-            ValidationResult(
-                isValid = false,
-                errorType = "Header Read Error",
-                errorDetails = e.message ?: "Cannot read file header",
-                recommendation = "File may be locked or network issue"
-            )
         }
     }
     

@@ -11,6 +11,7 @@ A lightweight and private Android application for viewing, sorting, and managing
     -   Image and video preloading for smooth, instant transitions.
     -   Two control modes: invisible touch zones or a visible button panel.
     -   ABC (alphabetical) and Random (shuffle) order modes.
+    -   Media validation to skip corrupted files before playback attempts.
 -   **Advanced File Sorting**:
     -   Organize media by copying, moving, or deleting files.
     -   Rename files with filename validation.
@@ -89,6 +90,7 @@ Enable this mode in **Settings → Slideshow Settings → Show Controls**. A min
 -   **Enable Video**: Allow video playback in slideshows.
 -   **Max Video Size**: Set maximum file size for videos (in MB).
 -   **Show detailed video error information**: Display comprehensive error diagnostics when video playback fails.
+-   **Supported Formats**: MP4, MKV, MOV, WEBM, 3GP (AVI format not supported for SMB streaming due to library compatibility issues).
 
 ### General Settings
 
@@ -118,7 +120,9 @@ To build the application from the source code, follow these steps:
 -   **UI**: Material Design 3, ViewPager2, RecyclerView, and ConstraintLayout.
 -   **Database**: Room for storing SMB connection profiles.
 -   **Networking**: jCIFS-ng for SMBv2/SMBv3 client support.
+-   **Media**: ExoPlayer for video playback with custom SMB data source.
 -   **Image Loading**: Glide for efficient image loading and caching.
+-   **Validation**: Fast media header validation (<100ms) to detect corrupted files before loading.
 -   **Minimum SDK**: API 28 (Android 9.0)
 -   **Target SDK**: API 34 (Android 14)
 

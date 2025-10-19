@@ -1347,6 +1347,7 @@ class SortActivity : LocaleActivity() {
                     )
                     val validationTime = System.currentTimeMillis() - validationStartTime
                     Logger.d("SortActivity", "  Validation completed in ${validationTime}ms")
+                    Logger.d("SortActivity", "  Validation result: isValid=${validationResult.isValid}, errorType=${validationResult.errorType}, errorDetails=${validationResult.errorDetails}")
                     
                     if (!validationResult.isValid) {
                         Logger.e("SortActivity", "═══════════════════════════════════════════")
