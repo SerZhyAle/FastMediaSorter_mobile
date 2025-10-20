@@ -34,7 +34,12 @@ class SortDestinationAdapter(
         fun bind(config: ConnectionConfig, position: Int) {
             binding.orderText.text = position.toString()
             binding.sortNameText.text = config.sortName ?: ""
-            binding.folderAddressText.text = "${config.serverAddress}\\${config.folderPath}"
+            
+            // Display appropriate path based on connection type
+            binding.folderAddressText.text = when (config.type) {
+                "LOCAL_CUSTOM", "LOCAL_STANDARD" -> "Local: ${config.localDisplayName ?: config.name}"
+                else -> "${config.serverAddress}\\${config.folderPath}"
+            }
 
             binding.moveUpButton.isEnabled = position > 0
             binding.moveDownButton.isEnabled = position < itemCount - 1

@@ -326,10 +326,12 @@ class SortActivity : LocaleActivity() {
                     if (sameServer && sameFolder) return@filter false
                 }
                 
-                // For local folders, compare localUri
+                // For local folders, compare by name (localDisplayName or name)
                 if (currentSource.type in listOf("LOCAL_CUSTOM", "LOCAL_STANDARD") && 
                     config.type in listOf("LOCAL_CUSTOM", "LOCAL_STANDARD")) {
-                    if (currentSource.localUri == config.localUri) return@filter false
+                    val sourceName = currentSource.localDisplayName ?: currentSource.name
+                    val destName = config.localDisplayName ?: config.name
+                    if (sourceName == destName) return@filter false
                 }
             }
             true

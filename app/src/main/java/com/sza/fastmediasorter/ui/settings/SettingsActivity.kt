@@ -278,6 +278,12 @@ class SortDestinationsFragment : Fragment() {
                 
                 textView.setOnClickListener {
                     selectedConfig = config
+                    
+                    // Auto-fill short name for local folders
+                    if (config.type == "LOCAL_CUSTOM" || config.type == "LOCAL_STANDARD") {
+                        sortNameInput.setText(config.localDisplayName ?: config.name)
+                    }
+                    
                     notifyDataSetChanged()
                     addButton.isEnabled = sortNameInput.text.isNotEmpty()
                 }
