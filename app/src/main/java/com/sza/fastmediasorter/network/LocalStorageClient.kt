@@ -357,22 +357,36 @@ null
 fun getFileInfo(uri: Uri): LocalImageInfo? {
 return try {
 Logger.d("LocalStorageClient", "Getting file info for URI: $uri")
+Logger.d("LocalStorageClient", "URI scheme: ${uri.scheme}, authority: ${uri.authority}")
+Logger.d("LocalStorageClient", "URI path: ${uri.path}")
+
 val file = DocumentFile.fromSingleUri(context, uri)
-if (file != null && file.exists()) {
+Logger.d("LocalStorageClient", "DocumentFile created: ${file != null}")
+
+if (file != null) {
+Logger.d("LocalStorageClient", "File exists: ${file.exists()}, canRead: ${file.canRead()}")
+Logger.d("LocalStorageClient", "File name: ${file.name}, type: ${file.type}")
+Logger.d("LocalStorageClient", "File length: ${file.length()}, lastModified: ${file.lastModified()}")
+
+if (file.exists()) {
 val info = LocalImageInfo(
 uri = uri,
 name = file.name ?: "unknown",
 size = file.length(),
 dateModified = file.lastModified()
 )
-Logger.d("LocalStorageClient", "File info: name=${info.name}, size=${info.size}")
+Logger.d("LocalStorageClient", "File info SUCCESS: name=${info.name}, size=${info.size}")
 info
 } else {
-Logger.e("LocalStorageClient", "File does not exist or cannot be accessed: $uri")
+Logger.e("LocalStorageClient", "File exists() returned false for: $uri")
+null
+}
+} else {
+Logger.e("LocalStorageClient", "DocumentFile.fromSingleUri returned null for: $uri")
 null
 }
 } catch (e: Exception) {
-Logger.e("LocalStorageClient", "Error getting file info for URI: $uri", e)
+Logger.e("LocalStorageClient", "EXCEPTION getting file info for URI: $uri", e)
 e.printStackTrace()
 null
 }

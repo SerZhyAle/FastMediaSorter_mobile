@@ -319,6 +319,11 @@ class SortActivity : LocaleActivity() {
             
             // Skip if it's the same as current source connection
             currentConfig?.let { currentSource ->
+                // Skip if same config ID (works for both local and network)
+                if (currentSource.id > 0 && config.id == currentSource.id) {
+                    return@filter false
+                }
+                
                 // For network connections, compare server+folder
                 if (currentSource.type == "SMB" && config.type == "SMB") {
                     val sameServer = currentSource.serverAddress == config.serverAddress
@@ -331,7 +336,7 @@ class SortActivity : LocaleActivity() {
                     config.type in listOf("LOCAL_CUSTOM", "LOCAL_STANDARD")) {
                     val sourceName = currentSource.localDisplayName ?: currentSource.name
                     val destName = config.localDisplayName ?: config.name
-                    if (sourceName == destName) return@filter false
+                    if (sourceName.equals(destName, ignoreCase = true)) return@filter false
                 }
             }
             true
@@ -1380,7 +1385,14 @@ class SortActivity : LocaleActivity() {
                     }
                     
                     val fileInfo = if (isLocalMode) {
-                        localStorageClient?.getFileInfo(Uri.parse(imageUrl))?.let {
+                        Logger.d("SortActivity", "Getting file info for local file: $imageUrl")
+                        val uri = Uri.parse(imageUrl)
+                        Logger.d("SortActivity", "Parsed URI: $uri")
+                        
+                        val localInfo = localStorageClient?.getFileInfo(uri)
+                        Logger.d("SortActivity", "LocalStorageClient returned: ${if (localInfo == null) "NULL" else "name=${localInfo.name}, size=${localInfo.size}"}")
+                        
+                        localInfo?.let {
                             SmbClient.FileInfo(
                                 name = it.name,
                                 sizeKB = (it.size / 1024),
