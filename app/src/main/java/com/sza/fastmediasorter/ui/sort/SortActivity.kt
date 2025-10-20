@@ -1300,7 +1300,19 @@ class SortActivity : LocaleActivity() {
             
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    val fileInfo = smbClient.getFileInfo(imageUrl)
+                    val fileInfo = if (isLocalMode) {
+                        Logger.d("SortActivity", "Getting file info for preloaded local file: $imageUrl")
+                        val uri = Uri.parse(imageUrl)
+                        localStorageClient?.getFileInfo(uri)?.let {
+                            SmbClient.FileInfo(
+                                name = it.name,
+                                sizeKB = (it.size / 1024),
+                                modifiedDate = it.dateModified
+                            )
+                        }
+                    } else {
+                        smbClient.getFileInfo(imageUrl)
+                    }
                     
                     withContext(Dispatchers.Main) {
                         Glide.with(this@SortActivity)
