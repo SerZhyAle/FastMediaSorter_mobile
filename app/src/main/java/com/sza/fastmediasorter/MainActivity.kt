@@ -33,9 +33,12 @@ super.onCreate(savedInstanceState)
 binding = ActivityMainBinding.inflate(layoutInflater)
 setContentView(binding.root)
 supportActionBar?.hide()
-preferenceManager = PreferenceManager(this)
-
-setupViewPager()
+        preferenceManager = PreferenceManager(this)
+        
+        // Initialize interval field with saved value
+        binding.intervalInput.setText(preferenceManager.getInterval().toString())
+        
+        setupViewPager()
 setupClickListeners()
 
 // Check for first launch - show Welcome activity

@@ -657,11 +657,11 @@ class SlideshowActivity : LocaleActivity() {
         binding.progressBar.visibility = View.VISIBLE
         
         lifecycleScope.launch {
-            // Load saved position and interval for current connection
+            // Load saved position for current connection
             currentConfigId = loadCurrentConfigId()
+            currentInterval = preferenceManager.getInterval()
             if (currentConfigId > 0) {
                 currentIndex = loadSavedPosition(currentConfigId)
-                currentInterval = loadSavedInterval(currentConfigId)
             }
             
             if (isLocalMode) {
@@ -723,11 +723,11 @@ class SlideshowActivity : LocaleActivity() {
             }
             
             if (images.isNotEmpty()) {
-                // Load saved position and interval for current connection
+                // Load saved position for current connection
                 currentConfigId = loadCurrentConfigId()
+                currentInterval = preferenceManager.getInterval()
                 if (currentConfigId > 0) {
                     currentIndex = loadSavedPosition(currentConfigId)
-                    currentInterval = loadSavedInterval(currentConfigId)
                 }
                 
                 if (currentIndex >= images.size) {
@@ -1784,23 +1784,6 @@ class SlideshowActivity : LocaleActivity() {
         } catch (e: Exception) {
             Logger.e(TAG, "Error loading saved position: ${e.message}")
             0
-        }
-    }
-    
-    private suspend fun loadSavedInterval(configId: Long): Int = withContext(Dispatchers.IO) {
-        try {
-            // For local folders (negative IDs), get interval from PreferenceManager
-            if (configId <= 0) {
-                return@withContext preferenceManager.getInterval()
-            }
-            
-            // For DB configs (positive IDs), get from database with PreferenceManager fallback
-            val dao = AppDatabase.getDatabase(this@SlideshowActivity).connectionConfigDao()
-            val config = dao.getConfigById(configId)
-            config?.interval ?: preferenceManager.getInterval()
-        } catch (e: Exception) {
-            Logger.e(TAG, "Error loading saved interval: ${e.message}")
-            preferenceManager.getInterval()
         }
     }
     
