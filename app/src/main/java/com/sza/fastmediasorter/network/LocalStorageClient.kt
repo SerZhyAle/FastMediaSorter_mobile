@@ -526,10 +526,157 @@ return@withContext Pair(false, uri.toString())
 
 Logger.d("LocalStorageClient", "Failed to query file info")
 return@withContext Pair(false, uri.toString())
+} catch (securityException: android.app.RecoverableSecurityException) {
+Logger.e("LocalStorageClient", "RecoverableSecurityException - need user permission", securityException)
+// Re-throw to be handled by caller
+throw securityException
 } catch (e: Exception) {
 Logger.e("LocalStorageClient", "Error renaming file", e)
 return@withContext Pair(false, uri.toString())
 }
+}
+
+suspend fun writeFile(destinationFolderUri: Uri, fileName: String, data: ByteArray): Boolean = withContext(Dispatchers.IO) {
+    try {
+        Logger.d("LocalStorageClient", "Writing file: $fileName (${data.size} bytes) to $destinationFolderUri")
+        
+        // Check if this is a DocumentFile TreeUri or MediaStore URI
+        val uriString = destinationFolderUri.toString()
+        
+        if (uriString.startsWith("content://com.android.externalstorage.documents/tree/")) {
+            // SAF/DocumentFile approach for user-selected folders
+            val folder = DocumentFile.fromTreeUri(context, destinationFolderUri)
+            if (folder == null || !folder.isDirectory) {
+                Logger.e("LocalStorageClient", "Invalid destination folder URI")
+                return@withContext false
+            }
+            
+            // Determine MIME type from file extension
+            val mimeType = when {
+                fileName.endsWith(".jpg", ignoreCase = true) || fileName.endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
+                fileName.endsWith(".png", ignoreCase = true) -> "image/png"
+                fileName.endsWith(".webp", ignoreCase = true) -> "image/webp"
+                fileName.endsWith(".gif", ignoreCase = true) -> "image/gif"
+                fileName.endsWith(".mp4", ignoreCase = true) -> "video/mp4"
+                fileName.endsWith(".mkv", ignoreCase = true) -> "video/x-matroska"
+                else -> "application/octet-stream"
+            }
+            
+            // Check if file already exists
+            val existingFile = folder.listFiles().find { it.name == fileName }
+            if (existingFile != null) {
+                Logger.w("LocalStorageClient", "File already exists: $fileName")
+                return@withContext false
+            }
+            
+            // Create new file
+            val newFile = folder.createFile(mimeType, fileName)
+            if (newFile == null) {
+                Logger.e("LocalStorageClient", "Failed to create file")
+                return@withContext false
+            }
+            
+            // Write data
+            context.contentResolver.openOutputStream(newFile.uri)?.use { output ->
+                output.write(data)
+                output.flush()
+            }
+            
+            Logger.d("LocalStorageClient", "File written successfully via SAF")
+            return@withContext true
+            
+        } else {
+            Logger.e("LocalStorageClient", "Unsupported URI format for write: $destinationFolderUri")
+            return@withContext false
+        }
+        
+    } catch (e: Exception) {
+        Logger.e("LocalStorageClient", "Error writing file", e)
+        return@withContext false
+    }
+}
+
+suspend fun writeFileToStandardFolder(fileName: String, data: ByteArray, folderName: String): Boolean = withContext(Dispatchers.IO) {
+    try {
+        Logger.d("LocalStorageClient", "Writing file: $fileName (${data.size} bytes) to standard folder: $folderName")
+        
+        // Determine MIME type and collection
+        val mimeType = when {
+            fileName.endsWith(".jpg", ignoreCase = true) || fileName.endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
+            fileName.endsWith(".png", ignoreCase = true) -> "image/png"
+            fileName.endsWith(".webp", ignoreCase = true) -> "image/webp"
+            fileName.endsWith(".gif", ignoreCase = true) -> "image/gif"
+            fileName.endsWith(".mp4", ignoreCase = true) -> "video/mp4"
+            fileName.endsWith(".mkv", ignoreCase = true) -> "video/x-matroska"
+            else -> "application/octet-stream"
+        }
+        
+        val collection = when {
+            mimeType.startsWith("image/") -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            mimeType.startsWith("video/") -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            else -> {
+                Logger.e("LocalStorageClient", "Unsupported MIME type: $mimeType")
+                return@withContext false
+            }
+        }
+        
+        // Map folder names to relative paths
+        val relativePath = when (folderName) {
+            "Camera" -> "DCIM/Camera/"
+            "Screenshots" -> "Pictures/Screenshots/"
+            "Pictures" -> "Pictures/"
+            "Download" -> "Download/"
+            else -> "Pictures/"
+        }
+        
+        // Prepare ContentValues
+        val values = android.content.ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+        }
+        
+        // Insert new file into MediaStore
+        val newUri = context.contentResolver.insert(collection, values)
+        if (newUri == null) {
+            Logger.e("LocalStorageClient", "Failed to create file in MediaStore")
+            return@withContext false
+        }
+        
+        Logger.d("LocalStorageClient", "Created file URI: $newUri")
+        
+        // Write data to the file
+        try {
+            context.contentResolver.openOutputStream(newUri)?.use { output ->
+                output.write(data)
+                output.flush()
+            }
+            
+            // Mark file as ready (not pending)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val readyValues = android.content.ContentValues().apply {
+                    put(MediaStore.MediaColumns.IS_PENDING, 0)
+                }
+                context.contentResolver.update(newUri, readyValues, null, null)
+            }
+            
+            Logger.d("LocalStorageClient", "File written successfully to standard folder")
+            return@withContext true
+            
+        } catch (e: Exception) {
+            // If write failed, delete the created file
+            context.contentResolver.delete(newUri, null, null)
+            Logger.e("LocalStorageClient", "Failed to write data, file deleted", e)
+            return@withContext false
+        }
+        
+    } catch (e: Exception) {
+        Logger.e("LocalStorageClient", "Error writing file to standard folder", e)
+        return@withContext false
+    }
 }
 }
 

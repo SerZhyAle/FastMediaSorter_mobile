@@ -80,6 +80,11 @@ class SortActivity : LocaleActivity() {
     private var isDeleteFromMove: Boolean = false  // Track if delete is from Move operation
     private lateinit var deletePermissionLauncher: ActivityResultLauncher<IntentSenderRequest>
     
+    // For handling rename permission requests on Android 11+
+    private var pendingRenameUri: Uri? = null
+    private var pendingNewFileName: String? = null
+    private lateinit var renamePermissionLauncher: ActivityResultLauncher<IntentSenderRequest>
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySortBinding.inflate(layoutInflater)
@@ -115,6 +120,30 @@ class SortActivity : LocaleActivity() {
                 ).show()
             }
             pendingDeleteUri = null
+        }
+        
+        renamePermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.StartIntentSenderForResult()
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                Logger.d("SortActivity", "User granted rename permission")
+                pendingRenameUri?.let { uri ->
+                    pendingNewFileName?.let { newName ->
+                        lifecycleScope.launch {
+                            handleRenameSuccess(uri, newName)
+                        }
+                    }
+                }
+            } else {
+                Logger.w("SortActivity", "User denied rename permission")
+                android.widget.Toast.makeText(
+                    this,
+                    "Rename permission denied",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+            pendingRenameUri = null
+            pendingNewFileName = null
         }
         
         viewModel = ViewModelProvider(this)[ConnectionViewModel::class.java]
@@ -299,6 +328,9 @@ class SortActivity : LocaleActivity() {
             else -> currentConfig?.writePermission ?: false
         }
         
+        Logger.d("SortActivity", "Source config: id=${currentConfig?.id}, type=${currentConfig?.type}, name=${currentConfig?.localDisplayName ?: currentConfig?.name}")
+        Logger.d("SortActivity", "Permissions: write=$sourceHasWritePermission, allowMove=${preferenceManager.isAllowMove()}, allowDelete=${preferenceManager.isAllowDelete()}, allowRename=${preferenceManager.isAllowRename()}")
+        
         // Check if move is allowed
         val allowMove = preferenceManager.isAllowMove() && sourceHasWritePermission
         
@@ -319,24 +351,20 @@ class SortActivity : LocaleActivity() {
             
             // Skip if it's the same as current source connection
             currentConfig?.let { currentSource ->
-                // Skip if same config ID (works for both local and network)
-                if (currentSource.id > 0 && config.id == currentSource.id) {
+                // Skip if same config ID (primary check - works for all types)
+                if (config.id == currentSource.id) {
+                    Logger.d("SortActivity", "Filtered out destination (same ID): ${config.id}")
                     return@filter false
                 }
                 
-                // For network connections, compare server+folder
+                // For network connections, also compare server+folder as fallback
                 if (currentSource.type == "SMB" && config.type == "SMB") {
                     val sameServer = currentSource.serverAddress == config.serverAddress
                     val sameFolder = currentSource.folderPath == config.folderPath
-                    if (sameServer && sameFolder) return@filter false
-                }
-                
-                // For local folders, compare by name (localDisplayName or name)
-                if (currentSource.type in listOf("LOCAL_CUSTOM", "LOCAL_STANDARD") && 
-                    config.type in listOf("LOCAL_CUSTOM", "LOCAL_STANDARD")) {
-                    val sourceName = currentSource.localDisplayName ?: currentSource.name
-                    val destName = config.localDisplayName ?: config.name
-                    if (sourceName.equals(destName, ignoreCase = true)) return@filter false
+                    if (sameServer && sameFolder) {
+                        Logger.d("SortActivity", "Filtered out destination (same SMB path): ${config.serverAddress}${config.folderPath}")
+                        return@filter false
+                    }
                 }
             }
             true
@@ -422,17 +450,8 @@ class SortActivity : LocaleActivity() {
     private fun copyToDestination(destination: ConnectionConfig) {
         if (imageFiles.isEmpty()) return
         
-        // Validate destination type
-        if (destination.type == "LOCAL_CUSTOM") {
-            android.widget.Toast.makeText(
-                this,
-                "Cannot copy to local folders. Use SMB destinations only.",
-                android.widget.Toast.LENGTH_LONG
-            ).show()
-            return
-        }
-        
         val currentImageUrl = imageFiles[currentIndex]
+        Logger.d("SortActivity", "Copy to destination: ${destination.localDisplayName ?: destination.name}, type=${destination.type}")
         
         lifecycleScope.launch(Dispatchers.IO) {
             // Show progress
@@ -442,16 +461,27 @@ class SortActivity : LocaleActivity() {
             }
             
             try {
-                val result = if (isLocalMode && destination.type == "SMB") {
-                    copyFromLocalToSmb(currentImageUrl, destination)
-                } else if (!isLocalMode && destination.type == "SMB") {
-                    smbClient.copyFile(
-                        currentImageUrl,
-                        destination.serverAddress,
-                        destination.folderPath
-                    )
-                } else {
-                    SmbClient.CopyResult.UnknownError("Unsupported operation")
+                val result = when {
+                    isLocalMode && destination.type in listOf("LOCAL_CUSTOM", "LOCAL_STANDARD") -> {
+                        Logger.d("SortActivity", "Local → Local copy")
+                        copyFromLocalToLocal(currentImageUrl, destination)
+                    }
+                    isLocalMode && destination.type == "SMB" -> {
+                        Logger.d("SortActivity", "Local → SMB copy")
+                        copyFromLocalToSmb(currentImageUrl, destination)
+                    }
+                    !isLocalMode && destination.type == "SMB" -> {
+                        Logger.d("SortActivity", "SMB → SMB copy")
+                        smbClient.copyFile(
+                            currentImageUrl,
+                            destination.serverAddress,
+                            destination.folderPath
+                        )
+                    }
+                    else -> {
+                        Logger.e("SortActivity", "Unsupported copy operation: isLocal=$isLocalMode, destType=${destination.type}")
+                        SmbClient.CopyResult.UnknownError("Unsupported operation")
+                    }
                 }
                 
                 withContext(Dispatchers.Main) {
@@ -504,7 +534,59 @@ class SortActivity : LocaleActivity() {
         }
     }
     
+    private suspend fun copyFromLocalToLocal(localUri: String, destination: ConnectionConfig): SmbClient.CopyResult {
+        return try {
+            val sourceUri = Uri.parse(localUri)
+            
+            // Read source file data
+            val imageBytes = localStorageClient?.downloadImage(sourceUri)
+            if (imageBytes == null) {
+                Logger.e("SortActivity", "Failed to read source file: $localUri")
+                return SmbClient.CopyResult.UnknownError("Failed to read source file")
+            }
+            
+            val fileInfo = localStorageClient?.getFileInfo(sourceUri)
+            val fileName = fileInfo?.name ?: "unknown.jpg"
+            Logger.d("SortActivity", "Copying local file: $fileName (${imageBytes.size} bytes) to ${destination.localDisplayName}")
+            
+            // Check if destination has a URI (user-selected folder) or is standard folder
+            if (!destination.localUri.isNullOrEmpty()) {
+                // User-selected folder - use SAF
+                val destUri = Uri.parse(destination.localUri)
+                Logger.d("SortActivity", "Destination URI: $destUri")
+                
+                val success = localStorageClient?.writeFile(destUri, fileName, imageBytes) ?: false
+                
+                if (success) {
+                    Logger.d("SortActivity", "File copied successfully to local folder")
+                    SmbClient.CopyResult.Success
+                } else {
+                    Logger.e("SortActivity", "Failed to write file to local folder")
+                    SmbClient.CopyResult.UnknownError("Failed to write file")
+                }
+            } else {
+                // Standard folder (Camera, Pictures, etc.) - use MediaStore
+                Logger.d("SortActivity", "Standard folder: ${destination.localDisplayName}")
+                val folderName = destination.localDisplayName ?: "Pictures"
+                val success = localStorageClient?.writeFileToStandardFolder(fileName, imageBytes, folderName) ?: false
+                
+                if (success) {
+                    Logger.d("SortActivity", "File copied successfully to standard folder")
+                    SmbClient.CopyResult.Success
+                } else {
+                    Logger.e("SortActivity", "Failed to write file to standard folder")
+                    SmbClient.CopyResult.UnknownError("Failed to write to standard folder")
+                }
+            }
+        } catch (e: Exception) {
+            Logger.e("SortActivity", "Exception during local copy: ${e.message}", e)
+            e.printStackTrace()
+            SmbClient.CopyResult.UnknownError(e.message ?: "Unknown error")
+        }
+    }
+    
     private suspend fun copyFromLocalToSmb(localUri: String, destination: ConnectionConfig): SmbClient.CopyResult {
+
         val destClient = SmbClient()
         return try {
             val uri = Uri.parse(localUri)
@@ -551,6 +633,46 @@ class SortActivity : LocaleActivity() {
         } finally {
             // Clear credentials from memory immediately after operation
             destClient.disconnect()
+        }
+    }
+    
+    private suspend fun moveFromLocalToLocal(localUri: String, destination: ConnectionConfig): SmbClient.MoveResult {
+        try {
+            Logger.d("SortActivity", "Moving from local to local: $localUri")
+            val copyResult = copyFromLocalToLocal(localUri, destination)
+            
+            if (copyResult is SmbClient.CopyResult.Success) {
+                val uri = Uri.parse(localUri)
+                
+                // Try to delete with proper permission handling for Android 11+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    deleteImageWithPermission(uri, fromMove = true)
+                    // For Android 11+, return pending status
+                    // Actual success will be handled in the callback
+                    return SmbClient.MoveResult.PendingUserConfirmation
+                } else {
+                    val deleted = localStorageClient?.deleteImage(uri) ?: false
+                    return if (deleted) {
+                        Logger.d("SortActivity", "File deleted successfully after local copy")
+                        SmbClient.MoveResult.Success
+                    } else {
+                        Logger.w("SortActivity", "Failed to delete local file after successful local copy")
+                        SmbClient.MoveResult.DeleteError("Failed to delete local file after copy")
+                    }
+                }
+            } else {
+                val errorMsg = when (copyResult) {
+                    is SmbClient.CopyResult.AlreadyExists -> "File already exists"
+                    is SmbClient.CopyResult.UnknownError -> "Copy failed: ${copyResult.message}"
+                    else -> "Copy failed"
+                }
+                Logger.e("SortActivity", "Local copy failed: $errorMsg")
+                return SmbClient.MoveResult.UnknownError(errorMsg)
+            }
+        } catch (e: Exception) {
+            Logger.e("SortActivity", "Exception during local move: ${e.message}", e)
+            e.printStackTrace()
+            return SmbClient.MoveResult.UnknownError(e.message ?: "Unknown error")
         }
     }
     
@@ -663,17 +785,8 @@ class SortActivity : LocaleActivity() {
     private fun moveToDestination(destination: ConnectionConfig) {
         if (imageFiles.isEmpty()) return
         
-        // Validate destination type
-        if (destination.type == "LOCAL_CUSTOM") {
-            android.widget.Toast.makeText(
-                this,
-                "Cannot move to local folders. Use SMB destinations only.",
-                android.widget.Toast.LENGTH_LONG
-            ).show()
-            return
-        }
-        
         val currentImageUrl = imageFiles[currentIndex]
+        Logger.d("SortActivity", "Move to destination: ${destination.localDisplayName ?: destination.name}, type=${destination.type}")
         
         lifecycleScope.launch(Dispatchers.IO) {
             // Show progress
@@ -683,16 +796,27 @@ class SortActivity : LocaleActivity() {
             }
             
             try {
-                val result = if (isLocalMode && destination.type == "SMB") {
-                    moveFromLocalToSmb(currentImageUrl, destination)
-                } else if (!isLocalMode && destination.type == "SMB") {
-                    smbClient.moveFile(
-                        currentImageUrl,
-                        destination.serverAddress,
-                        destination.folderPath
-                    )
-                } else {
-                    SmbClient.MoveResult.UnknownError("Unsupported operation")
+                val result = when {
+                    isLocalMode && destination.type in listOf("LOCAL_CUSTOM", "LOCAL_STANDARD") -> {
+                        Logger.d("SortActivity", "Local → Local move")
+                        moveFromLocalToLocal(currentImageUrl, destination)
+                    }
+                    isLocalMode && destination.type == "SMB" -> {
+                        Logger.d("SortActivity", "Local → SMB move")
+                        moveFromLocalToSmb(currentImageUrl, destination)
+                    }
+                    !isLocalMode && destination.type == "SMB" -> {
+                        Logger.d("SortActivity", "SMB → SMB move")
+                        smbClient.moveFile(
+                            currentImageUrl,
+                            destination.serverAddress,
+                            destination.folderPath
+                        )
+                    }
+                    else -> {
+                        Logger.e("SortActivity", "Unsupported move operation: isLocal=$isLocalMode, destType=${destination.type}")
+                        SmbClient.MoveResult.UnknownError("Unsupported operation")
+                    }
                 }
                 
                 withContext(Dispatchers.Main) {
@@ -1827,7 +1951,14 @@ class SortActivity : LocaleActivity() {
         if (imageFiles.isEmpty()) return
         
         val currentUrl = imageFiles[currentIndex]
-        val currentFileName = currentUrl.substringAfterLast('/')
+        
+        // Get real filename based on mode
+        val currentFileName = if (isLocalMode) {
+            val uri = Uri.parse(currentUrl)
+            localStorageClient?.getFileInfo(uri)?.name ?: currentUrl.substringAfterLast('/')
+        } else {
+            currentUrl.substringAfterLast('/')
+        }
         
         // Create input dialog
         val input = EditText(this)
@@ -1874,9 +2005,22 @@ class SortActivity : LocaleActivity() {
                 if (isLocalMode) {
                     // Local storage rename
                     val oldUri = Uri.parse(oldUrl)
-                    val result = localStorageClient?.renameFile(oldUri, newFileName)
-                    success = result?.first ?: false
-                    newUrl = result?.second ?: oldUrl
+                    
+                    // Use permission dialog for Android 11+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        withContext(Dispatchers.Main) {
+                            binding.copyProgressLayout.visibility = View.GONE
+                        }
+                        renameWithPermission(oldUri, newFileName)
+                        // Dialog will be shown, actual rename in callback
+                        return@launch
+                    } else {
+                        // Direct rename for Android 10 and below
+                        val result = localStorageClient?.renameFile(oldUri, newFileName)
+                        success = result?.first ?: false
+                        newUrl = result?.second ?: oldUrl
+                        handleRenameResultLocal(success, newUrl, oldUrl)
+                    }
                 } else {
                     // SMB rename
                     val folderPath = oldUrl.substringBeforeLast('/')
@@ -1974,6 +2118,92 @@ class SortActivity : LocaleActivity() {
                     ).show()
                 }
                 e.printStackTrace()
+            }
+        }
+    }
+    
+    private suspend fun renameWithPermission(uri: Uri, newFileName: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                Logger.d("SortActivity", "Requesting rename permission for Android 11+")
+                
+                val intentSender = MediaStore.createWriteRequest(
+                    contentResolver,
+                    listOf(uri)
+                ).intentSender
+                
+                pendingRenameUri = uri
+                pendingNewFileName = newFileName
+                val request = IntentSenderRequest.Builder(intentSender).build()
+                
+                withContext(Dispatchers.Main) {
+                    renamePermissionLauncher.launch(request)
+                }
+            } catch (e: Exception) {
+                Logger.e("SortActivity", "Error requesting rename permission", e)
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "Cannot request rename permission: ${e.message}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+    
+    private suspend fun handleRenameSuccess(uri: Uri, newFileName: String) {
+        Logger.d("SortActivity", "User granted permission, renaming file: $uri to $newFileName")
+        
+        withContext(Dispatchers.Main) {
+            binding.progressText.text = "Renaming..."
+            binding.copyProgressLayout.visibility = View.VISIBLE
+        }
+        
+        try {
+            val result = localStorageClient?.renameFile(uri, newFileName)
+            val success = result?.first ?: false
+            val newUrl = result?.second ?: uri.toString()
+            
+            handleRenameResultLocal(success, newUrl, uri.toString())
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                binding.copyProgressLayout.visibility = View.GONE
+                android.widget.Toast.makeText(
+                    this@SortActivity,
+                    "Error renaming file: ${e.message}",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+            e.printStackTrace()
+        }
+    }
+    
+    private suspend fun handleRenameResultLocal(success: Boolean, newUrl: String, oldUrl: String) {
+        withContext(Dispatchers.Main) {
+            binding.copyProgressLayout.visibility = View.GONE
+            
+            if (success) {
+                // Update the list with new URL
+                val index = imageFiles.indexOf(oldUrl)
+                if (index != -1) {
+                    imageFiles[index] = newUrl
+                }
+                
+                android.widget.Toast.makeText(
+                    this@SortActivity,
+                    "File renamed successfully",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                
+                // Reload current media with new name
+                loadMedia()
+            } else {
+                android.widget.Toast.makeText(
+                    this@SortActivity,
+                    "Failed to rename file",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
