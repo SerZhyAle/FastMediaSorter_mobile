@@ -253,6 +253,7 @@ class SortDestinationsFragment : Fragment() {
                     )
                     setPadding(16, 16, 16, 16)
                     textSize = 14f
+                    setTextColor(0xFF000000.toInt())  // Black text for contrast
                 }
                 return object : RecyclerView.ViewHolder(textView) {}
             }
@@ -265,7 +266,15 @@ class SortDestinationsFragment : Fragment() {
                     else -> "${config.serverAddress}\\${config.folderPath}"
                 }
                 textView.text = "${config.name}\n$details"
-                textView.setBackgroundColor(if (selectedConfig?.id == config.id) 0xFFE0E0E0.toInt() else 0xFFFFFFFF.toInt())
+                
+                // Set colors based on selection
+                if (selectedConfig?.id == config.id) {
+                    textView.setBackgroundColor(0xFF6200EE.toInt())  // Purple background when selected
+                    textView.setTextColor(0xFFFFFFFF.toInt())  // White text when selected
+                } else {
+                    textView.setBackgroundColor(0xFFFFFFFF.toInt())  // White background when not selected
+                    textView.setTextColor(0xFF000000.toInt())  // Black text when not selected
+                }
                 
                 textView.setOnClickListener {
                     selectedConfig = config
