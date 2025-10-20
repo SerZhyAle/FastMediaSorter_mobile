@@ -38,6 +38,11 @@ supportActionBar?.hide()
         // Initialize interval field with saved value
         binding.intervalInput.setText(preferenceManager.getInterval().toString())
         
+        // Auto-add local folders to sort destinations (first launch or after scan)
+        lifecycleScope.launch {
+            viewModel.autoAddLocalFoldersAsSortDestinations()
+        }
+        
         setupViewPager()
 setupClickListeners()
 
@@ -82,18 +87,7 @@ tryAutoResumeSession()
     }
     
     private suspend fun updateConfigInterval(configId: Long): ConnectionConfig? {
-        // For local standard folders (negative IDs), use cached config
-        if (configId < 0) {
-            return currentConfig?.let { config ->
-                val interval = getIntervalFromInput() ?: config.interval
-                // Save interval to PreferenceManager for local folders
-                val preferenceManager = PreferenceManager(this)
-                preferenceManager.setInterval(interval)
-                config.copy(interval = interval)
-            }
-        }
-        
-        // For DB configs (positive IDs), fetch from database
+        // Fetch config from database
         val config = viewModel.getConfigById(configId) ?: return null
         val interval = getIntervalFromInput() ?: config.interval
         
@@ -127,9 +121,10 @@ val config = if (folder.isCustom) {
 // Custom folders from SCAN or manual selection - stored in DB
 viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
 } else {
-// Standard folders (Camera, Screenshots, Pictures, Download)
-// Use negative ID to indicate temporary/standard folder (not in DB)
-createStandardLocalConfig(folder.name)
+// Standard folders - get from DB (they should be there after auto-add)
+viewModel.allConfigs.value?.find { 
+    it.type == "LOCAL_STANDARD" && it.localDisplayName == folder.name 
+}
 }
 config?.let {
 currentConfigId = it.id
@@ -149,13 +144,15 @@ val config = if (folder.isCustom) {
 // Custom folders - use existing DB record
 viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
 } else {
-// Standard folders - create temporary config with negative ID
-createStandardLocalConfig(folder.name)
+// Standard folders - get from DB
+viewModel.allConfigs.value?.find { 
+    it.type == "LOCAL_STANDARD" && it.localDisplayName == folder.name 
+}
 }
 config?.let {
 val interval = binding.intervalInput.text.toString().toIntOrNull() ?: it.interval
 val updatedConfig = it.copy(interval = interval)
-// Only update DB for custom folders (positive ID)
+// Update DB for all folders with valid ID
 if (it.id > 0) {
 viewModel.updateConfig(updatedConfig)
 }
@@ -163,31 +160,6 @@ loadConfigAndStartSlideshow(updatedConfig)
 }
 }
 }
-}
-
-private fun createStandardLocalConfig(bucketName: String): com.sza.fastmediasorter.data.ConnectionConfig {
-// Use negative ID to distinguish standard folders from DB records
-// Camera=-1, Screenshots=-2, Pictures=-3, Download=-4
-val id = when (bucketName) {
-    "Camera" -> -1L
-    "Screenshots" -> -2L
-    "Pictures" -> -3L
-    "Download" -> -4L
-    else -> 0L
-}
-return com.sza.fastmediasorter.data.ConnectionConfig(
-    id = id,
-    name = bucketName,
-    serverAddress = "",
-    username = "",
-    password = "",
-    folderPath = "",
-    interval = binding.intervalInput.text.toString().toIntOrNull() ?: 10,
-    lastUsed = System.currentTimeMillis(),
-    type = "LOCAL_STANDARD",
-    localUri = "",
-    localDisplayName = bucketName
-)
 }
 
     private fun tryAutoResumeSession() {

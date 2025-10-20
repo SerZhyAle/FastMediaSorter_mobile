@@ -94,4 +94,9 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     fun addLocalCustomFolder(folderName: String, folderUri: String) = viewModelScope.launch(Dispatchers.IO) {
         repository.addLocalCustomFolder(folderName, folderUri)
     }
+    
+    // Auto-add local folders to sort destinations
+    fun autoAddLocalFoldersAsSortDestinations() = viewModelScope.launch(Dispatchers.IO) {
+        repository.autoAddLocalFoldersAsSortDestinations()
+    }
 }

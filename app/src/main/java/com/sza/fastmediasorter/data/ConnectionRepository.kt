@@ -120,4 +120,66 @@ class ConnectionRepository(private val dao: ConnectionConfigDao) {
         )
         return dao.insertConfig(config)
     }
+    
+    suspend fun ensureStandardLocalFoldersInDatabase(): List<Long> {
+        val standardFolders = listOf("Camera", "Screenshots", "Pictures", "Download")
+        val addedIds = mutableListOf<Long>()
+        
+        standardFolders.forEach { folderName ->
+            // Check if folder already exists in database
+            val existing = dao.getLocalFolderByName(folderName)
+            if (existing == null) {
+                // Add to database
+                val config = ConnectionConfig(
+                    id = 0,
+                    name = folderName,
+                    serverAddress = "",
+                    username = "",
+                    password = "",
+                    folderPath = "",
+                    interval = 10,
+                    lastUsed = 0,
+                    type = "LOCAL_STANDARD",
+                    localUri = "",
+                    localDisplayName = folderName,
+                    writePermission = true  // Standard local folders always have write permission
+                )
+                val newId = dao.insertConfig(config)
+                addedIds.add(newId)
+            }
+        }
+        
+        return addedIds
+    }
+    
+    suspend fun autoAddLocalFoldersAsSortDestinations() {
+        // First ensure standard folders are in database
+        ensureStandardLocalFoldersInDatabase()
+        
+        // Get all local folders (both standard and custom) with write permission
+        val allConfigs = dao.getAllConfigs().first()
+        val localFolders = allConfigs.filter { 
+            (it.type == "LOCAL_STANDARD" || it.type == "LOCAL_CUSTOM") && it.writePermission 
+        }
+        
+        // Get current sort destinations
+        val currentDestinations = dao.getSortDestinations().first()
+        val usedIds = currentDestinations.map { it.id }.toSet()
+        
+        // Get next available sort order
+        val maxOrder = currentDestinations.maxOfOrNull { it.sortOrder ?: -1 } ?: -1
+        var nextOrder = maxOrder + 1
+        
+        // Add local folders that are not yet in destinations
+        localFolders.forEach { folder ->
+            if (folder.id !in usedIds && nextOrder < 10) {
+                dao.updateSortDestination(
+                    folder.id, 
+                    nextOrder, 
+                    folder.localDisplayName ?: folder.name
+                )
+                nextOrder++
+            }
+        }
+    }
 }
