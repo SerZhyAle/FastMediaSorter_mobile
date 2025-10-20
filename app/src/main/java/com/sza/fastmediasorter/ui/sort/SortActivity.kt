@@ -294,7 +294,10 @@ class SortActivity : LocaleActivity() {
         )
         
         // Check if current source folder has write permissions
-        val sourceHasWritePermission = currentConfig?.writePermission ?: false
+        val sourceHasWritePermission = when (currentConfig?.type) {
+            "LOCAL_CUSTOM", "LOCAL_STANDARD" -> true  // Local folders always have write permission
+            else -> currentConfig?.writePermission ?: false
+        }
         
         // Check if move is allowed
         val allowMove = preferenceManager.isAllowMove() && sourceHasWritePermission
@@ -307,11 +310,12 @@ class SortActivity : LocaleActivity() {
         
         // Filter out destinations that are the same as source (pre-calculation for UI logic)
         val filteredDestinations = sortDestinations.filter { config ->
-            // Skip local folders (defensive check - destinations cannot be local)
-            if (config.type == "LOCAL_CUSTOM" || config.type == "LOCAL_STANDARD") return@filter false
-            
-            // Skip if no write permission
-            if (!config.writePermission) return@filter false
+            // Skip if no write permission (except for local folders which always have write permission)
+            val hasWritePermission = when (config.type) {
+                "LOCAL_CUSTOM", "LOCAL_STANDARD" -> true  // Local folders always have write permission
+                else -> config.writePermission
+            }
+            if (!hasWritePermission) return@filter false
             
             // Skip if it's the same as current source connection
             currentConfig?.let { currentSource ->
@@ -320,6 +324,12 @@ class SortActivity : LocaleActivity() {
                     val sameServer = currentSource.serverAddress == config.serverAddress
                     val sameFolder = currentSource.folderPath == config.folderPath
                     if (sameServer && sameFolder) return@filter false
+                }
+                
+                // For local folders, compare localUri
+                if (currentSource.type in listOf("LOCAL_CUSTOM", "LOCAL_STANDARD") && 
+                    config.type in listOf("LOCAL_CUSTOM", "LOCAL_STANDARD")) {
+                    if (currentSource.localUri == config.localUri) return@filter false
                 }
             }
             true

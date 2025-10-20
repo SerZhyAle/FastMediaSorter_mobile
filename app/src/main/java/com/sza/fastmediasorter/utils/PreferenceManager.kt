@@ -146,7 +146,7 @@ class PreferenceManager(context: Context) {
         prefs.edit().putBoolean(KEY_ALLOW_MOVE, allow).apply()
     }
     
-    fun isAllowMove(): Boolean = prefs.getBoolean(KEY_ALLOW_MOVE, false)
+    fun isAllowMove(): Boolean = prefs.getBoolean(KEY_ALLOW_MOVE, true)
     
     // Allow Copy operations
     fun setAllowCopy(allow: Boolean) {
@@ -160,7 +160,7 @@ class PreferenceManager(context: Context) {
         prefs.edit().putBoolean(KEY_ALLOW_DELETE, allow).apply()
     }
     
-    fun isAllowDelete(): Boolean = prefs.getBoolean(KEY_ALLOW_DELETE, false)
+    fun isAllowDelete(): Boolean = prefs.getBoolean(KEY_ALLOW_DELETE, true)
     
     // Confirm deletion
     fun setConfirmDelete(confirm: Boolean) {
@@ -174,7 +174,7 @@ class PreferenceManager(context: Context) {
         prefs.edit().putBoolean(KEY_ALLOW_RENAME, allow).apply()
     }
     
-    fun isAllowRename(): Boolean = prefs.getBoolean(KEY_ALLOW_RENAME, false)
+    fun isAllowRename(): Boolean = prefs.getBoolean(KEY_ALLOW_RENAME, true)
     
     // Keep screen on
     fun setKeepScreenOn(keep: Boolean) {
