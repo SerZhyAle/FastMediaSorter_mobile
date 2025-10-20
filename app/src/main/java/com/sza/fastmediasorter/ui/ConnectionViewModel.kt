@@ -99,4 +99,9 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     fun autoAddLocalFoldersAsSortDestinations() = viewModelScope.launch(Dispatchers.IO) {
         repository.autoAddLocalFoldersAsSortDestinations()
     }
+    
+    // Fix SMB write permissions for existing connections
+    fun fixSmbWritePermissions() = viewModelScope.launch(Dispatchers.IO) {
+        repository.fixSmbWritePermissions()
+    }
 }

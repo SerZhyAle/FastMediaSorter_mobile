@@ -21,6 +21,8 @@ A lightweight and private Android application for viewing, sorting, and managing
     -   Smart empty folder handling with warning messages instead of errors.
 -   **Advanced File Sorting**:
     -   Organize media by copying, moving, or deleting files.
+    -   Full support for sorting between SMB shares and local Android folders (Download, Pictures, etc.).
+    -   Cross-platform operations: copy/move files from SMB to local storage and vice versa.
     -   Rename files with filename validation.
     -   Configure up to 10 custom sort destinations.
     -   Write permission validation prevents adding read-only destinations.

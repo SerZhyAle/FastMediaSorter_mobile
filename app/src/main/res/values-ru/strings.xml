@@ -74,6 +74,7 @@
     <string name="application_settings">Настройки приложения</string>
     <string name="sorting_settings">Настройки сортировки</string>
     <string name="allow_to_copy">Разрешить копирование</string>
+    <string name="go_next_after_copy">Переходить к следующему файлу после копирования</string>
     <string name="allow_to_move">Разрешить перемещение</string>
     <string name="allow_to_delete">Разрешить удаление</string>
     <string name="request_user_for_deletion">Запрашивать подтверждение удаления</string>

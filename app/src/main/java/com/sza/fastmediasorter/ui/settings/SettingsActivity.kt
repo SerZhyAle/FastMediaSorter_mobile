@@ -350,12 +350,14 @@ class SortSettingsFragment : Fragment() {
         preferenceManager = PreferenceManager(requireContext())
         
         val allowCopyCheckbox = view.findViewById<android.widget.CheckBox>(R.id.allowCopyCheckbox)
+        val goNextAfterCopyCheckbox = view.findViewById<android.widget.CheckBox>(R.id.goNextAfterCopyCheckbox)
         val allowMoveCheckbox = view.findViewById<android.widget.CheckBox>(R.id.allowMoveCheckbox)
         val allowDeleteCheckbox = view.findViewById<android.widget.CheckBox>(R.id.allowDeleteCheckbox)
         val confirmDeleteCheckbox = view.findViewById<android.widget.CheckBox>(R.id.confirmDeleteCheckbox)
         val allowRenameCheckbox = view.findViewById<android.widget.CheckBox>(R.id.allowRenameCheckbox)
         
         allowCopyCheckbox.isChecked = preferenceManager.isAllowCopy()
+        goNextAfterCopyCheckbox.isChecked = preferenceManager.isGoNextAfterCopy()
         allowMoveCheckbox.isChecked = preferenceManager.isAllowMove()
         allowDeleteCheckbox.isChecked = preferenceManager.isAllowDelete()
         confirmDeleteCheckbox.isChecked = preferenceManager.isConfirmDelete()
@@ -363,6 +365,10 @@ class SortSettingsFragment : Fragment() {
         
         allowCopyCheckbox.setOnCheckedChangeListener { _, isChecked ->
             preferenceManager.setAllowCopy(isChecked)
+        }
+        
+        goNextAfterCopyCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setGoNextAfterCopy(isChecked)
         }
         
         allowMoveCheckbox.setOnCheckedChangeListener { _, isChecked ->

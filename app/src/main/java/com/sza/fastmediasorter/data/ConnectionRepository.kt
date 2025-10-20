@@ -182,4 +182,8 @@ class ConnectionRepository(private val dao: ConnectionConfigDao) {
             nextOrder++
         }
     }
+    
+    suspend fun fixSmbWritePermissions() {
+        dao.fixSmbWritePermissions()
+    }
 }

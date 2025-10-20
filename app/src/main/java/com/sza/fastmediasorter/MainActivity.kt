@@ -41,6 +41,8 @@ supportActionBar?.hide()
         // Auto-add local folders to sort destinations (first launch or after scan)
         lifecycleScope.launch {
             viewModel.autoAddLocalFoldersAsSortDestinations()
+            // Fix SMB write permissions for existing connections
+            viewModel.fixSmbWritePermissions()
         }
         
         setupViewPager()

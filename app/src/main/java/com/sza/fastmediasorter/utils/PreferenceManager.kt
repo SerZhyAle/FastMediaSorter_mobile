@@ -33,6 +33,7 @@ class PreferenceManager(context: Context) {
         private const val KEY_DEFAULT_PASSWORD = "default_password"
         private const val KEY_ALLOW_MOVE = "allow_move"
         private const val KEY_ALLOW_COPY = "allow_copy"
+        private const val KEY_GO_NEXT_AFTER_COPY = "go_next_after_copy"
         private const val KEY_ALLOW_DELETE = "allow_delete"
         private const val KEY_CONFIRM_DELETE = "confirm_delete"
         private const val KEY_ALLOW_RENAME = "allow_rename"
@@ -154,6 +155,13 @@ class PreferenceManager(context: Context) {
     }
     
     fun isAllowCopy(): Boolean = prefs.getBoolean(KEY_ALLOW_COPY, true)
+    
+    // Go to next file after copy
+    fun setGoNextAfterCopy(goNext: Boolean) {
+        prefs.edit().putBoolean(KEY_GO_NEXT_AFTER_COPY, goNext).apply()
+    }
+    
+    fun isGoNextAfterCopy(): Boolean = prefs.getBoolean(KEY_GO_NEXT_AFTER_COPY, true)
     
     // Allow Delete operations
     fun setAllowDelete(allow: Boolean) {

@@ -44,6 +44,9 @@ interface ConnectionConfigDao {
     @Query("UPDATE connection_configs SET writePermission = :hasWritePermission WHERE id = :id")
     suspend fun updateWritePermission(id: Long, hasWritePermission: Boolean)
     
+    @Query("UPDATE connection_configs SET writePermission = 1 WHERE type = 'SMB' AND writePermission = 0")
+    suspend fun fixSmbWritePermissions()
+    
     // Sort destinations queries
     @Query("SELECT * FROM connection_configs WHERE sortOrder IS NOT NULL ORDER BY sortOrder ASC")
     fun getSortDestinations(): Flow<List<ConnectionConfig>>

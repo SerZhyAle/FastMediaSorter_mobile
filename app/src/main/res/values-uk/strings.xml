@@ -74,6 +74,7 @@
     <string name="application_settings">Налаштування програми</string>
     <string name="sorting_settings">Налаштування сортування</string>
     <string name="allow_to_copy">Дозволити копіювання</string>
+    <string name="go_next_after_copy">Переходити до наступного файлу після копіювання</string>
     <string name="allow_to_move">Дозволити переміщення</string>
     <string name="allow_to_delete">Дозволити видалення</string>
     <string name="request_user_for_deletion">Запитувати підтвердження видалення</string>

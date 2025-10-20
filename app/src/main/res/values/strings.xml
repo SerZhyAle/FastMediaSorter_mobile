@@ -74,6 +74,7 @@
     <string name="application_settings">Application Settings</string>
     <string name="sorting_settings">Sorting Settings</string>
     <string name="allow_to_copy">Allow to Copy</string>
+    <string name="go_next_after_copy">Go to next file after copy</string>
     <string name="allow_to_move">Allow to Move</string>
     <string name="allow_to_delete">Allow to Delete</string>
     <string name="request_user_for_deletion">Request user for deletion</string>

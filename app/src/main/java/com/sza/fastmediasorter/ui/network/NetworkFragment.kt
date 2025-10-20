@@ -527,7 +527,8 @@ etName.setText(config.name)
                             folderPath = share,
                             interval = 10,
                             lastUsed = System.currentTimeMillis(),
-                            type = "SMB"
+                            type = "SMB",
+                            writePermission = true  // SMB folders have write permission
                         )
                         viewModel.insertConfigAndGetId(config)
                         addedCount++
@@ -593,7 +594,8 @@ password = password,
 folderPath = folder,
 interval = 10,
 lastUsed = System.currentTimeMillis(),
-type = "SMB"
+type = "SMB",
+writePermission = true  // SMB folders have write permission
 )
 val newId = viewModel.insertConfigAndGetId(config)
 savedConfig = config.copy(id = newId)

@@ -85,6 +85,12 @@ class SortActivity : LocaleActivity() {
     private var pendingNewFileName: String? = null
     private lateinit var renamePermissionLauncher: ActivityResultLauncher<IntentSenderRequest>
     
+    // For handling write permission requests on Android 10+
+    private var pendingWriteFileName: String? = null
+    private var pendingWriteData: ByteArray? = null
+    private var pendingWriteFolderName: String? = null
+    private lateinit var writePermissionLauncher: ActivityResultLauncher<IntentSenderRequest>
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySortBinding.inflate(layoutInflater)
@@ -144,6 +150,33 @@ class SortActivity : LocaleActivity() {
             }
             pendingRenameUri = null
             pendingNewFileName = null
+        }
+        
+        writePermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.StartIntentSenderForResult()
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                Logger.d("SortActivity", "User granted write permission")
+                pendingWriteFileName?.let { fileName ->
+                    pendingWriteData?.let { data ->
+                        pendingWriteFolderName?.let { folderName ->
+                            lifecycleScope.launch {
+                                handleWriteSuccess(fileName, data, folderName)
+                            }
+                        }
+                    }
+                }
+            } else {
+                Logger.w("SortActivity", "User denied write permission")
+                android.widget.Toast.makeText(
+                    this,
+                    "Write permission denied",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+            pendingWriteFileName = null
+            pendingWriteData = null
+            pendingWriteFolderName = null
         }
         
         viewModel = ViewModelProvider(this)[ConnectionViewModel::class.java]
@@ -212,6 +245,7 @@ class SortActivity : LocaleActivity() {
     private fun setupObservers() {
         // Observe sort destinations
         viewModel.sortDestinations.observe(this) { destinations ->
+            Logger.d("SortActivity", "sortDestinations observed: ${destinations.size} items, currentConfig=${currentConfig?.id}")
             sortDestinations = destinations
             setupSortButtons()
         }
@@ -328,8 +362,20 @@ class SortActivity : LocaleActivity() {
             else -> currentConfig?.writePermission ?: false
         }
         
-        Logger.d("SortActivity", "Source config: id=${currentConfig?.id}, type=${currentConfig?.type}, name=${currentConfig?.localDisplayName ?: currentConfig?.name}")
-        Logger.d("SortActivity", "Permissions: write=$sourceHasWritePermission, allowMove=${preferenceManager.isAllowMove()}, allowDelete=${preferenceManager.isAllowDelete()}, allowRename=${preferenceManager.isAllowRename()}")
+        Logger.d("SortActivity", "========== SETUP SORT BUTTONS START ==========")
+        Logger.d("SortActivity", "Source config: id=${currentConfig?.id}, type=${currentConfig?.type}, name=${currentConfig?.localDisplayName ?: currentConfig?.name}, localUri=${currentConfig?.localUri}")
+        if (currentConfig?.type == "SMB") {
+            Logger.d("SortActivity", "SMB Source details: server=${currentConfig?.serverAddress}, folder=${currentConfig?.folderPath}, writePermission=${currentConfig?.writePermission}")
+        }
+        Logger.d("SortActivity", "Total sort destinations from DB: ${sortDestinations.size}")
+        sortDestinations.forEachIndexed { index, dest ->
+            Logger.d("SortActivity", "  Destination[$index]: id=${dest.id}, type=${dest.type}, name=${dest.localDisplayName ?: dest.name}, sortName=${dest.sortName}, writePermission=${dest.writePermission}, localUri=${dest.localUri}")
+            if (dest.type == "SMB") {
+                Logger.d("SortActivity", "    SMB details: server=${dest.serverAddress}, folder=${dest.folderPath}")
+            }
+        }
+        
+        Logger.d("SortActivity", "Permissions: write=$sourceHasWritePermission, allowMove=${preferenceManager.isAllowMove()}, allowDelete=${preferenceManager.isAllowDelete()}, allowRename=${preferenceManager.isAllowRename()}, allowCopy=${preferenceManager.isAllowCopy()}")
         
         // Check if move is allowed
         val allowMove = preferenceManager.isAllowMove() && sourceHasWritePermission
@@ -340,20 +386,16 @@ class SortActivity : LocaleActivity() {
         // Check if delete is allowed
         val allowDelete = preferenceManager.isAllowDelete() && sourceHasWritePermission
         
+        Logger.d("SortActivity", "Calculated permissions: allowCopy=$allowCopy, allowMove=$allowMove, allowDelete=$allowDelete")
+        
         // Filter out destinations that are the same as source (pre-calculation for UI logic)
+        Logger.d("SortActivity", "--- Filtering destinations ---")
         val filteredDestinations = sortDestinations.filter { config ->
-            // Skip if no write permission (except for local folders which always have write permission)
-            val hasWritePermission = when (config.type) {
-                "LOCAL_CUSTOM", "LOCAL_STANDARD" -> true  // Local folders always have write permission
-                else -> config.writePermission
-            }
-            if (!hasWritePermission) return@filter false
-            
             // Skip if it's the same as current source connection
             currentConfig?.let { currentSource ->
                 // Skip if same config ID (primary check - works for all types)
                 if (config.id == currentSource.id) {
-                    Logger.d("SortActivity", "Filtered out destination (same ID): ${config.id}")
+                    Logger.d("SortActivity", "❌ Filtered out destination (same ID): id=${config.id}, name=${config.localDisplayName ?: config.name}")
                     return@filter false
                 }
                 
@@ -361,35 +403,46 @@ class SortActivity : LocaleActivity() {
                 if (currentSource.type == "SMB" && config.type == "SMB") {
                     val sameServer = currentSource.serverAddress == config.serverAddress
                     val sameFolder = currentSource.folderPath == config.folderPath
+                    Logger.d("SortActivity", "SMB comparison: dest=${config.serverAddress}${config.folderPath} vs source=${currentSource.serverAddress}${currentSource.folderPath}")
+                    Logger.d("SortActivity", "  sameServer=$sameServer, sameFolder=$sameFolder")
                     if (sameServer && sameFolder) {
-                        Logger.d("SortActivity", "Filtered out destination (same SMB path): ${config.serverAddress}${config.folderPath}")
+                        Logger.d("SortActivity", "❌ Filtered out destination (same SMB path): ${config.serverAddress}${config.folderPath}")
                         return@filter false
                     }
                 }
             }
+            Logger.d("SortActivity", "✅ Keeping destination: id=${config.id}, type=${config.type}, name=${config.localDisplayName ?: config.name}")
             true
         }
         
         // Check if we have destinations after filtering
         val hasDestinations = filteredDestinations.isNotEmpty()
+        Logger.d("SortActivity", "Filtered destinations count: ${filteredDestinations.size}")
+        Logger.d("SortActivity", "--- Calculating button visibility ---")
+        Logger.d("SortActivity", "sourceHasWritePermission=$sourceHasWritePermission (type=${currentConfig?.type}, writePermission=${currentConfig?.writePermission})")
+        Logger.d("SortActivity", "hasDestinations=$hasDestinations")
         
         // Show warning if no destinations
         binding.noDestinationsWarning.visibility = if (!hasDestinations && allowDelete) View.VISIBLE else View.GONE
+        Logger.d("SortActivity", "No destinations warning: ${if (!hasDestinations && allowDelete) "VISIBLE" else "GONE"}")
         
         // Hide/show copy section (only if we have destinations)
         val showCopy = allowCopy && hasDestinations
         binding.copyToLabel.visibility = if (showCopy) View.VISIBLE else View.GONE
         binding.buttonsRow1.visibility = if (showCopy) View.VISIBLE else View.GONE
         binding.buttonsRow2.visibility = if (showCopy) View.VISIBLE else View.GONE
+        Logger.d("SortActivity", "📋 Copy section: ${if (showCopy) "VISIBLE" else "GONE"} (allowCopy=$allowCopy, hasDestinations=$hasDestinations)")
         
         // Hide/show move section (only if we have destinations)
         val showMove = allowMove && hasDestinations
         binding.moveToLabel.visibility = if (showMove) View.VISIBLE else View.GONE
         binding.moveButtonsRow1.visibility = if (showMove) View.VISIBLE else View.GONE
         binding.moveButtonsRow2.visibility = if (showMove) View.VISIBLE else View.GONE
+        Logger.d("SortActivity", "➡️ Move section: ${if (showMove) "VISIBLE" else "GONE"} (allowMove=$allowMove, hasDestinations=$hasDestinations, sourceHasWritePermission=$sourceHasWritePermission)")
         
         // Hide/show delete button
         binding.deleteButton.visibility = if (allowDelete) View.VISIBLE else View.GONE
+        Logger.d("SortActivity", "🗑️ Delete button: ${if (allowDelete) "VISIBLE" else "GONE"} (allowDelete=$allowDelete, sourceHasWritePermission=$sourceHasWritePermission)")
         
         // Setup delete button click listener
         binding.deleteButton.setOnClickListener {
@@ -399,6 +452,7 @@ class SortActivity : LocaleActivity() {
         // Hide/show rename button
         val allowRename = preferenceManager.isAllowRename() && sourceHasWritePermission
         binding.renameButton.visibility = if (allowRename) View.VISIBLE else View.GONE
+        Logger.d("SortActivity", "✏️ Rename button: ${if (allowRename) "VISIBLE" else "GONE"} (allowRename=${preferenceManager.isAllowRename()}, sourceHasWritePermission=$sourceHasWritePermission)")
         
         // Setup rename button click listener
         binding.renameButton.setOnClickListener {
@@ -423,6 +477,7 @@ class SortActivity : LocaleActivity() {
         copyButtons.forEach { it.visibility = View.GONE }
         moveButtons.forEach { it.visibility = View.GONE }
         
+        Logger.d("SortActivity", "--- Configuring destination buttons ---")
         // Show and configure buttons for filtered destinations
         filteredDestinations.forEachIndexed { index, config ->
             if (index < copyButtons.size) {
@@ -443,8 +498,11 @@ class SortActivity : LocaleActivity() {
                 moveButton.setOnClickListener {
                     moveToDestination(config)
                 }
+                
+                Logger.d("SortActivity", "Configured button[$index]: sortName=${config.sortName}, type=${config.type}, name=${config.localDisplayName ?: config.name}")
             }
         }
+        Logger.d("SortActivity", "========== SETUP SORT BUTTONS END ==========")
     }
     
     private fun copyToDestination(destination: ConnectionConfig) {
@@ -478,6 +536,10 @@ class SortActivity : LocaleActivity() {
                             destination.folderPath
                         )
                     }
+                    !isLocalMode && destination.type in listOf("LOCAL_CUSTOM", "LOCAL_STANDARD") -> {
+                        Logger.d("SortActivity", "SMB → Local copy")
+                        copyFromSmbToLocal(currentImageUrl, destination)
+                    }
                     else -> {
                         Logger.e("SortActivity", "Unsupported copy operation: isLocal=$isLocalMode, destType=${destination.type}")
                         SmbClient.CopyResult.UnknownError("Unsupported operation")
@@ -506,8 +568,8 @@ class SortActivity : LocaleActivity() {
                             android.widget.Toast.LENGTH_LONG
                     ).show()
                     
-                    // Jump to next image on success
-                    if (result is SmbClient.CopyResult.Success) {
+                    // Jump to next image on success (if setting enabled)
+                    if (result is SmbClient.CopyResult.Success && preferenceManager.isGoNextAfterCopy()) {
                         if (imageFiles.isNotEmpty()) {
                             currentIndex = if (currentIndex < imageFiles.size - 1) {
                                 currentIndex + 1
@@ -718,6 +780,80 @@ class SortActivity : LocaleActivity() {
         }
     }
     
+    private suspend fun copyFromSmbToLocal(smbUri: String, destination: ConnectionConfig): SmbClient.CopyResult {
+        return try {
+            Logger.d("SortActivity", "Copying from SMB to local: $smbUri")
+            
+            // Download file from SMB
+            val imageBytes = smbClient.downloadImage(smbUri)
+            if (imageBytes == null) {
+                Logger.e("SortActivity", "Failed to download SMB file: $smbUri")
+                return SmbClient.CopyResult.UnknownError("Failed to download SMB file")
+            }
+            
+            val fileName = smbUri.substringAfterLast('/')
+            
+            // Write to local storage
+            val writeResult = when (destination.type) {
+                "LOCAL_STANDARD" -> {
+                    val folderName = destination.name
+                    writeFileToStandardFolderWithPermission(fileName, imageBytes, folderName)
+                }
+                "LOCAL_CUSTOM" -> {
+                    val destUri = Uri.parse(destination.localUri)
+                    localStorageClient?.writeFile(destUri, fileName, imageBytes)
+                }
+                else -> false
+            }
+            
+            if (writeResult == true) {
+                SmbClient.CopyResult.Success
+            } else {
+                SmbClient.CopyResult.UnknownError("Failed to write to local storage")
+            }
+        } catch (e: Exception) {
+            Logger.e("SortActivity", "Exception during SMB→Local copy: ${e.message}", e)
+            e.printStackTrace()
+            SmbClient.CopyResult.UnknownError(e.message ?: "Unknown error")
+        }
+    }
+    
+    private suspend fun moveFromSmbToLocal(smbUri: String, destination: ConnectionConfig): SmbClient.MoveResult {
+        return try {
+            Logger.d("SortActivity", "Moving from SMB to local: $smbUri")
+            val copyResult = copyFromSmbToLocal(smbUri, destination)
+            
+            if (copyResult is SmbClient.CopyResult.Success) {
+                // Try to delete from SMB
+                val deleteResult = smbClient.deleteFile(smbUri)
+                when (deleteResult) {
+                    is SmbClient.DeleteResult.Success -> {
+                        Logger.d("SortActivity", "File deleted from SMB successfully after copy")
+                        SmbClient.MoveResult.Success
+                    }
+                    else -> {
+                        Logger.w("SortActivity", "Failed to delete SMB file after successful copy: $deleteResult")
+                        SmbClient.MoveResult.DeleteError("Failed to delete SMB file after copy")
+                    }
+                }
+            } else {
+                val errorMsg = when (copyResult) {
+                    is SmbClient.CopyResult.AlreadyExists -> "File already exists"
+                    is SmbClient.CopyResult.NetworkError -> "Network: ${copyResult.message}"
+                    is SmbClient.CopyResult.SecurityError -> "Security: ${copyResult.message}"
+                    is SmbClient.CopyResult.UnknownError -> "Copy failed: ${copyResult.message}"
+                    else -> "Copy failed"
+                }
+                Logger.e("SortActivity", "Copy failed: $errorMsg")
+                SmbClient.MoveResult.UnknownError(errorMsg)
+            }
+        } catch (e: Exception) {
+            Logger.e("SortActivity", "Exception during SMB→Local move: ${e.message}", e)
+            e.printStackTrace()
+            SmbClient.MoveResult.UnknownError(e.message ?: "Unknown error")
+        }
+    }
+    
     private suspend fun deleteImageWithPermission(uri: Uri, fromMove: Boolean = false) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
@@ -813,6 +949,10 @@ class SortActivity : LocaleActivity() {
                             destination.folderPath
                         )
                     }
+                    !isLocalMode && destination.type in listOf("LOCAL_CUSTOM", "LOCAL_STANDARD") -> {
+                        Logger.d("SortActivity", "SMB → Local move")
+                        moveFromSmbToLocal(currentImageUrl, destination)
+                    }
                     else -> {
                         Logger.e("SortActivity", "Unsupported move operation: isLocal=$isLocalMode, destType=${destination.type}")
                         SmbClient.MoveResult.UnknownError("Unsupported operation")
@@ -885,6 +1025,7 @@ class SortActivity : LocaleActivity() {
     }
     
     private suspend fun loadConnection(configId: Long) {
+        Logger.d("SortActivity", "loadConnection called with configId=$configId")
         // Handle standard local folders (negative IDs)
         if (configId < 0) {
             val bucketName = when (configId) {
@@ -942,7 +1083,10 @@ class SortActivity : LocaleActivity() {
             database.connectionConfigDao().getConfigById(configId)
         }
         
+        Logger.d("SortActivity", "Loaded config from DB: id=${config?.id}, type=${config?.type}, name=${config?.localDisplayName ?: config?.name}")
+        
         if (config == null) {
+            Logger.e("SortActivity", "Config not found in DB for configId=$configId")
             withContext(Dispatchers.Main) {
                 android.widget.Toast.makeText(
                     this@SortActivity,
@@ -955,6 +1099,7 @@ class SortActivity : LocaleActivity() {
         }
         
         currentConfig = config
+        Logger.d("SortActivity", "Set currentConfig: id=${currentConfig?.id}, type=${currentConfig?.type}")
         isLocalMode = config.type == "LOCAL_CUSTOM" || config.type == "LOCAL_STANDARD"
         
         if (isLocalMode) {
@@ -972,7 +1117,9 @@ class SortActivity : LocaleActivity() {
             
             loadImages()
         } else {
+            // SMB mode
             smbClient = SmbClient()
+            localStorageClient = LocalStorageClient(this@SortActivity)  // Needed for local destinations
             
             withContext(Dispatchers.Main) {
                 binding.connectionNameText.text = "${config.name} - ${config.serverAddress}\\${config.folderPath}"
@@ -2148,6 +2295,102 @@ class SortActivity : LocaleActivity() {
                         android.widget.Toast.LENGTH_LONG
                     ).show()
                 }
+            }
+        }
+    }
+    
+    private suspend fun writeFileToStandardFolderWithPermission(fileName: String, data: ByteArray, folderName: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Create MediaStore entry
+                val collection = when (folderName) {
+                    "Download" -> android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
+                    "Pictures" -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                    else -> {
+                        Logger.e("SortActivity", "Unknown folder: $folderName")
+                        return@withContext false
+                    }
+                }
+                
+                val values = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, getMimeType(fileName))
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, 
+                        if (folderName == "Download") android.os.Environment.DIRECTORY_DOWNLOADS else android.os.Environment.DIRECTORY_PICTURES)
+                    
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
+                }
+                
+                // Insert and get URI
+                val newUri = contentResolver.insert(collection, values) ?: return@withContext false
+                
+                // Write data
+                contentResolver.openOutputStream(newUri)?.use { output ->
+                    output.write(data)
+                    output.flush()
+                }
+                
+                // Mark as ready
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    val readyValues = android.content.ContentValues().apply {
+                        put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+                    }
+                    contentResolver.update(newUri, readyValues, null, null)
+                }
+                
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+        }
+    }
+    
+    private fun getMimeType(fileName: String): String {
+        return when (fileName.substringAfterLast('.', "").lowercase()) {
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            "bmp" -> "image/bmp"
+            "mp4" -> "video/mp4"
+            "mov" -> "video/quicktime"
+            "avi" -> "video/x-msvideo"
+            "mkv" -> "video/x-matroska"
+            else -> "application/octet-stream"
+        }
+    }
+    
+    private suspend fun handleWriteSuccess(fileName: String, data: ByteArray, folderName: String) {
+        Logger.d("SortActivity", "User granted write permission, writing file: $fileName")
+        
+        val result = localStorageClient?.writeFileToStandardFolder(fileName, data, folderName)
+            
+        withContext(Dispatchers.Main) {
+            if (result == true) {
+                android.widget.Toast.makeText(
+                        this@SortActivity,
+                        "File copied successfully",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    
+                // Jump to next image if setting enabled
+                if (preferenceManager.isGoNextAfterCopy() && imageFiles.isNotEmpty()) {
+                    currentIndex = if (currentIndex < imageFiles.size - 1) {
+                        currentIndex + 1
+                    } else {
+                        0
+                    }
+                    loadMedia()
+                }
+            } else {
+                android.widget.Toast.makeText(
+                    this@SortActivity,
+                    "Failed to write file",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
