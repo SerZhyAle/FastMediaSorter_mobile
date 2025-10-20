@@ -35,6 +35,9 @@ interface ConnectionConfigDao {
     @Query("UPDATE connection_configs SET lastUsed = :timestamp WHERE id = :id")
     suspend fun updateLastUsed(id: Long, timestamp: Long)
     
+    @Query("UPDATE connection_configs SET lastSlideshowIndex = :index WHERE id = :id")
+    suspend fun updateLastSlideshowIndex(id: Long, index: Int)
+    
     // Sort destinations queries
     @Query("SELECT * FROM connection_configs WHERE sortOrder IS NOT NULL AND type != 'LOCAL_CUSTOM' ORDER BY sortOrder ASC")
     fun getSortDestinations(): Flow<List<ConnectionConfig>>

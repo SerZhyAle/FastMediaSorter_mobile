@@ -38,6 +38,7 @@ import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -127,6 +128,7 @@ class SortActivity : LocaleActivity() {
         setupExoPlayer()
         setupTouchAreas()
         setupBackButton()
+        setupImageCounter()
         setupObservers()
         
         lifecycleScope.launch {
@@ -224,6 +226,56 @@ class SortActivity : LocaleActivity() {
         }
     }
     
+    private fun setupImageCounter() {
+        binding.imageCounterText.setOnClickListener {
+            showJumpToDialog()
+        }
+    }
+    
+    private fun showJumpToDialog() {
+        if (imageFiles.isEmpty()) return
+        
+        val totalFiles = imageFiles.size
+        val input = EditText(this)
+        input.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        input.hint = "1 - $totalFiles"
+        
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Jump to file")
+            .setMessage("Enter file number (1 - $totalFiles):")
+            .setView(input)
+            .setPositiveButton("Jump") { _, _ ->
+                val inputText = input.text.toString()
+                if (inputText.isNotEmpty()) {
+                    try {
+                        val targetNumber = inputText.toInt()
+                        if (targetNumber in 1..totalFiles) {
+                            currentIndex = targetNumber - 1
+                            loadMedia()
+                            Toast.makeText(
+                                this,
+                                "Jumped to file $targetNumber",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            Toast.makeText(
+                                this,
+                                "Number must be between 1 and $totalFiles",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } catch (e: NumberFormatException) {
+                        Toast.makeText(
+                            this,
+                            "Invalid number",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
 
     
     private fun setupSortButtons() {
@@ -857,8 +909,12 @@ class SortActivity : LocaleActivity() {
                         val result = smbClient.getImageFiles(config.serverAddress, config.folderPath, isVideoEnabled, maxVideoSizeMb)
                         if (result.errorMessage != null) {
                             withContext(Dispatchers.Main) {
-                                android.widget.Toast.makeText(this@SortActivity, result.errorMessage, android.widget.Toast.LENGTH_LONG).show()
-                                finish()
+                                androidx.appcompat.app.AlertDialog.Builder(this@SortActivity)
+                                    .setTitle("Connection Error")
+                                    .setMessage(result.errorMessage)
+                                    .setPositiveButton("OK") { _, _ -> finish() }
+                                    .setCancelable(false)
+                                    .show()
                             }
                             return@launch
                         }
@@ -1263,6 +1319,40 @@ class SortActivity : LocaleActivity() {
         } else {
             // Load normally
             lifecycleScope.launch(Dispatchers.IO) {
+                var toastShown = false
+                var loadingToast: Toast? = null
+                
+                // Schedule toast if loading takes >1 second
+                val toastJob = launch(Dispatchers.IO) {
+                    delay(1000)
+                    val fileInfo = try {
+                        if (isLocalMode) {
+                            localStorageClient?.getFileInfo(Uri.parse(imageUrl))?.let {
+                                SmbClient.FileInfo(
+                                    name = it.name,
+                                    sizeKB = (it.size / 1024),
+                                    modifiedDate = it.dateModified
+                                )
+                            }
+                        } else {
+                            smbClient.getFileInfo(imageUrl)
+                        }
+                    } catch (e: Exception) {
+                        null
+                    }
+                    
+                    withContext(Dispatchers.Main) {
+                        val sizeText = fileInfo?.let { "${it.sizeKB}KB" } ?: "..."
+                        loadingToast = Toast.makeText(
+                            this@SortActivity,
+                            "Loading... $sizeText",
+                            Toast.LENGTH_SHORT
+                        )
+                        loadingToast?.show()
+                        toastShown = true
+                    }
+                }
+                
                 try {
                     val imageBytes = if (isLocalMode) {
                         localStorageClient?.downloadImage(Uri.parse(imageUrl))
@@ -1282,7 +1372,15 @@ class SortActivity : LocaleActivity() {
                         smbClient.getFileInfo(imageUrl)
                     }
                     
+                    // Cancel toast timer if still waiting
+                    toastJob.cancel()
+                    
                     withContext(Dispatchers.Main) {
+                        // Hide toast if it was shown
+                        if (toastShown) {
+                            loadingToast?.cancel()
+                        }
+                        
                         if (imageBytes != null) {
                             Glide.with(this@SortActivity)
                                 .load(imageBytes)
@@ -1318,8 +1416,12 @@ class SortActivity : LocaleActivity() {
                         }
                     }
                 } catch (e: Exception) {
+                    toastJob.cancel()
                     e.printStackTrace()
                     withContext(Dispatchers.Main) {
+                        if (toastShown) {
+                            loadingToast?.cancel()
+                        }
                         handleMediaError(imageUrl, "Image Load", e.message ?: "Unknown error")
                     }
                 }
@@ -1831,6 +1933,19 @@ class SortActivity : LocaleActivity() {
                 e.printStackTrace()
             }
         }
+    }
+    
+    override fun onStop() {
+        super.onStop()
+        
+        // Stop media playback immediately
+        exoPlayer?.playWhenReady = false
+        
+        // Cancel preload job
+        preloadJob?.cancel()
+        preloadJob = null
+        
+        Logger.d("SortActivity", "onStop: Media playback stopped, preload cancelled")
     }
     
     override fun onDestroy() {

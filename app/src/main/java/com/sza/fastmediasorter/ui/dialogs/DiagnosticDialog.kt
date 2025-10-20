@@ -12,7 +12,12 @@ import com.sza.fastmediasorter.R
 
 class DiagnosticDialog {
     companion object {
-        fun show(context: Context, title: String, diagnosticText: String, isSuccess: Boolean = false) {
+        fun show(context: Context, title: String, diagnosticText: String, isSuccess: Boolean = false): AlertDialog? {
+            // Don't show dialog if context is finishing
+            if (context is android.app.Activity && context.isFinishing) {
+                return null
+            }
+            
             val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_diagnostic, null)
             
             val titleView = dialogView.findViewById<TextView>(R.id.dialogTitle)
@@ -52,6 +57,8 @@ class DiagnosticDialog {
                 (context.resources.displayMetrics.widthPixels * 0.95).toInt(),
                 (context.resources.displayMetrics.heightPixels * 0.7).toInt()
             )
+            
+            return dialog
         }
     }
 }

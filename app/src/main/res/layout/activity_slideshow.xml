@@ -239,6 +239,16 @@
             android:contentDescription="Shuffle"
             android:tint="@android:color/white" />
 
+        <ImageButton
+            android:id="@+id/btnJumpToBegin"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_media_rew"
+            android:contentDescription="Jump to begin"
+            android:tint="@android:color/white" />
+
     </LinearLayout>
 
     <!-- Video control overlay - 3 rows: top (Back|Shuffle), middle (Prev|Next), bottom (player controls) -->

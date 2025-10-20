@@ -31,10 +31,16 @@ object MediaValidator {
             return ValidationResult(true) // Can't validate, assume valid
         }
         
+        val smbContext = smbClient.getContext()
+        if (smbContext == null) {
+            Logger.w(TAG, "SMB context is null, skipping validation")
+            return ValidationResult(true) // Can't validate without context, assume valid
+        }
+        
         val extension = mediaUrl.substringAfterLast('.', "").lowercase()
         
         return try {
-            val smbFile = SmbFile(mediaUrl, smbClient.getContext())
+            val smbFile = SmbFile(mediaUrl, smbContext)
             
             // Check if file exists and is readable
             if (!smbFile.exists()) {

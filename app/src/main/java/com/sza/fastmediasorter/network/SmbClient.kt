@@ -124,7 +124,8 @@ class SmbClient {
                     setProperty("jcifs.smb.client.minVersion", "SMB202")
                     setProperty("jcifs.smb.client.maxVersion", "SMB311")
                     setProperty("jcifs.resolveOrder", "DNS")
-                    setProperty("jcifs.smb.client.responseTimeout", "30000")
+                    setProperty("jcifs.smb.client.responseTimeout", "5000")
+                    setProperty("jcifs.smb.client.connTimeout", "5000")
                 }
                 
                 val config = PropertyConfiguration(props)
@@ -273,40 +274,84 @@ class SmbClient {
                 val mediaFiles = mutableListOf<String>()
                 val maxVideoSizeBytes = maxVideoSizeMb * 1024L * 1024L
                 
+                val startListTime = System.currentTimeMillis()
+                Logger.d("SmbClient", "⏱️ START: Listing directory contents...")
                 val files = smbFile.listFiles()
-                Logger.d("SmbClient", "Found ${files?.size ?: 0} files in directory")
+                val listDuration = System.currentTimeMillis() - startListTime
+                Logger.d("SmbClient", "⏱️ DONE: Directory listing took ${listDuration}ms. Found ${files?.size ?: 0} files")
                 
-                files?.forEach { file ->
+                val startProcessTime = System.currentTimeMillis()
+                var imageCount = 0
+                var videoCount = 0
+                var skippedAvi = 0
+                var skippedLargeVideo = 0
+                var skippedOther = 0
+                
+                files?.forEachIndexed { index, file ->
                     if (file.isFile()) {
                         val filename = file.name
+                        
+                        // Log progress every 100 files
+                        if (index % 100 == 0 && index > 0) {
+                            val elapsed = System.currentTimeMillis() - startProcessTime
+                            val rate = index.toFloat() / elapsed * 1000
+                            Logger.d("SmbClient", "⏱️ Progress: $index/${files.size} files (${rate.toInt()} files/sec)")
+                        }
                         
                         // Check if it's an image
                         if (com.sza.fastmediasorter.utils.MediaUtils.isImage(filename)) {
                             mediaFiles.add(file.url.toString())
-                            Logger.d("SmbClient", "Added image: $filename")
+                            imageCount++
+                            if (imageCount <= 10) {
+                                Logger.d("SmbClient", "Added image: $filename")
+                            }
                         }
                         // Check if it's a video and video is enabled
                         else if (isVideoEnabled && com.sza.fastmediasorter.utils.MediaUtils.isVideo(filename)) {
                             // Skip AVI format - incompatible with jCIFS-ng SMB streaming
                             val extension = filename.substringAfterLast('.', "").lowercase()
                             if (extension == "avi") {
-                                Logger.d("SmbClient", "Skipped video (AVI format not supported): $filename")
+                                skippedAvi++
+                                if (skippedAvi <= 5) {
+                                    Logger.d("SmbClient", "Skipped video (AVI format not supported): $filename")
+                                }
                             } else {
                                 val fileSize = file.length()
                                 val fileSizeMb = fileSize / (1024 * 1024)
                                 
                                 if (fileSize <= maxVideoSizeBytes) {
                                     mediaFiles.add(file.url.toString())
-                                    Logger.d("SmbClient", "Added video: $filename (${fileSizeMb}MB)")
+                                    videoCount++
+                                    if (videoCount <= 10) {
+                                        Logger.d("SmbClient", "Added video: $filename (${fileSizeMb}MB)")
+                                    }
                                 } else {
-                                    Logger.d("SmbClient", "Skipped video (too large): $filename (${fileSizeMb}MB > ${maxVideoSizeMb}MB)")
+                                    skippedLargeVideo++
+                                    if (skippedLargeVideo <= 5) {
+                                        Logger.d("SmbClient", "Skipped video (too large): $filename (${fileSizeMb}MB > ${maxVideoSizeMb}MB)")
+                                    }
                                 }
                             }
+                        } else {
+                            skippedOther++
                         }
                     }
                 }
                 
-                Logger.d("SmbClient", "Total media files found: ${mediaFiles.size}")
+                val processDuration = System.currentTimeMillis() - startProcessTime
+                val totalDuration = listDuration + processDuration
+                
+                Logger.d("SmbClient", "⏱️ SUMMARY:")
+                Logger.d("SmbClient", "  - Directory listing: ${listDuration}ms")
+                Logger.d("SmbClient", "  - File processing: ${processDuration}ms")
+                Logger.d("SmbClient", "  - Total time: ${totalDuration}ms (${totalDuration/1000.0}s)")
+                Logger.d("SmbClient", "  - Total files scanned: ${files?.size ?: 0}")
+                Logger.d("SmbClient", "  - Images found: $imageCount")
+                Logger.d("SmbClient", "  - Videos found: $videoCount")
+                Logger.d("SmbClient", "  - Skipped (AVI): $skippedAvi")
+                Logger.d("SmbClient", "  - Skipped (too large): $skippedLargeVideo")
+                Logger.d("SmbClient", "  - Skipped (other): $skippedOther")
+                Logger.d("SmbClient", "  - Processing rate: ${if (processDuration > 0) (files?.size ?: 0).toFloat() / processDuration * 1000 else 0} files/sec")
                 
                 if (mediaFiles.isEmpty()) {
                     val formats = if (isVideoEnabled) {

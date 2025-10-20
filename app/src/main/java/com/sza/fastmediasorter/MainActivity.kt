@@ -19,6 +19,7 @@ import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : LocaleActivity() {
 private lateinit var binding: ActivityMainBinding
@@ -208,6 +209,12 @@ preferenceManager.clearLastSession()
         // Get current interval from input field (use config.interval as fallback)
         val currentInterval = binding.intervalInput.text.toString().toIntOrNull()?.takeIf { it in 1..300 } ?: config.interval
         
+        // Test connection before starting slideshow
+        if (config.type != "LOCAL_CUSTOM" && config.type != "LOCAL_STANDARD") {
+            testConnectionAndStartSlideshow(config, currentInterval)
+            return
+        }
+        
         if (config.type == "LOCAL_CUSTOM" || config.type == "LOCAL_STANDARD") {
             preferenceManager.saveLocalFolderSettings(
                 config.localUri ?: "",
@@ -229,6 +236,119 @@ preferenceManager.clearLastSession()
         }
         val intent = Intent(this, SlideshowActivity::class.java)
         startActivity(intent)
+    }
+    
+    private fun testConnectionAndStartSlideshow(config: ConnectionConfig, currentInterval: Int) {
+        lifecycleScope.launch {
+            // Show progress
+            val progressDialog = androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                .setTitle("Checking Connection")
+                .setMessage("Testing folder accessibility...")
+                .setCancelable(false)
+                .create()
+            progressDialog.show()
+            
+            try {
+                val testResult = withTimeoutOrNull(7000) {
+                    withContext(Dispatchers.IO) {
+                        val smbClient = com.sza.fastmediasorter.network.SmbClient()
+                        val connected = smbClient.connect(config.serverAddress, config.username, config.password)
+                        if (!connected) {
+                            throw Exception("Failed to connect to server")
+                        }
+                        val result = smbClient.getImageFiles(config.serverAddress, config.folderPath, false, 100)
+                        if (result.errorMessage != null) {
+                            throw Exception(result.errorMessage)
+                        }
+                    }
+                }
+                
+                progressDialog.dismiss()
+                
+                if (testResult == null) {
+                    throw Exception("Connection timeout (7 seconds). Server or folder may be unreachable.")
+                }
+                
+                // Success - save settings and start slideshow
+                preferenceManager.saveConnectionSettings(
+                    config.serverAddress,
+                    config.username,
+                    config.password,
+                    config.folderPath
+                )
+                preferenceManager.setInterval(currentInterval)
+                
+                if (config.id > 0) {
+                    viewModel.updateLastUsed(config.id)
+                }
+                
+                val intent = Intent(this@MainActivity, SlideshowActivity::class.java)
+                startActivity(intent)
+                
+            } catch (e: Exception) {
+                progressDialog.dismiss()
+                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Connection Failed")
+                    .setMessage("Cannot connect to folder:\n\n${e.message}")
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+        }
+    }
+    
+    private fun testConnectionAndStartSort(config: ConnectionConfig, configId: Long) {
+        // Skip test for local folders
+        if (config.type == "LOCAL_CUSTOM" || config.type == "LOCAL_STANDARD") {
+            val intent = Intent(this, com.sza.fastmediasorter.ui.sort.SortActivity::class.java)
+            intent.putExtra("configId", configId)
+            startActivity(intent)
+            return
+        }
+        
+        lifecycleScope.launch {
+            // Show progress
+            val progressDialog = androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                .setTitle("Checking Connection")
+                .setMessage("Testing folder accessibility...")
+                .setCancelable(false)
+                .create()
+            progressDialog.show()
+            
+            try {
+                val testResult = withTimeoutOrNull(7000) {
+                    withContext(Dispatchers.IO) {
+                        val smbClient = com.sza.fastmediasorter.network.SmbClient()
+                        val connected = smbClient.connect(config.serverAddress, config.username, config.password)
+                        if (!connected) {
+                            throw Exception("Failed to connect to server")
+                        }
+                        val result = smbClient.getImageFiles(config.serverAddress, config.folderPath, false, 100)
+                        if (result.errorMessage != null) {
+                            throw Exception(result.errorMessage)
+                        }
+                    }
+                }
+                
+                progressDialog.dismiss()
+                
+                if (testResult == null) {
+                    throw Exception("Connection timeout (7 seconds). Server or folder may be unreachable.")
+                }
+                
+                // Success - start sort activity
+                val intent = Intent(this@MainActivity, com.sza.fastmediasorter.ui.sort.SortActivity::class.java)
+                intent.putExtra("configId", configId)
+                startActivity(intent)
+                
+            } catch (e: Exception) {
+                progressDialog.dismiss()
+                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Connection Failed")
+                    .setMessage("Cannot connect to folder:\n\n${e.message}")
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+        }
     }private fun setupClickListeners() {
 // Save interval on text change
 binding.intervalInput.addTextChangedListener(object : android.text.TextWatcher {
@@ -263,10 +383,12 @@ Toast.makeText(this, getString(R.string.select_connection_first), Toast.LENGTH_S
 binding.sortButton.setOnClickListener {
 currentConfigId?.let { configId ->
 lifecycleScope.launch {
-updateConfigInterval(configId)
-val intent = Intent(this@MainActivity, com.sza.fastmediasorter.ui.sort.SortActivity::class.java)
-intent.putExtra("configId", configId)
-startActivity(intent)
+val config = updateConfigInterval(configId)
+if (config != null) {
+testConnectionAndStartSort(config, configId)
+} else {
+Toast.makeText(this@MainActivity, getString(R.string.select_connection_first), Toast.LENGTH_SHORT).show()
+}
 }
 } ?: run {
 Toast.makeText(this, getString(R.string.select_connection_first), Toast.LENGTH_SHORT).show()

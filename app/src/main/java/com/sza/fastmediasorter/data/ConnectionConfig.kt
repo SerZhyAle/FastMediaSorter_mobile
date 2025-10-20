@@ -18,5 +18,6 @@ data class ConnectionConfig(
     val sortName: String? = null,
     val type: String = "SMB",
     val localUri: String? = null,
-    val localDisplayName: String? = null
+    val localDisplayName: String? = null,
+    val lastSlideshowIndex: Int = 0
 )

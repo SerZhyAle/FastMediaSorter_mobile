@@ -552,6 +552,8 @@
         android:textStyle="bold"
         android:background="#80000000"
         android:padding="8dp"
+        android:clickable="true"
+        android:focusable="true"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 

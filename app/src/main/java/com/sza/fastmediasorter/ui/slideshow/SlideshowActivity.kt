@@ -16,6 +16,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.bumptech.glide.Glide
+import com.sza.fastmediasorter.data.AppDatabase
 import com.sza.fastmediasorter.databinding.ActivitySlideshowBinding
 import com.sza.fastmediasorter.network.ImageRepository
 import com.sza.fastmediasorter.network.LocalStorageClient
@@ -28,6 +29,8 @@ import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class SlideshowActivity : LocaleActivity() {
     
@@ -36,6 +39,8 @@ class SlideshowActivity : LocaleActivity() {
     private lateinit var preferenceManager: PreferenceManager
     private var localStorageClient: LocalStorageClient? = null
     private var isLocalMode = false
+    private var currentConfigId: Long = 0
+    private var currentInterval: Int = 10
     
     private var images: List<String> = emptyList()
     private var sortedImages: List<String> = emptyList()
@@ -54,6 +59,9 @@ class SlideshowActivity : LocaleActivity() {
     private var videoTimeoutJob: Job? = null
     private val VIDEO_LOAD_TIMEOUT_MS = 3000L // 3 seconds timeout for video loading/parsing
     private var isRecreatingPlayer = false // Flag to prevent timeout cancellation during player recreation
+    
+    // Diagnostic dialog tracking to prevent window leaks
+    private var diagnosticDialog: androidx.appcompat.app.AlertDialog? = null
     
     // Preloading optimization
     private var nextImageData: ByteArray? = null
@@ -272,6 +280,9 @@ class SlideshowActivity : LocaleActivity() {
             binding.topLayout.visibility = View.GONE
             binding.controlsLayout.visibility = View.GONE
             binding.rotationLayout.visibility = View.GONE
+            
+            // Shrink PlayerView to make room for control panel
+            adjustPlayerViewForControls(true)
         } else {
             // Hide control panel
             binding.controlPanel.visibility = View.GONE
@@ -279,6 +290,26 @@ class SlideshowActivity : LocaleActivity() {
             binding.topLayout.visibility = View.VISIBLE
             binding.controlsLayout.visibility = View.VISIBLE
             binding.rotationLayout.visibility = View.VISIBLE
+            
+            // Restore PlayerView to full screen
+            adjustPlayerViewForControls(false)
+        }
+    }
+    
+    private fun adjustPlayerViewForControls(showingControls: Boolean) {
+        val playerParams = binding.playerView.layoutParams as FrameLayout.LayoutParams
+        
+        if (showingControls) {
+            // Measure control panel height
+            binding.controlPanel.post {
+                val controlPanelHeight = binding.controlPanel.height
+                playerParams.bottomMargin = controlPanelHeight
+                binding.playerView.layoutParams = playerParams
+            }
+        } else {
+            // Full screen
+            playerParams.bottomMargin = 0
+            binding.playerView.layoutParams = playerParams
         }
     }
     
@@ -352,6 +383,10 @@ class SlideshowActivity : LocaleActivity() {
         
         binding.btnShuffle.setOnClickListener {
             toggleShuffleMode()
+        }
+        
+        binding.btnJumpToBegin.setOnClickListener {
+            jumpToBegin()
         }
         
         // Video overlay buttons
@@ -430,8 +465,7 @@ class SlideshowActivity : LocaleActivity() {
         
         // Show interval when resuming, OFF when paused
         if (!isPaused) {
-            val interval = preferenceManager.getInterval()
-            showTimerText("$interval", 1000)
+            showTimerText("$currentInterval", 1000)
         } else {
             showTimerText("OFF", 1000)
         }
@@ -471,6 +505,61 @@ class SlideshowActivity : LocaleActivity() {
         
         // Skip to next image in new order
         skipToNextImage()
+    }
+    
+    private fun jumpToBegin() {
+        Logger.d(TAG, "Refreshing folder and jumping to first image")
+        
+        // Stop current playback
+        isPaused = true
+        
+        // Stop video if playing
+        if (isCurrentMediaVideo) {
+            exoPlayer?.stop()
+            binding.playerView.visibility = View.GONE
+            binding.imageView.visibility = View.VISIBLE
+        }
+        
+        // Clear state
+        blacklistedFiles.clear()
+        nextImageData = null
+        nextImageIndex = -1
+        
+        // Show feedback
+        android.widget.Toast.makeText(this, "Refreshing folder...", android.widget.Toast.LENGTH_SHORT).show()
+        
+        // Save current file name to try restoring position if it still exists
+        val currentFileName = if (images.isNotEmpty() && currentIndex < images.size) {
+            images[currentIndex].substringAfterLast('/')
+        } else null
+        
+        // Reload entire folder
+        loadImages()
+        
+        // After reload, try to jump to first file or restore position
+        lifecycleScope.launch {
+            kotlinx.coroutines.delay(500) // Wait for loadImages to complete
+            
+            if (images.isNotEmpty()) {
+                // If previous file still exists, stay on it, otherwise go to first
+                val newIndex = if (currentFileName != null) {
+                    images.indexOfFirst { it.substringAfterLast('/') == currentFileName }
+                        .takeIf { it >= 0 } ?: 0
+                } else {
+                    0
+                }
+                
+                currentIndex = newIndex
+                showTimerText("→ ${newIndex + 1}/${images.size}", 1000)
+                loadCurrentMedia()
+                
+                // Auto-resume slideshow
+                isPaused = false
+                startSlideshow()
+            } else {
+                showError("No images found after refresh")
+            }
+        }
     }
     
     private fun skipToPreviousImage() {
@@ -537,8 +626,7 @@ class SlideshowActivity : LocaleActivity() {
                     
                     // Show interval after manual next
                     if (!isPaused) {
-                        val interval = preferenceManager.getInterval()
-                        showTimerText("$interval", 1000)
+                        showTimerText("$currentInterval", 1000)
                     }
                 }
             } else {
@@ -552,8 +640,7 @@ class SlideshowActivity : LocaleActivity() {
                     
                     // Show interval after manual next
                     if (!isPaused) {
-                        val interval = preferenceManager.getInterval()
-                        showTimerText("$interval", 1000)
+                        showTimerText("$currentInterval", 1000)
                     }
                 }
             }
@@ -568,6 +655,13 @@ class SlideshowActivity : LocaleActivity() {
         binding.progressBar.visibility = View.VISIBLE
         
         lifecycleScope.launch {
+            // Load saved position and interval for current connection
+            currentConfigId = loadCurrentConfigId()
+            if (currentConfigId > 0) {
+                currentIndex = loadSavedPosition(currentConfigId)
+                currentInterval = loadSavedInterval(currentConfigId)
+            }
+            
             if (isLocalMode) {
                 loadLocalImages()
             } else {
@@ -627,6 +721,13 @@ class SlideshowActivity : LocaleActivity() {
             }
             
             if (images.isNotEmpty()) {
+                // Load saved position and interval for current connection
+                currentConfigId = loadCurrentConfigId()
+                if (currentConfigId > 0) {
+                    currentIndex = loadSavedPosition(currentConfigId)
+                    currentInterval = loadSavedInterval(currentConfigId)
+                }
+                
                 if (currentIndex >= images.size) {
                     currentIndex = 0
                 }
@@ -658,23 +759,22 @@ class SlideshowActivity : LocaleActivity() {
                         // Video ended, continue to next iteration
                         if (!isPaused) {
                             currentIndex = (currentIndex + 1) % images.size
+                            saveCurrentPosition()
                         }
                         continue
                     }
                     
                     if (!isPaused) {
                         // Show interval after image load (1 second)
-                        val interval = preferenceManager.getInterval()
-                        showTimerText("$interval", 1000)
+                        showTimerText("$currentInterval", 1000)
                     }
                     
-                    val interval = preferenceManager.getInterval()
                     elapsedTime = 0
                     
                     // Preload next image if interval > 2x load time
                     var preloadStarted = false
                     
-                    while (elapsedTime < interval) {
+                    while (elapsedTime < currentInterval) {
                         if (isPaused) {
                             delay(250L)
                             continue
@@ -683,10 +783,10 @@ class SlideshowActivity : LocaleActivity() {
                         delay(1000L)
                         elapsedTime++
                         
-                        val remaining = interval - elapsedTime
+                        val remaining = currentInterval - elapsedTime
                         
                         // Start preloading if interval allows and not started yet
-                        if (!preloadStarted && interval > loadDuration * 2 && remaining > loadDuration + 1) {
+                        if (!preloadStarted && currentInterval > loadDuration * 2 && remaining > loadDuration + 1) {
                             preloadStarted = true
                             val nextIndex = (currentIndex + 1) % images.size
                             lifecycleScope.launch {
@@ -719,6 +819,7 @@ class SlideshowActivity : LocaleActivity() {
                             }.join() // Wait for preload to complete
                         }
                         currentIndex = nextIndex
+                        saveCurrentPosition()
                     }
                 }
             }
@@ -824,54 +925,8 @@ class SlideshowActivity : LocaleActivity() {
             }
             
             // FAST PRE-VALIDATION: Check image file integrity BEFORE loading
-            if (!isLocalMode) {
-                val fileName = imageUrl.substringAfterLast('/')
-                val extension = imageUrl.substringAfterLast('.', "").lowercase()
-                Logger.d(TAG, "▶ Pre-validating SMB image file: $fileName")
-                val validationStartTime = System.currentTimeMillis()
-                val validationResult = com.sza.fastmediasorter.utils.MediaValidator.validateSmbMedia(
-                    imageUrl,
-                    imageRepository.getSmbContext()?.let { imageRepository.smbClient },
-                    isVideo = false
-                )
-                val validationTime = System.currentTimeMillis() - validationStartTime
-                Logger.d(TAG, "  Validation completed in ${validationTime}ms")
-                
-                if (!validationResult.isValid) {
-                    Logger.e(TAG, "═══════════════════════════════════════════")
-                    Logger.e(TAG, "▶▶▶ IMAGE FILE VALIDATION FAILED ▶▶▶")
-                    Logger.e(TAG, "  File: $fileName")
-                    Logger.e(TAG, "  Extension: .$extension")
-                    Logger.e(TAG, "  Error Type: ${validationResult.errorType}")
-                    Logger.e(TAG, "  Details: ${validationResult.errorDetails}")
-                    Logger.e(TAG, "  Recommendation: ${validationResult.recommendation}")
-                    Logger.e(TAG, "  SKIPPING WITHOUT ATTEMPTING LOAD")
-                    Logger.e(TAG, "═══════════════════════════════════════════")
-                    
-                    // Add to blacklist immediately
-                    blacklistedFiles.add(imageUrl)
-                    
-                    // Show error to user
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        if (preferenceManager.isShowVideoErrorDetails()) {
-                            showImageValidationError(fileName, validationResult)
-                        } else {
-                            android.widget.Toast.makeText(
-                                this@SlideshowActivity,
-                                "Image file corrupted: $fileName",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                    
-                    if (!isPaused) {
-                        skipToNextImage()
-                    }
-                    return
-                } else if (validationResult.errorDetails != null) {
-                    Logger.w(TAG, "⚠ Validation warning: ${validationResult.errorDetails}")
-                }
-            }
+            // Validation disabled: files already filtered by extension during discovery
+            // If file is corrupted, viewer/player will handle error gracefully
             
             // Use preloaded data if available for current index
             val imageData = if (nextImageIndex == currentIndex && nextImageData != null) {
@@ -880,11 +935,57 @@ class SlideshowActivity : LocaleActivity() {
                 nextImageIndex = -1
                 preloaded
             } else {
-                if (isLocalMode) {
+                var toastShown = false
+                var loadingToast: Toast? = null
+                
+                // Schedule toast if loading takes >1 second  
+                val toastJob = lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    kotlinx.coroutines.delay(1000)
+                    val fileInfo = try {
+                        if (isLocalMode) {
+                            localStorageClient?.getFileInfo(Uri.parse(imageUrl))?.let {
+                                SmbClient.FileInfo(
+                                    name = it.name,
+                                    sizeKB = (it.size / 1024),
+                                    modifiedDate = it.dateModified
+                                )
+                            }
+                        } else {
+                            imageRepository.smbClient.getFileInfo(imageUrl)
+                        }
+                    } catch (e: Exception) {
+                        null
+                    }
+                    
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        val sizeText = fileInfo?.let { "${it.sizeKB}KB" } ?: "..."
+                        loadingToast = Toast.makeText(
+                            this@SlideshowActivity,
+                            "Loading... $sizeText",
+                            Toast.LENGTH_SHORT
+                        )
+                        loadingToast?.show()
+                        toastShown = true
+                    }
+                }
+                
+                val data = if (isLocalMode) {
                     localStorageClient?.downloadImage(Uri.parse(imageUrl))
                 } else {
                     imageRepository.downloadImage(imageUrl)
                 }
+                
+                // Cancel toast timer if still waiting
+                toastJob.cancel()
+                
+                // Hide toast if it was shown
+                if (toastShown) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        loadingToast?.cancel()
+                    }
+                }
+                
+                data
             }
             
             imageData?.let { data ->
@@ -966,54 +1067,8 @@ class SlideshowActivity : LocaleActivity() {
                     return@withContext
                 }
                 
-                // FAST PRE-VALIDATION: Check video file integrity BEFORE ExoPlayer
-                if (!isLocalMode) {
-                    Logger.d(TAG, "▶ Pre-validating SMB video file...")
-                    val validationStartTime = System.currentTimeMillis()
-                    val validationResult = com.sza.fastmediasorter.utils.MediaValidator.validateSmbMedia(
-                        videoUrl,
-                        imageRepository.getSmbContext()?.let { imageRepository.smbClient },
-                        isVideo = true
-                    )
-                    val validationTime = System.currentTimeMillis() - validationStartTime
-                    Logger.d(TAG, "  Validation completed in ${validationTime}ms")
-                    
-                    if (!validationResult.isValid) {
-                        Logger.e(TAG, "═══════════════════════════════════════════")
-                        Logger.e(TAG, "▶▶▶ VIDEO FILE VALIDATION FAILED ▶▶▶")
-                        Logger.e(TAG, "  File: $fileName")
-                        Logger.e(TAG, "  Extension: .$extension")
-                        Logger.e(TAG, "  Error Type: ${validationResult.errorType}")
-                        Logger.e(TAG, "  Details: ${validationResult.errorDetails}")
-                        Logger.e(TAG, "  Recommendation: ${validationResult.recommendation}")
-                        Logger.e(TAG, "  SKIPPING WITHOUT ATTEMPTING PLAYBACK")
-                        Logger.e(TAG, "═══════════════════════════════════════════")
-                        
-                        // Add to blacklist immediately
-                        blacklistedFiles.add(videoUrl)
-                        binding.videoLoadingLayout.visibility = View.GONE
-                        
-                        // Show detailed error to user if enabled
-                        if (preferenceManager.isShowVideoErrorDetails()) {
-                            showVideoValidationError(fileName, validationResult)
-                        } else {
-                            android.widget.Toast.makeText(
-                                this@SlideshowActivity,
-                                "Video file corrupted: $fileName",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                        
-                        if (!isPaused) {
-                            skipToNextImage()
-                        }
-                        return@withContext
-                    } else if (validationResult.errorDetails != null) {
-                        // Valid but with warnings (e.g. AVI legacy format)
-                        Logger.w(TAG, "⚠ Validation warning: ${validationResult.errorDetails}")
-                        Logger.w(TAG, "  Recommendation: ${validationResult.recommendation}")
-                    }
-                }
+                // Validation disabled: files already filtered by extension during discovery
+                // ExoPlayer will handle corrupted files with error events
                 
                 // Cancel any existing timeout
                 videoTimeoutJob?.cancel()
@@ -1422,7 +1477,10 @@ class SlideshowActivity : LocaleActivity() {
         errorDetails.append("✓ Skipping to next media\n")
         errorDetails.append("✓ Fast rejection prevents decode errors\n")
         
-        com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
+        // Dismiss any existing diagnostic dialog first
+        diagnosticDialog?.dismiss()
+        
+        diagnosticDialog = com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
             this,
             "Image Validation Failed",
             errorDetails.toString(),
@@ -1431,8 +1489,12 @@ class SlideshowActivity : LocaleActivity() {
     }
     
     private fun showError(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-        finishSafely()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Connection Error")
+            .setMessage(message)
+            .setPositiveButton("OK") { _, _ -> finishSafely() }
+            .setCancelable(false)
+            .show()
     }
     
     private fun finishSafely() {
@@ -1468,10 +1530,19 @@ class SlideshowActivity : LocaleActivity() {
     
     override fun onStop() {
         super.onStop()
+        
+        // Stop media playback immediately
+        exoPlayer?.playWhenReady = false
+        
         // Cancel video timeout
         videoTimeoutJob?.cancel()
+        videoTimeoutJob = null
+        
         // Cancel slideshow when activity is no longer visible
         slideshowJob?.cancel()
+        slideshowJob = null
+        
+        Logger.d(TAG, "onStop: Media playback stopped, jobs cancelled")
     }
     
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -1488,6 +1559,14 @@ class SlideshowActivity : LocaleActivity() {
         // Cancel any running coroutines first
         slideshowJob?.cancel()
         slideshowJob = null
+        
+        // Dismiss diagnostic dialog to prevent window leak
+        try {
+            diagnosticDialog?.dismiss()
+            diagnosticDialog = null
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error dismissing diagnostic dialog: ${e.message}")
+        }
         
         // Release media player resources
         try {
@@ -1679,6 +1758,60 @@ class SlideshowActivity : LocaleActivity() {
             androidx.media3.common.PlaybackException.ERROR_CODE_DRM_UNSPECIFIED -> "DRM_UNSPECIFIED"
             2000 -> "ERROR_CODE_IO_UNSPECIFIED (Source error)"
             else -> "UNKNOWN ($errorCode)"
+        }
+    }
+    
+    private suspend fun loadCurrentConfigId(): Long = withContext(Dispatchers.IO) {
+        try {
+            val dao = AppDatabase.getDatabase(this@SlideshowActivity).connectionConfigDao()
+            val config = if (isLocalMode) {
+                val localUri = preferenceManager.getLocalUri()
+                val bucketName = preferenceManager.getLocalBucketName()
+                dao.getLocalFolderByName(bucketName.ifEmpty { localUri })
+            } else {
+                val server = preferenceManager.getServerAddress()
+                val folder = preferenceManager.getFolderPath()
+                dao.getConfigByFolderAddress(server, folder)
+            }
+            config?.id ?: 0
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error loading config ID: ${e.message}")
+            0
+        }
+    }
+    
+    private suspend fun loadSavedPosition(configId: Long): Int = withContext(Dispatchers.IO) {
+        try {
+            val dao = AppDatabase.getDatabase(this@SlideshowActivity).connectionConfigDao()
+            val config = dao.getConfigById(configId)
+            config?.lastSlideshowIndex ?: 0
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error loading saved position: ${e.message}")
+            0
+        }
+    }
+    
+    private suspend fun loadSavedInterval(configId: Long): Int = withContext(Dispatchers.IO) {
+        try {
+            val dao = AppDatabase.getDatabase(this@SlideshowActivity).connectionConfigDao()
+            val config = dao.getConfigById(configId)
+            config?.interval ?: 10
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error loading saved interval: ${e.message}")
+            10
+        }
+    }
+    
+    private fun saveCurrentPosition() {
+        if (currentConfigId > 0) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val dao = AppDatabase.getDatabase(this@SlideshowActivity).connectionConfigDao()
+                    dao.updateLastSlideshowIndex(currentConfigId, currentIndex)
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Error saving position: ${e.message}")
+                }
+            }
         }
     }
 }
