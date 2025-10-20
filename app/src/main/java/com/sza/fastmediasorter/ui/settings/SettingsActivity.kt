@@ -260,7 +260,11 @@ class SortDestinationsFragment : Fragment() {
             override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
                 val config = connections[position]
                 val textView = holder.itemView as TextView
-                textView.text = "${config.name}\n${config.serverAddress}\\${config.folderPath}"
+                val details = when (config.type) {
+                    "LOCAL_CUSTOM", "LOCAL_STANDARD" -> "Local: ${config.localDisplayName ?: config.name}"
+                    else -> "${config.serverAddress}\\${config.folderPath}"
+                }
+                textView.text = "${config.name}\n$details"
                 textView.setBackgroundColor(if (selectedConfig?.id == config.id) 0xFFE0E0E0.toInt() else 0xFFFFFFFF.toInt())
                 
                 textView.setOnClickListener {
@@ -280,7 +284,7 @@ class SortDestinationsFragment : Fragment() {
             viewModel.sortDestinations.value?.let { destinations ->
                 val usedIds = destinations.map { it.id }.toSet()
                 val available = configs.filter { 
-                    it.id !in usedIds && it.type != "LOCAL_CUSTOM"
+                    it.id !in usedIds
                 }
                 connectionAdapter.setConnections(available)
             }
