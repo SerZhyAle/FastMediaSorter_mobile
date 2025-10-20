@@ -444,6 +444,10 @@ class SettingsFragment : Fragment() {
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         updateMediaAccessButton()
+        if (isGranted) {
+            // Show restart dialog after granting permission
+            showRestartDialog()
+        }
     }
     
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -531,6 +535,27 @@ class SettingsFragment : Fragment() {
     private fun saveDefaultPassword() {
         val password = binding.defaultPasswordInput.text.toString().trim()
         preferenceManager.setDefaultPassword(password)
+    }
+    
+    private fun showRestartDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle(getString(R.string.permission_granted_title))
+            .setMessage(getString(R.string.permission_granted_message))
+            .setPositiveButton(getString(R.string.restart_now)) { _, _ -> 
+                restartApplication()
+            }
+            .setNegativeButton(getString(R.string.restart_later)) { dialog, _ -> 
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+            .show()
+    }
+    
+    private fun restartApplication() {
+        val intent = requireActivity().packageManager.getLaunchIntentForPackage(requireActivity().packageName)
+        intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+        requireActivity().startActivity(intent)
+        requireActivity().finishAffinity()
     }
     
     private fun showLogsDialog() {

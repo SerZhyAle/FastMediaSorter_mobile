@@ -107,4 +107,10 @@
     <string name="rotate_left">↺ Rotate</string>
     <string name="rotate_right">Rotate ↻</string>
     <string name="button_controls_description">Button controls are enabled. During slideshow, you will see a panel with buttons at the bottom of the screen:\n\n• Back - Exit slideshow\n• Previous - Go to previous media\n• Pause/Play - Pause or resume slideshow\n• Next - Go to next media\n• Rotate Left - Rotate image counter-clockwise\n• Rotate Right - Rotate image clockwise\n• Shuffle - Toggle random/alphabetical order\n• Jump to Begin - Refresh folder and go to first media\n\nTo use invisible touch zones instead, turn off Show Controls in Settings.</string>
+    
+    <!-- Restart after permission -->
+    <string name="permission_granted_title">Permission Granted</string>
+    <string name="permission_granted_message">Media access permission has been granted. The application needs to restart to apply the changes. Would you like to restart now?</string>
+    <string name="restart_now">Restart</string>
+    <string name="restart_later">Later</string>
 </resources>
