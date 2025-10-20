@@ -45,7 +45,7 @@ interface ConnectionConfigDao {
     suspend fun updateWritePermission(id: Long, hasWritePermission: Boolean)
     
     // Sort destinations queries
-    @Query("SELECT * FROM connection_configs WHERE sortOrder IS NOT NULL AND type != 'LOCAL_CUSTOM' ORDER BY sortOrder ASC")
+    @Query("SELECT * FROM connection_configs WHERE sortOrder IS NOT NULL ORDER BY sortOrder ASC")
     fun getSortDestinations(): Flow<List<ConnectionConfig>>
     
     @Query("UPDATE connection_configs SET sortOrder = :order, sortName = :name WHERE id = :id")
