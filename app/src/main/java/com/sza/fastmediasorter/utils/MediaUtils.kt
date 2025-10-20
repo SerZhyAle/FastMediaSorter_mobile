@@ -2,7 +2,7 @@ package com.sza.fastmediasorter.utils
 
 object MediaUtils {
     private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
-    private val VIDEO_EXTENSIONS = setOf("mp4", "mkv", "avi", "mov", "webm", "3gp")
+    private val VIDEO_EXTENSIONS = setOf("mp4", "mkv", "mov", "webm", "3gp")
     
     fun isImage(filename: String): Boolean {
         val extension = filename.substringAfterLast('.', "").lowercase()

@@ -13,6 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.bumptech.glide.Glide
@@ -32,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+@androidx.media3.common.util.UnstableApi
 class SlideshowActivity : LocaleActivity() {
     
     private lateinit var binding: ActivitySlideshowBinding
@@ -750,8 +752,8 @@ class SlideshowActivity : LocaleActivity() {
                     val loadDuration = (System.currentTimeMillis() - loadStartTime) / 1000
                     lastLoadTime = loadDuration
                     
-                    // For videos, skip interval timer - video will auto-advance on completion
-                    if (isCurrentMediaVideo && waitingForVideoEnd) {
+                    // For videos with "play till end" enabled, skip interval timer - video will auto-advance on completion
+                    if (isCurrentMediaVideo && preferenceManager.isPlayVideoTillEnd() && waitingForVideoEnd) {
                         // Wait for video to complete (handled by Player.Listener)
                         while (waitingForVideoEnd && !isPaused) {
                             delay(1000L)
@@ -891,14 +893,25 @@ class SlideshowActivity : LocaleActivity() {
             updateRotationAreas()
             
             if (isCurrentMediaVideo) {
-                // Load video
+                // Load video - clear previous content
                 binding.imageView.visibility = View.GONE
+                
+                // Clear player to prevent showing old video frame while loading
+                exoPlayer?.clearMediaItems()
+                
+                // Clear preload cache since we're switching to video
+                nextImageData = null
+                nextImageIndex = -1
+                
                 binding.playerView.visibility = View.VISIBLE
                 loadVideo(mediaUrl)
             } else {
                 // Load image - cancel any pending video operations
                 videoTimeoutJob?.cancel()
                 binding.playerView.visibility = View.GONE
+                
+                // Clear previous image to prevent showing old content while loading
+                binding.imageView.setImageBitmap(null)
                 binding.imageView.visibility = View.VISIBLE
                 binding.videoLoadingLayout.visibility = View.GONE
                 loadImage(mediaUrl)
@@ -1077,8 +1090,8 @@ class SlideshowActivity : LocaleActivity() {
                 exoPlayer?.stop()
                 exoPlayer?.clearMediaItems()
                 
-                // Mark that we're waiting for video to complete
-                waitingForVideoEnd = true
+                // Mark that we're waiting for video to complete only if "play till end" is enabled
+                waitingForVideoEnd = preferenceManager.isPlayVideoTillEnd()
                 
                 // Start timeout watchdog - will forcefully skip if video doesn't load
                 videoTimeoutJob = lifecycleScope.launch(kotlinx.coroutines.Dispatchers.Main) {
@@ -1287,6 +1300,7 @@ class SlideshowActivity : LocaleActivity() {
         errorDetails.append("=== PLAYBACK STATE ===\n")
         errorDetails.append("Video Enabled: ${preferenceManager.isVideoEnabled()}\n")
         errorDetails.append("Max Video Size: ${preferenceManager.getMaxVideoSizeMb()} MB\n")
+        errorDetails.append("Play Video Till End: ${preferenceManager.isPlayVideoTillEnd()}\n")
         errorDetails.append("\n")
         
         errorDetails.append("=== SYSTEM INFO ===\n")
@@ -1295,24 +1309,6 @@ class SlideshowActivity : LocaleActivity() {
         errorDetails.append("\n")
         
         errorDetails.append("=== POSSIBLE CAUSES ===\n")
-        
-        // Specific diagnosis for AVI files
-        if (extension == "avi") {
-            errorDetails.append("⚠ AVI FILE DETECTED ⚠\n")
-            errorDetails.append("• AVI is legacy format (1992) with poor Android support\n")
-            errorDetails.append("• Container may be corrupted or incomplete\n")
-            
-            val causeMsg = error.cause?.message ?: ""
-            if (causeMsg.contains("ArrayIndexOutOfBoundsException")) {
-                errorDetails.append("• DIAGNOSIS: File structure corrupted\n")
-                errorDetails.append("  - Parser expected more data than available\n")
-                errorDetails.append("  - File may be truncated or damaged\n")
-                errorDetails.append("  - Index/header chunk corrupted\n")
-            }
-            
-            errorDetails.append("• Possible codecs: DivX, Xvid, MJPEG (often unsupported)\n")
-            errorDetails.append("• SOLUTION: Convert to MP4 (H.264/AAC)\n\n")
-        }
         
         when {
             error.message?.contains("codec", ignoreCase = true) == true -> {
@@ -1793,12 +1789,18 @@ class SlideshowActivity : LocaleActivity() {
     
     private suspend fun loadSavedInterval(configId: Long): Int = withContext(Dispatchers.IO) {
         try {
+            // For local folders (negative IDs), get interval from PreferenceManager
+            if (configId <= 0) {
+                return@withContext preferenceManager.getInterval()
+            }
+            
+            // For DB configs (positive IDs), get from database with PreferenceManager fallback
             val dao = AppDatabase.getDatabase(this@SlideshowActivity).connectionConfigDao()
             val config = dao.getConfigById(configId)
-            config?.interval ?: 10
+            config?.interval ?: preferenceManager.getInterval()
         } catch (e: Exception) {
             Logger.e(TAG, "Error loading saved interval: ${e.message}")
-            10
+            preferenceManager.getInterval()
         }
     }
     

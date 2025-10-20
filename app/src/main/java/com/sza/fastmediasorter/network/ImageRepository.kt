@@ -38,6 +38,9 @@ class ImageRepository(val smbClient: SmbClient, private val preferenceManager: P
                     return@withContext Result.failure(Exception(result.errorMessage))
                 }
                 
+                // For image loading, warnings are OK - only errors should fail
+                // result.warningMessage is informational only
+                
                 Result.success(result.files)
             } catch (e: Exception) {
                 Result.failure(e)

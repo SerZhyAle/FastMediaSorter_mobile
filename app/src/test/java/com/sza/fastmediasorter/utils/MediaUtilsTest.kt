@@ -49,13 +49,12 @@ class MediaUtilsTest {
         // Given
         val videoFiles = listOf(
             "movie.mp4",
-            "clip.avi",
             "video.mkv",
             "stream.mov",
             "web.webm",
             "mobile.3gp",
             "MOVIE.MP4", // uppercase
-            "Video.AVI"  // mixed case
+            "Video.MKV"  // mixed case
         )
         
         // When & Then

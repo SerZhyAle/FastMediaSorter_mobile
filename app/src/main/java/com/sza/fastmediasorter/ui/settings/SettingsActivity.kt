@@ -369,6 +369,7 @@ class VideoSettingsFragment : Fragment() {
     private lateinit var videoEnabledCheckbox: android.widget.CheckBox
     private lateinit var maxVideoSizeEdit: EditText
     private lateinit var showVideoErrorDetailsCheckbox: android.widget.CheckBox
+    private lateinit var playVideoTillEndCheckbox: android.widget.CheckBox
     
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         return inflater.inflate(R.layout.fragment_video_settings, container, false)
@@ -382,22 +383,31 @@ class VideoSettingsFragment : Fragment() {
         videoEnabledCheckbox = view.findViewById(R.id.videoEnabledCheckbox)
         maxVideoSizeEdit = view.findViewById(R.id.maxVideoSizeEdit)
         showVideoErrorDetailsCheckbox = view.findViewById(R.id.showVideoErrorDetailsCheckbox)
+        playVideoTillEndCheckbox = view.findViewById(R.id.playVideoTillEndCheckbox)
         
         // Load current settings
         videoEnabledCheckbox.isChecked = preferenceManager.isVideoEnabled()
         maxVideoSizeEdit.setText(preferenceManager.getMaxVideoSizeMb().toString())
         maxVideoSizeEdit.isEnabled = videoEnabledCheckbox.isChecked
         showVideoErrorDetailsCheckbox.isChecked = preferenceManager.isShowVideoErrorDetails()
+        playVideoTillEndCheckbox.isChecked = preferenceManager.isPlayVideoTillEnd()
+        playVideoTillEndCheckbox.isEnabled = videoEnabledCheckbox.isChecked
         
         // Enable/disable size field based on checkbox
         videoEnabledCheckbox.setOnCheckedChangeListener { _, isChecked ->
             maxVideoSizeEdit.isEnabled = isChecked
+            playVideoTillEndCheckbox.isEnabled = isChecked
             preferenceManager.setVideoEnabled(isChecked)
         }
         
         // Save error details checkbox
         showVideoErrorDetailsCheckbox.setOnCheckedChangeListener { _, isChecked ->
             preferenceManager.setShowVideoErrorDetails(isChecked)
+        }
+        
+        // Save play video till end checkbox
+        playVideoTillEndCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            preferenceManager.setPlayVideoTillEnd(isChecked)
         }
         
         // Validate and save video size

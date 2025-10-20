@@ -50,6 +50,8 @@
     <string name="video_streaming_note">Note: Videos stream from SMB without full download. Auto-play with sound.</string>
     <string name="show_detailed_video_errors">Show detailed video error information</string>
     <string name="detailed_errors_description">Enable to see detailed diagnostic information when video playback fails</string>
+    <string name="play_video_till_end">Show video till the end during slideshow</string>
+    <string name="play_video_till_end_description">When enabled, videos will play to completion regardless of slideshow interval. Otherwise, videos will be skipped after the interval time.</string>
     <!-- Sort Help -->
     <string name="sort_destinations_title">Sort Destinations (0-9)</string>
     <string name="add_destination">+ Add Destination</string>

@@ -124,8 +124,8 @@ class SmbClient {
                     setProperty("jcifs.smb.client.minVersion", "SMB202")
                     setProperty("jcifs.smb.client.maxVersion", "SMB311")
                     setProperty("jcifs.resolveOrder", "DNS")
-                    setProperty("jcifs.smb.client.responseTimeout", "5000")
-                    setProperty("jcifs.smb.client.connTimeout", "5000")
+                    setProperty("jcifs.smb.client.responseTimeout", "3000")
+                    setProperty("jcifs.smb.client.connTimeout", "3000")
                 }
                 
                 val config = PropertyConfiguration(props)
@@ -198,7 +198,8 @@ class SmbClient {
     
     data class ImageFilesResult(
         val files: List<String>,
-        val errorMessage: String? = null
+        val errorMessage: String? = null,
+        val warningMessage: String? = null
     )
     
     suspend fun getImageFiles(
@@ -359,8 +360,8 @@ class SmbClient {
                     } else {
                         "JPG, PNG, GIF, BMP, WEBP"
                     }
-                    val msg = "No media files found in: smb://$cleanServer/$cleanFolder/\n\nSupported formats: $formats\n\nNote: AVI format not supported for SMB streaming"
-                    return@withContext ImageFilesResult(emptyList(), msg)
+                    val msg = "No media files found in: smb://$cleanServer/$cleanFolder/\n\nSupported formats: $formats"
+                    return@withContext ImageFilesResult(emptyList(), null, msg)
                 }
                 
                 ImageFilesResult(mediaFiles.sorted())
@@ -795,6 +796,81 @@ class SmbClient {
             } catch (e: Exception) {
                 e.printStackTrace()
                 false
+            }
+        }
+    }
+    
+    /**
+     * Checks if the folder has write permissions by attempting to create and delete a test file.
+     * Returns true if folder allows write operations, false otherwise.
+     */
+    suspend fun checkWritePermission(serverAddress: String, folderPath: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (context == null) {
+                    Logger.w("SmbClient", "Context is null during write permission check")
+                    return@withContext false
+                }
+                
+                val baseUrl = "smb://$serverAddress"
+                val folderUrl = if (folderPath.startsWith("/")) {
+                    "$baseUrl$folderPath"
+                } else {
+                    "$baseUrl/$folderPath"
+                }
+                
+                // Ensure folder URL ends with /
+                val normalizedFolderUrl = if (!folderUrl.endsWith("/")) "$folderUrl/" else folderUrl
+                
+                // Create test file name with timestamp to avoid conflicts
+                val testFileName = ".fms_write_test_${System.currentTimeMillis()}.tmp"
+                val testFileUrl = "$normalizedFolderUrl$testFileName"
+                
+                Logger.d("SmbClient", "Testing write permission: $testFileUrl")
+                
+                val testFile = SmbFile(testFileUrl, context)
+                
+                // Test 1: Try to create the test file
+                try {
+                    testFile.createNewFile()
+                    Logger.d("SmbClient", "Test file created successfully")
+                } catch (e: Exception) {
+                    Logger.w("SmbClient", "Failed to create test file: ${e.message}")
+                    return@withContext false
+                }
+                
+                // Test 2: Try to write some data to verify write access
+                try {
+                    testFile.outputStream.use { output ->
+                        output.write("test".toByteArray())
+                        output.flush()
+                    }
+                    Logger.d("SmbClient", "Test file written successfully")
+                } catch (e: Exception) {
+                    Logger.w("SmbClient", "Failed to write to test file: ${e.message}")
+                    // Try to cleanup the created file
+                    try {
+                        testFile.delete()
+                    } catch (deleteException: Exception) {
+                        Logger.w("SmbClient", "Failed to cleanup test file after write failure")
+                    }
+                    return@withContext false
+                }
+                
+                // Test 3: Try to delete the test file
+                try {
+                    testFile.delete()
+                    Logger.d("SmbClient", "Test file deleted successfully - write permission confirmed")
+                    return@withContext true
+                } catch (e: Exception) {
+                    Logger.w("SmbClient", "Failed to delete test file: ${e.message}")
+                    // File exists but cannot be deleted - limited write permission
+                    return@withContext false
+                }
+                
+            } catch (e: Exception) {
+                Logger.w("SmbClient", "Write permission check failed", e)
+                return@withContext false
             }
         }
     }

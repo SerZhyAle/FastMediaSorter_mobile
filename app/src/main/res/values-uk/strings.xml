@@ -50,6 +50,8 @@
     <string name="video_streaming_note">Примітка: Відео транслюється з SMB без повного завантаження. Автовідтворення зі звуком.</string>
     <string name="show_detailed_video_errors">Показувати детальну інформацію про помилки відео</string>
     <string name="detailed_errors_description">Увімкніть для відображення детальної діагностичної інформації при збоях відтворення відео</string>
+    <string name="play_video_till_end">Показувати відео до кінця під час слайдшоу</string>
+    <string name="play_video_till_end_description">Коли увімкнено, відео буде відтворюватися до завершення незалежно від інтервалу слайдшоу. Інакше відео буде пропущено після закінчення часу інтервалу.</string>
     <!-- Sort Help -->
     <string name="sort_destinations_title">Папки призначення (0-9)</string>
     <string name="add_destination">+ Додати папку</string>

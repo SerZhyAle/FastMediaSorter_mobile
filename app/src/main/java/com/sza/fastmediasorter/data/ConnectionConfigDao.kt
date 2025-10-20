@@ -35,8 +35,14 @@ interface ConnectionConfigDao {
     @Query("UPDATE connection_configs SET lastUsed = :timestamp WHERE id = :id")
     suspend fun updateLastUsed(id: Long, timestamp: Long)
     
+    @Query("UPDATE connection_configs SET interval = :interval WHERE id = :id")
+    suspend fun updateConfigInterval(id: Long, interval: Int)
+    
     @Query("UPDATE connection_configs SET lastSlideshowIndex = :index WHERE id = :id")
     suspend fun updateLastSlideshowIndex(id: Long, index: Int)
+    
+    @Query("UPDATE connection_configs SET writePermission = :hasWritePermission WHERE id = :id")
+    suspend fun updateWritePermission(id: Long, hasWritePermission: Boolean)
     
     // Sort destinations queries
     @Query("SELECT * FROM connection_configs WHERE sortOrder IS NOT NULL AND type != 'LOCAL_CUSTOM' ORDER BY sortOrder ASC")

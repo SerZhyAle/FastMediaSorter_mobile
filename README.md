@@ -10,21 +10,25 @@ A lightweight and private Android application for viewing, sorting, and managing
     -   DNS resolution with NetBIOS fallback for server names.
     -   Auto-discovery - scan and add all accessible SMB shares from a server with one tap.
     -   Connection testing with comprehensive diagnostics.
+    -   Write permission detection - automatically tests and displays write access status for folders.
 -   **Powerful Slideshow**:
     -   Supports both images and videos.
-    -   Configurable interval (1-300 seconds).
+    -   Configurable interval (1-300 seconds) with persistent settings.
     -   Image and video preloading for smooth, instant transitions.
     -   Two control modes: invisible touch zones or a visible button panel.
     -   ABC (alphabetical) and Random (shuffle) order modes.
     -   Media validation to skip corrupted files before playback attempts.
+    -   Smart empty folder handling with warning messages instead of errors.
 -   **Advanced File Sorting**:
     -   Organize media by copying, moving, or deleting files.
     -   Rename files with filename validation.
     -   Configure up to 10 custom sort destinations.
+    -   Write permission validation prevents adding read-only destinations.
     -   Safe by design: uses system permissions for delete/move operations on Android 11+.
 -   **Video Settings**:
     -   Enable or disable video playback in slideshows.
     -   Set a maximum file size for videos to prevent playback of large files.
+    -   "Play video till end" option - videos can either play completely or follow slideshow interval.
     -   Detailed error diagnostics for troubleshooting video playback issues.
 -   **Customizable Settings**:
     -   Control which operations are allowed (copy, move, delete, rename).
@@ -98,6 +102,7 @@ Enable this mode in **Settings → Slideshow Settings → Show Controls**. A min
 
 -   **Enable Video**: Allow video playback in slideshows.
 -   **Max Video Size**: Set maximum file size for videos (in MB).
+-   **Play video till end**: Choose whether videos play completely or follow slideshow interval timing.
 -   **Show detailed video error information**: Display comprehensive error diagnostics when video playback fails.
 -   **Supported Formats**: MP4, MKV, MOV, WEBM, 3GP (AVI format not supported for SMB streaming due to library compatibility issues).
 

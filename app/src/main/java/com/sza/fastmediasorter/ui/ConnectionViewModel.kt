@@ -45,6 +45,10 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
         repository.updateLastUsed(id)
     }
     
+    fun updateConfigInterval(id: Long, interval: Int) = viewModelScope.launch(Dispatchers.IO) {
+        repository.updateConfigInterval(id, interval)
+    }
+    
     suspend fun getLastUsedConfig(): ConnectionConfig? {
         return repository.getLastUsedConfig()
     }

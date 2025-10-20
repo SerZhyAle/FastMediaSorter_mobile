@@ -15,8 +15,8 @@ android {
         applicationId = "com.sza.fastmediasorter"
         minSdk = 28
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.0.3"
+        versionCode = 4
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -83,6 +83,10 @@ android {
     // Room schema export configuration
     ksp {
         arg("room.schemaLocation", "$projectDir/schemas")
+    }
+    
+    lint {
+        baseline = file("lint-baseline.xml")
     }
 }
 

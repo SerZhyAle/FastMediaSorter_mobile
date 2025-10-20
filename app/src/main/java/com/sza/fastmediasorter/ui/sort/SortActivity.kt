@@ -293,19 +293,25 @@ class SortActivity : LocaleActivity() {
             binding.moveButton9
         )
         
+        // Check if current source folder has write permissions
+        val sourceHasWritePermission = currentConfig?.writePermission ?: false
+        
         // Check if move is allowed
-        val allowMove = preferenceManager.isAllowMove()
+        val allowMove = preferenceManager.isAllowMove() && sourceHasWritePermission
         
         // Check if copy is allowed
         val allowCopy = preferenceManager.isAllowCopy()
         
         // Check if delete is allowed
-        val allowDelete = preferenceManager.isAllowDelete()
+        val allowDelete = preferenceManager.isAllowDelete() && sourceHasWritePermission
         
         // Filter out destinations that are the same as source (pre-calculation for UI logic)
         val filteredDestinations = sortDestinations.filter { config ->
             // Skip local folders (defensive check - destinations cannot be local)
             if (config.type == "LOCAL_CUSTOM" || config.type == "LOCAL_STANDARD") return@filter false
+            
+            // Skip if no write permission
+            if (!config.writePermission) return@filter false
             
             // Skip if it's the same as current source connection
             currentConfig?.let { currentSource ->
@@ -346,7 +352,7 @@ class SortActivity : LocaleActivity() {
         }
         
         // Hide/show rename button
-        val allowRename = preferenceManager.isAllowRename()
+        val allowRename = preferenceManager.isAllowRename() && sourceHasWritePermission
         binding.renameButton.visibility = if (allowRename) View.VISIBLE else View.GONE
         
         // Setup rename button click listener
@@ -976,6 +982,7 @@ class SortActivity : LocaleActivity() {
         errorDetails.append("=== PLAYBACK STATE ===\n")
         errorDetails.append("Video Enabled: ${preferenceManager.isVideoEnabled()}\n")
         errorDetails.append("Max Video Size: ${preferenceManager.getMaxVideoSizeMb()} MB\n")
+        errorDetails.append("Play Video Till End: ${preferenceManager.isPlayVideoTillEnd()}\n")
         errorDetails.append("\n")
         
         errorDetails.append("=== SYSTEM INFO ===\n")

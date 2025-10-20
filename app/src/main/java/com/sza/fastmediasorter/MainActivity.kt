@@ -83,6 +83,9 @@ tryAutoResumeSession()
         if (configId < 0) {
             return currentConfig?.let { config ->
                 val interval = getIntervalFromInput() ?: config.interval
+                // Save interval to PreferenceManager for local folders
+                val preferenceManager = PreferenceManager(this)
+                preferenceManager.setInterval(interval)
                 config.copy(interval = interval)
             }
         }
@@ -233,6 +236,10 @@ preferenceManager.clearLastSession()
         // Only update lastUsed for DB records (positive ID)
         if (config.id > 0) {
             viewModel.updateLastUsed(config.id)
+            // Also update interval in database if it differs
+            if (currentInterval != config.interval) {
+                viewModel.updateConfigInterval(config.id, currentInterval)
+            }
         }
         val intent = Intent(this, SlideshowActivity::class.java)
         startActivity(intent)
@@ -249,7 +256,7 @@ preferenceManager.clearLastSession()
             progressDialog.show()
             
             try {
-                val testResult = withTimeoutOrNull(7000) {
+                val testResult = withTimeoutOrNull(5000) {
                     withContext(Dispatchers.IO) {
                         val smbClient = com.sza.fastmediasorter.network.SmbClient()
                         val connected = smbClient.connect(config.serverAddress, config.username, config.password)
@@ -260,13 +267,27 @@ preferenceManager.clearLastSession()
                         if (result.errorMessage != null) {
                             throw Exception(result.errorMessage)
                         }
+                        
+                        // For connection validation, warnings are OK - only errors should fail
+                        // result.warningMessage is informational only
+                        
+                        // Check write permissions
+                        val hasWritePermission = smbClient.checkWritePermission(config.serverAddress, config.folderPath)
+                        
+                        // Update write permission in database if config has ID
+                        if (config.id > 0) {
+                            val database = com.sza.fastmediasorter.data.AppDatabase.getDatabase(this@MainActivity)
+                            database.connectionConfigDao().updateWritePermission(config.id, hasWritePermission)
+                        }
+                        
+                        hasWritePermission
                     }
                 }
                 
                 progressDialog.dismiss()
                 
                 if (testResult == null) {
-                    throw Exception("Connection timeout (7 seconds). Server or folder may be unreachable.")
+                    throw Exception("Connection timeout (5 seconds). Server or folder may be unreachable.")
                 }
                 
                 // Success - save settings and start slideshow
@@ -315,7 +336,7 @@ preferenceManager.clearLastSession()
             progressDialog.show()
             
             try {
-                val testResult = withTimeoutOrNull(7000) {
+                val testResult = withTimeoutOrNull(5000) {
                     withContext(Dispatchers.IO) {
                         val smbClient = com.sza.fastmediasorter.network.SmbClient()
                         val connected = smbClient.connect(config.serverAddress, config.username, config.password)
@@ -326,13 +347,25 @@ preferenceManager.clearLastSession()
                         if (result.errorMessage != null) {
                             throw Exception(result.errorMessage)
                         }
+                        
+                        // For connection validation, warnings are OK - only errors should fail
+                        // result.warningMessage is informational only
+                        
+                        // Check write permissions
+                        val hasWritePermission = smbClient.checkWritePermission(config.serverAddress, config.folderPath)
+                        
+                        // Update write permission in database
+                        val database = com.sza.fastmediasorter.data.AppDatabase.getDatabase(this@MainActivity)
+                        database.connectionConfigDao().updateWritePermission(configId, hasWritePermission)
+                        
+                        hasWritePermission
                     }
                 }
                 
                 progressDialog.dismiss()
                 
                 if (testResult == null) {
-                    throw Exception("Connection timeout (7 seconds). Server or folder may be unreachable.")
+                    throw Exception("Connection timeout (5 seconds). Server or folder may be unreachable.")
                 }
                 
                 // Success - start sort activity

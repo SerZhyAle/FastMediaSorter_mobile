@@ -86,7 +86,6 @@ object MediaValidator {
      */
     private fun validateVideoFormat(smbFile: SmbFile, fileSize: Long, extension: String): ValidationResult {
         return when (extension) {
-            // Note: AVI format filtered at file discovery level (SmbClient) due to jCIFS-ng incompatibility
             "mp4", "m4v" -> validateMp4Header(smbFile, fileSize)
             "mkv" -> validateMkvHeader(smbFile, fileSize)
             "mov" -> validateMovHeader(smbFile, fileSize)

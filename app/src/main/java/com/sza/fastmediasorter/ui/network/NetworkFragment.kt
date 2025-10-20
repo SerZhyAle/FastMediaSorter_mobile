@@ -245,6 +245,9 @@ testConnection()
                 val isVideoEnabled = com.sza.fastmediasorter.utils.PreferenceManager(requireContext()).isVideoEnabled()
                 val maxVideoSizeMb = com.sza.fastmediasorter.utils.PreferenceManager(requireContext()).getMaxVideoSizeMb()
                 val result = smbClient.getImageFiles(resolvedServer, folder, isVideoEnabled, maxVideoSizeMb)
+                
+                // Check write permissions
+                val hasWritePermission = smbClient.checkWritePermission(resolvedServer, folder)
 
                 withContext(Dispatchers.Main) {
                     if (result.errorMessage != null) {
@@ -255,6 +258,10 @@ testConnection()
                             false
                         )
                     } else {
+                        // Check if this is a warning case (no media files)
+                        val isWarning = result.warningMessage != null
+                        val messageTitle = if (isWarning) "Test PASSED ⚠" else "Test PASSED ✓"
+                        
                         // Gather network info
                         val wifiInfo = try {
                             val wifiManager = requireContext().applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as android.net.wifi.WifiManager
@@ -290,7 +297,18 @@ testConnection()
                             it.lowercase().endsWith(".3gp")
                         }
                         
-                        val successMsg = "=== SMB CONNECTION TEST SUCCESS ===\n" +
+                        // Determine message type and title
+                        val totalMediaFiles = imageCount + videoCount
+                        val warningNote = if (result.warningMessage != null) {
+                            "⚠ WARNING: ${result.warningMessage}\n\n"
+                        } else if (totalMediaFiles == 0) {
+                            "⚠ Warning: Folder is accessible but contains no supported media files\n\n"
+                        } else {
+                            ""
+                        }
+                        
+                        val successMsg = warningNote +
+                        "=== SMB CONNECTION TEST SUCCESS ===\n" +
                         "Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n\n" +
                         "=== CONNECTION INFO ===\n" +
                         "Server Name: $server\n" +
@@ -305,13 +323,14 @@ testConnection()
                         "✓ SMB Connection: SUCCESS\n" +
                         "✓ Authentication: SUCCESS\n" +
                         "✓ Folder Access: SUCCESS\n" +
-                        "✓ Read Permissions: VERIFIED\n\n" +
+                        "✓ Read Permissions: VERIFIED\n" +
+                        "${if (hasWritePermission) "✓" else "✗"} Write Permissions: ${if (hasWritePermission) "GRANTED" else "DENIED"}\n\n" +
                         "=== MEDIA DISCOVERY ===\n" +
                         "Total Files: ${result.files.size}\n" +
                         "  • Images: $imageCount\n" +
                         "  • Videos: $videoCount${if (videoCount > 0) " (enabled)" else ""}\n" +
                         "Video Size Limit: $maxVideoSizeMb MB\n" +
-                        "First 5 files:\n${result.files.take(5).joinToString("\n") { "  - $it" }}\n\n" +
+                        "${if (result.files.isNotEmpty()) "First 5 files:\n${result.files.take(5).joinToString("\n") { "  - $it" }}" else "No media files found"}\n\n" +
                         "=== NETWORK INFO ===\n" +
                         "$wifiInfo\n\n" +
                         "=== DEVICE INFO ===\n" +
@@ -326,11 +345,11 @@ testConnection()
                         "✅ Connection test completed successfully!"
 
                         com.sza.fastmediasorter.ui.dialogs.DiagnosticDialog.show(
-            requireContext(),
-            "Test PASSED ✓",
-            successMsg,
-            true
-        )
+                            requireContext(),
+                            messageTitle,
+                            successMsg,
+                            true
+                        )
     }
 }
 } catch (e: Exception) {

@@ -44,6 +44,10 @@ class ConnectionRepository(private val dao: ConnectionConfigDao) {
         dao.updateLastUsed(id, System.currentTimeMillis())
     }
     
+    suspend fun updateConfigInterval(id: Long, interval: Int) {
+        dao.updateConfigInterval(id, interval)
+    }
+    
     // Sort destinations methods
     suspend fun addSortDestination(configId: Long, sortName: String) {
         // Validate that config is not a local folder

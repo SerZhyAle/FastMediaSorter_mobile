@@ -46,6 +46,7 @@ class PreferenceManager(context: Context) {
         private const val KEY_VIDEO_ENABLED = "video_enabled"
         private const val KEY_MAX_VIDEO_SIZE_MB = "max_video_size_mb"
         private const val KEY_SHOW_VIDEO_ERROR_DETAILS = "show_video_error_details"
+        private const val KEY_PLAY_VIDEO_TILL_END = "play_video_till_end"
         private const val KEY_LANGUAGE = "language"
     }
     
@@ -221,6 +222,13 @@ class PreferenceManager(context: Context) {
     
     fun setShowVideoErrorDetails(show: Boolean) {
         prefs.edit().putBoolean(KEY_SHOW_VIDEO_ERROR_DETAILS, show).apply()
+    }
+    
+    // Play video till the end during slideshow
+    fun isPlayVideoTillEnd(): Boolean = prefs.getBoolean(KEY_PLAY_VIDEO_TILL_END, false)
+    
+    fun setPlayVideoTillEnd(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_PLAY_VIDEO_TILL_END, enabled).apply()
     }
     
     // Language settings

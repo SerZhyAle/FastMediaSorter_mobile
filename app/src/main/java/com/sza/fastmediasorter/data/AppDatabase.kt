@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [ConnectionConfig::class], version = 4, exportSchema = true)
+@Database(entities = [ConnectionConfig::class], version = 5, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun connectionConfigDao(): ConnectionConfigDao
     
@@ -40,14 +40,25 @@ abstract class AppDatabase : RoomDatabase() {
         }
         
         /**
+         * Migration from version 4 to 5: Add write permission tracking
+         * - Added 'writePermission' column to track if folder allows write operations
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE connection_configs ADD COLUMN writePermission INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+        
+        /**
          * Returns all available migrations in order
          */
         private fun getAllMigrations(): Array<Migration> {
             return arrayOf(
                 MIGRATION_2_3,
-                MIGRATION_3_4
+                MIGRATION_3_4,
+                MIGRATION_4_5
                 // Add future migrations here:
-                // MIGRATION_4_5,
+                // MIGRATION_5_6,
                 // etc.
             )
         }
