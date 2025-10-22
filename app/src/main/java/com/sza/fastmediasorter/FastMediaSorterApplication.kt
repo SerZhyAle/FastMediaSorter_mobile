@@ -2,6 +2,7 @@ package com.sza.fastmediasorter
 
 import android.app.Application
 import android.content.res.Configuration
+import com.sza.fastmediasorter.utils.CrashHandler
 import com.sza.fastmediasorter.utils.Logger
 import com.sza.fastmediasorter.utils.PreferenceManager
 import org.bouncycastle.jce.provider.BouncyCastleProvider
@@ -17,6 +18,8 @@ class FastMediaSorterApplication : Application() {
     
     override fun onCreate() {
         super.onCreate()
+        
+        CrashHandler.init(this)
         
         Logger.d("Application", "Session started at: $sessionStartTime")
         
