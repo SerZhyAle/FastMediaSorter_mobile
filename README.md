@@ -139,8 +139,9 @@ To build the application from the source code, follow these steps:
 -   **Media**: ExoPlayer for video playback with custom SMB data source.
 -   **Image Loading**: Glide for efficient image loading and caching.
 -   **Validation**: Fast media header validation (<100ms) to detect corrupted files before loading.
+-   **Error Handling**: Global crash handler with detailed error dialogs and logging for troubleshooting.
 -   **Minimum SDK**: API 28 (Android 9.0)
--   **Target SDK**: API 34 (Android 14)
+-   **Target SDK**: API 35 (Android 15)
 
 ## License
 

@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.2.0] - 2025-10-22
+
+### Added
+- **API 35 Support**: Updated target SDK to Android 15 (API 35)
+  - Updated compileSdk and targetSdk to 35
+  - Ensured compatibility with latest Android security and performance optimizations
+- **Global Crash Handler**: Comprehensive error handling system
+  - Detailed crash dialogs with full stack traces
+  - Device information and timestamp logging
+  - Crash logs saved to file for troubleshooting
+  - Copy to clipboard functionality for easy error reporting
+  - Improved debugging on real devices
+
+### Enhanced
+- **Error Diagnostics**: Better error visibility for production builds
+- **Logging**: Persistent crash logs in app's external files directory
+- **User Experience**: Informative crash dialogs instead of silent failures
+
+### Technical
+- Added `CrashHandler.kt` for global exception handling
+- Integrated crash handler in `FastMediaSorterApplication`
+- Version code bumped to 5
+
 ## [1.1.0] - 2025-10-20
 
 ### Added
