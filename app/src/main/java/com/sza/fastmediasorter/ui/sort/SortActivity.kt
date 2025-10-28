@@ -343,6 +343,11 @@ class SortActivity : LocaleActivity() {
 
     
     private fun setupSortButtons() {
+        if (currentConfig == null) {
+            Logger.d("SortActivity", "setupSortButtons: currentConfig is null, skipping")
+            return
+        }
+        
         val copyButtons = listOf(
             binding.sortButton0, binding.sortButton1, binding.sortButton2,
             binding.sortButton3, binding.sortButton4, binding.sortButton5,
