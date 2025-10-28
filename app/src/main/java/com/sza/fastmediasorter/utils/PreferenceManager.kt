@@ -51,6 +51,7 @@ class PreferenceManager(context: Context) {
         private const val KEY_LANGUAGE = "language"
         private const val KEY_FIRST_LOCAL_SCAN_COMPLETED = "first_local_scan_completed"
         private const val KEY_RETURNED_FROM_WELCOME = "returned_from_welcome"
+        private const val KEY_USE_SMALL_BUTTONS = "use_small_buttons"
     }
     
     init {
@@ -261,4 +262,11 @@ class PreferenceManager(context: Context) {
     fun setReturnedFromWelcome(returned: Boolean) {
         prefs.edit().putBoolean(KEY_RETURNED_FROM_WELCOME, returned).apply()
     }
+    
+    // Use small buttons
+    fun setUseSmallButtons(useSmall: Boolean) {
+        prefs.edit().putBoolean(KEY_USE_SMALL_BUTTONS, useSmall).apply()
+    }
+    
+    fun isUseSmallButtons(): Boolean = prefs.getBoolean(KEY_USE_SMALL_BUTTONS, false)
 }

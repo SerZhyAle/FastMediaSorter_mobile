@@ -434,19 +434,24 @@ class SortActivity : LocaleActivity() {
         binding.noDestinationsWarning.visibility = if (totalDestinationsCount == 0 && allowDelete) View.VISIBLE else View.GONE
         Logger.d("SortActivity", "No destinations warning: ${if (totalDestinationsCount == 0 && allowDelete) "VISIBLE" else "GONE"} (totalDestinationsCount=$totalDestinationsCount)")
         
+        // Check if small buttons are enabled
+        val useSmallButtons = preferenceManager.isUseSmallButtons()
+        
         // Hide/show copy section (only if we have destinations)
         val showCopy = allowCopy && hasDestinations
         binding.copyToLabel.visibility = if (showCopy) View.VISIBLE else View.GONE
         binding.buttonsRow1.visibility = if (showCopy) View.VISIBLE else View.GONE
+        // Always show second row when copy is enabled (small buttons just change text size)
         binding.buttonsRow2.visibility = if (showCopy) View.VISIBLE else View.GONE
-        Logger.d("SortActivity", "📋 Copy section: ${if (showCopy) "VISIBLE" else "GONE"} (allowCopy=$allowCopy, hasDestinations=$hasDestinations)")
+        Logger.d("SortActivity", "📋 Copy section: ${if (showCopy) "VISIBLE" else "GONE"} (allowCopy=$allowCopy, hasDestinations=$hasDestinations, useSmallButtons=$useSmallButtons)")
         
         // Hide/show move section (only if we have destinations)
         val showMove = allowMove && hasDestinations
         binding.moveToLabel.visibility = if (showMove) View.VISIBLE else View.GONE
         binding.moveButtonsRow1.visibility = if (showMove) View.VISIBLE else View.GONE
+        // Always show second row when move is enabled (small buttons just change text size)
         binding.moveButtonsRow2.visibility = if (showMove) View.VISIBLE else View.GONE
-        Logger.d("SortActivity", "➡️ Move section: ${if (showMove) "VISIBLE" else "GONE"} (allowMove=$allowMove, hasDestinations=$hasDestinations, sourceHasWritePermission=$sourceHasWritePermission)")
+        Logger.d("SortActivity", "➡️ Move section: ${if (showMove) "VISIBLE" else "GONE"} (allowMove=$allowMove, hasDestinations=$hasDestinations, sourceHasWritePermission=$sourceHasWritePermission, useSmallButtons=$useSmallButtons)")
         
         // Hide/show delete button
         binding.deleteButton.visibility = if (allowDelete) View.VISIBLE else View.GONE
@@ -493,6 +498,14 @@ class SortActivity : LocaleActivity() {
                 copyButton.text = config.sortName
                 copyButton.setBackgroundColor(colors[index])
                 copyButton.setTextColor(android.graphics.Color.BLACK)
+                
+                // Adjust text size for small buttons
+                if (useSmallButtons) {
+                    copyButton.textSize = 10f  // Smaller text for small buttons
+                } else {
+                    copyButton.textSize = 14f  // Default text size
+                }
+                
                 copyButton.visibility = View.VISIBLE
                 copyButton.setOnClickListener {
                     copyToDestination(config)
@@ -502,12 +515,20 @@ class SortActivity : LocaleActivity() {
                 moveButton.text = config.sortName
                 moveButton.setBackgroundColor(colors[index])
                 moveButton.setTextColor(android.graphics.Color.BLACK)
+                
+                // Adjust text size for small buttons
+                if (useSmallButtons) {
+                    moveButton.textSize = 10f  // Smaller text for small buttons
+                } else {
+                    moveButton.textSize = 14f  // Default text size
+                }
+                
                 moveButton.visibility = View.VISIBLE
                 moveButton.setOnClickListener {
                     moveToDestination(config)
                 }
                 
-                Logger.d("SortActivity", "Configured button[$index]: sortName=${config.sortName}, type=${config.type}, name=${config.localDisplayName ?: config.name}")
+                Logger.d("SortActivity", "Configured button[$index]: sortName=${config.sortName}, type=${config.type}, name=${config.localDisplayName ?: config.name}, useSmallButtons=$useSmallButtons")
             }
         }
         Logger.d("SortActivity", "========== SETUP SORT BUTTONS END ==========")

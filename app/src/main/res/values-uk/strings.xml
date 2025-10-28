@@ -79,6 +79,7 @@
     <string name="allow_to_delete">Дозволити видалення</string>
     <string name="request_user_for_deletion">Запитувати підтвердження видалення</string>
     <string name="allow_renaming">Дозволити перейменування</string>
+    <string name="use_small_buttons">Використовувати маленькі кнопки</string>
     <string name="slideshow_settings">Налаштування слайд-шоу</string>
     <string name="show_controls">Показувати елементи керування</string>
     <string name="general_settings">Загальні налаштування</string>

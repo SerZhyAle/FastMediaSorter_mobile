@@ -79,6 +79,7 @@
     <string name="allow_to_delete">Allow to Delete</string>
     <string name="request_user_for_deletion">Request user for deletion</string>
     <string name="allow_renaming">Allow renaming</string>
+    <string name="use_small_buttons">Use small buttons</string>
     <string name="slideshow_settings">Slideshow Settings</string>
     <string name="show_controls">Show Controls</string>
     <string name="general_settings">General Settings</string>
