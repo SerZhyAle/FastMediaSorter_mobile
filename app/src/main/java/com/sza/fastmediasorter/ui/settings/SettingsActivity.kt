@@ -34,6 +34,7 @@ import com.sza.fastmediasorter.databinding.FragmentSettingsBinding
 import com.sza.fastmediasorter.ui.ConnectionViewModel
 import com.sza.fastmediasorter.ui.base.LocaleActivity
 import com.sza.fastmediasorter.ui.welcome.WelcomeActivity
+import com.sza.fastmediasorter.utils.Logger
 import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -42,60 +43,119 @@ import kotlinx.coroutines.withContext
 class SettingsActivity : LocaleActivity() {
     private lateinit var binding: ActivitySettingsBinding
     
+    companion object {
+        private const val TAG = "SettingsActivity"
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        binding = ActivitySettingsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        
-        supportActionBar?.hide()
-        
-        setupToolbar()
-        setupTabs()
-        
-        // Check for initial tab from intent
-        val initialTab = intent.getIntExtra("initialTab", 0)
-        if (initialTab in 0..2) {
-            binding.viewPager.setCurrentItem(initialTab, false)
+        Logger.d(TAG, "onCreate() called")
+        try {
+            super.onCreate(savedInstanceState)
+            Logger.d(TAG, "super.onCreate() completed")
+            
+            binding = ActivitySettingsBinding.inflate(layoutInflater)
+            Logger.d(TAG, "binding inflated")
+            
+            setContentView(binding.root)
+            Logger.d(TAG, "setContentView() completed")
+            
+            supportActionBar?.hide()
+            Logger.d(TAG, "actionBar hidden")
+            
+            setupToolbar()
+            Logger.d(TAG, "setupToolbar() completed")
+            
+            setupTabs()
+            Logger.d(TAG, "setupTabs() completed")
+            
+            // Check for initial tab from intent
+            val initialTab = intent.getIntExtra("initialTab", 0)
+            if (initialTab in 0..2) {
+                binding.viewPager.setCurrentItem(initialTab, false)
+                Logger.d(TAG, "initial tab set to $initialTab")
+            }
+            
+            Logger.d(TAG, "onCreate() completed successfully")
+        } catch (e: Exception) {
+            Logger.e(TAG, "onCreate() crashed", e)
+            throw e
         }
     }
     
     private fun setupToolbar() {
-        binding.backButton.setOnClickListener {
-            onBackPressed()
+        Logger.d(TAG, "setupToolbar() called")
+        try {
+            binding.backButton.setOnClickListener {
+                Logger.d(TAG, "back button clicked")
+                onBackPressed()
+            }
+            Logger.d(TAG, "setupToolbar() completed")
+        } catch (e: Exception) {
+            Logger.e(TAG, "setupToolbar() crashed", e)
+            throw e
         }
     }
     
     private fun setupTabs() {
-        val adapter = SettingsPagerAdapter(this)
-        binding.viewPager.adapter = adapter
-        
-        TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, position ->
-            tab.text = when (position) {
-                0 -> getString(R.string.tab_sort_to)
-                1 -> getString(R.string.tab_slideshow)
-                2 -> getString(R.string.tab_video)
-                3 -> getString(R.string.tab_settings)
-                else -> ""
-            }
-        }.attach()
+        Logger.d(TAG, "setupTabs() called")
+        try {
+            val adapter = SettingsPagerAdapter(this)
+            Logger.d(TAG, "adapter created")
+            
+            binding.viewPager.adapter = adapter
+            Logger.d(TAG, "adapter set to viewPager")
+            
+            TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, position ->
+                tab.text = when (position) {
+                    0 -> getString(R.string.tab_sort_to)
+                    1 -> getString(R.string.tab_slideshow)
+                    2 -> getString(R.string.tab_video)
+                    3 -> getString(R.string.tab_settings)
+                    else -> ""
+                }
+            }.attach()
+            Logger.d(TAG, "TabLayoutMediator attached")
+            
+            Logger.d(TAG, "setupTabs() completed")
+        } catch (e: Exception) {
+            Logger.e(TAG, "setupTabs() crashed", e)
+            throw e
+        }
     }
     
+    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        Logger.d(TAG, "onBackPressed() called")
         super.onBackPressed()
         finish()
     }
 }
 
 class SettingsPagerAdapter(activity: LocaleActivity) : FragmentStateAdapter(activity) {
-    override fun getItemCount(): Int = 4
+    companion object {
+        private const val TAG = "SettingsPagerAdapter"
+    }
+    
+    override fun getItemCount(): Int {
+        Logger.d(TAG, "getItemCount() called, returning 4")
+        return 4
+    }
     
     override fun createFragment(position: Int): Fragment {
-        return when (position) {
-            0 -> SortContainerFragment()
-            1 -> SlideshowHelpFragment()
-            2 -> VideoSettingsFragment()
-            3 -> SettingsFragment()
-            else -> SortContainerFragment()
+        Logger.d(TAG, "createFragment() called for position $position")
+        return try {
+            val fragment = when (position) {
+                0 -> SortContainerFragment()
+                1 -> SlideshowHelpFragment()
+                2 -> VideoSettingsFragment()
+                3 -> SettingsFragment()
+                else -> SortContainerFragment()
+            }
+            Logger.d(TAG, "createFragment() returning ${fragment.javaClass.simpleName}")
+            fragment
+        } catch (e: Exception) {
+            Logger.e(TAG, "createFragment() crashed for position $position", e)
+            throw e
         }
     }
 }
@@ -465,9 +525,14 @@ class SettingsFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var preferenceManager: PreferenceManager
     
+    companion object {
+        private const val TAG = "SettingsFragment"
+    }
+    
     private val requestPermissionLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { isGranted ->
+        Logger.d(TAG, "permission result: isGranted=$isGranted")
         updateMediaAccessButton()
         if (isGranted) {
             // Show restart dialog after granting permission
@@ -476,64 +541,99 @@ class SettingsFragment : Fragment() {
     }
     
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        _binding = FragmentSettingsBinding.inflate(inflater, container, false)
-        return binding.root
+        Logger.d(TAG, "onCreateView() called")
+        try {
+            _binding = FragmentSettingsBinding.inflate(inflater, container, false)
+            Logger.d(TAG, "binding inflated")
+            return binding.root
+        } catch (e: Exception) {
+            Logger.e(TAG, "onCreateView() crashed", e)
+            throw e
+        }
     }
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        
-        preferenceManager = PreferenceManager(requireContext())
-        
-        // Load default credentials
-        binding.defaultUsernameInput.setText(preferenceManager.getDefaultUsername())
-        binding.defaultPasswordInput.setText(preferenceManager.getDefaultPassword())
-        
-        // Load keep screen on setting
-        binding.keepScreenOnCheckbox.isChecked = preferenceManager.isKeepScreenOn()
-        
-        // Setup language spinner
-        setupLanguageSpinner()
-        
-        // Setup User Guide button
-        binding.userGuideButton.setOnClickListener {
-            val intent = Intent(requireContext(), WelcomeActivity::class.java)
-            intent.putExtra("isFirstLaunch", false)
-            startActivity(intent)
-        }
-        
-        // Setup View Logs button
-        binding.viewLogsButton.setOnClickListener {
-            showLogsDialog()
-        }
-        
-        // Setup View Session Logs button
-        binding.viewSessionLogsButton.setOnClickListener {
-            showSessionLogsDialog()
-        }
-        
-        // Setup media access button
-        updateMediaAccessButton()
-        binding.requestMediaAccessButton.setOnClickListener {
-            requestMediaPermission()
-        }
-        
-        // Save on focus loss
-        binding.defaultUsernameInput.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                saveDefaultUsername()
+        Logger.d(TAG, "onViewCreated() called")
+        try {
+            super.onViewCreated(view, savedInstanceState)
+            Logger.d(TAG, "super.onViewCreated() completed")
+            
+            preferenceManager = PreferenceManager(requireContext())
+            Logger.d(TAG, "PreferenceManager created")
+            
+            // Load default credentials
+            binding.defaultUsernameInput.setText(preferenceManager.getDefaultUsername())
+            Logger.d(TAG, "username loaded")
+            
+            binding.defaultPasswordInput.setText(preferenceManager.getDefaultPassword())
+            Logger.d(TAG, "password loaded")
+            
+            // Load keep screen on setting
+            binding.keepScreenOnCheckbox.isChecked = preferenceManager.isKeepScreenOn()
+            Logger.d(TAG, "keepScreenOn loaded")
+            
+            // Setup language spinner
+            setupLanguageSpinner()
+            Logger.d(TAG, "language spinner setup completed")
+            
+            // Setup User Guide button
+            binding.userGuideButton.setOnClickListener {
+                Logger.d(TAG, "userGuide button clicked")
+                val intent = Intent(requireContext(), WelcomeActivity::class.java)
+                intent.putExtra("isFirstLaunch", false)
+                startActivity(intent)
             }
-        }
-        
-        binding.defaultPasswordInput.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                saveDefaultPassword()
+            Logger.d(TAG, "userGuide button setup completed")
+            
+            // Setup View Logs button
+            binding.viewLogsButton.setOnClickListener {
+                Logger.d(TAG, "viewLogs button clicked")
+                showLogsDialog()
             }
-        }
-        
-        // Save keep screen on on change
-        binding.keepScreenOnCheckbox.setOnCheckedChangeListener { _, isChecked ->
-            preferenceManager.setKeepScreenOn(isChecked)
+            Logger.d(TAG, "viewLogs button setup completed")
+            
+            // Setup View Session Logs button
+            binding.viewSessionLogsButton.setOnClickListener {
+                Logger.d(TAG, "viewSessionLogs button clicked")
+                showSessionLogsDialog()
+            }
+            Logger.d(TAG, "viewSessionLogs button setup completed")
+            
+            // Setup media access button
+            updateMediaAccessButton()
+            Logger.d(TAG, "media access button updated")
+            
+            binding.requestMediaAccessButton.setOnClickListener {
+                Logger.d(TAG, "requestMediaAccess button clicked")
+                requestMediaPermission()
+            }
+            Logger.d(TAG, "requestMediaAccess button setup completed")
+            
+            // Save on focus loss
+            binding.defaultUsernameInput.setOnFocusChangeListener { _, hasFocus ->
+                if (!hasFocus) {
+                    saveDefaultUsername()
+                }
+            }
+            
+            binding.defaultPasswordInput.setOnFocusChangeListener { _, hasFocus ->
+                if (!hasFocus) {
+                    saveDefaultPassword()
+                }
+            }
+            Logger.d(TAG, "focus listeners setup completed")
+            
+            // Save keep screen on on change
+            binding.keepScreenOnCheckbox.setOnCheckedChangeListener { _, isChecked ->
+                Logger.d(TAG, "keepScreenOn changed to $isChecked")
+                preferenceManager.setKeepScreenOn(isChecked)
+            }
+            Logger.d(TAG, "keepScreenOn listener setup completed")
+            
+            Logger.d(TAG, "onViewCreated() completed successfully")
+        } catch (e: Exception) {
+            Logger.e(TAG, "onViewCreated() crashed", e)
+            throw e
         }
     }
     
