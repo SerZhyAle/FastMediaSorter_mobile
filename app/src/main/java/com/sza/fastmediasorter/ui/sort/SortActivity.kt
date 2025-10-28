@@ -1979,17 +1979,27 @@ class SortActivity : LocaleActivity() {
                 if (isLocalMode) {
                     val uri = Uri.parse(imageUrl)
                     
-                    // Use permission dialog for Android 11+
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        withContext(Dispatchers.Main) {
-                            binding.copyProgressLayout.visibility = View.GONE
-                        }
-                        deleteImageWithPermission(uri)
-                        // Dialog will be shown, actual deletion in callback
-                    } else {
-                        // Direct delete for Android 10 and below
+                    // Check if this is a SAF URI (user-selected folder) or MediaStore URI (standard folder)
+                    val isSafUri = imageUrl.startsWith("content://com.android.externalstorage.documents/")
+                    
+                    if (isSafUri) {
+                        // SAF URI - use direct delete (user already granted persistent permissions)
+                        Logger.d("SortActivity", "Direct delete for SAF URI: $imageUrl")
                         val deleted = localStorageClient?.deleteImage(uri) ?: false
                         handleDeleteResultLocal(deleted, imageUrl)
+                    } else {
+                        // MediaStore URI - use permission dialog for Android 11+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            withContext(Dispatchers.Main) {
+                                binding.copyProgressLayout.visibility = View.GONE
+                            }
+                            deleteImageWithPermission(uri)
+                            // Dialog will be shown, actual deletion in callback
+                        } else {
+                            // Direct delete for Android 10 and below
+                            val deleted = localStorageClient?.deleteImage(uri) ?: false
+                            handleDeleteResultLocal(deleted, imageUrl)
+                        }
                     }
                 } else {
                     // SMB delete
@@ -2157,20 +2167,32 @@ class SortActivity : LocaleActivity() {
                     // Local storage rename
                     val oldUri = Uri.parse(oldUrl)
                     
-                    // Use permission dialog for Android 11+
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        withContext(Dispatchers.Main) {
-                            binding.copyProgressLayout.visibility = View.GONE
-                        }
-                        renameWithPermission(oldUri, newFileName)
-                        // Dialog will be shown, actual rename in callback
-                        return@launch
-                    } else {
-                        // Direct rename for Android 10 and below
+                    // Check if this is a SAF URI (user-selected folder) or MediaStore URI (standard folder)
+                    val isSafUri = oldUrl.startsWith("content://com.android.externalstorage.documents/")
+                    
+                    if (isSafUri) {
+                        // SAF URI - use direct rename (user already granted persistent permissions)
+                        Logger.d("SortActivity", "Direct rename for SAF URI: $oldUrl")
                         val result = localStorageClient?.renameFile(oldUri, newFileName)
                         success = result?.first ?: false
                         newUrl = result?.second ?: oldUrl
                         handleRenameResultLocal(success, newUrl, oldUrl)
+                    } else {
+                        // MediaStore URI - use permission dialog for Android 11+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            withContext(Dispatchers.Main) {
+                                binding.copyProgressLayout.visibility = View.GONE
+                            }
+                            renameWithPermission(oldUri, newFileName)
+                            // Dialog will be shown, actual rename in callback
+                            return@launch
+                        } else {
+                            // Direct rename for Android 10 and below
+                            val result = localStorageClient?.renameFile(oldUri, newFileName)
+                            success = result?.first ?: false
+                            newUrl = result?.second ?: oldUrl
+                            handleRenameResultLocal(success, newUrl, oldUrl)
+                        }
                     }
                 } else {
                     // SMB rename
