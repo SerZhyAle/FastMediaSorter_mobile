@@ -206,21 +206,25 @@ class SortActivity : LocaleActivity() {
         exoPlayer = ExoPlayer.Builder(this).build()
         binding.playerView.player = exoPlayer
         
-        // Configure player view for better control positioning
-        binding.playerView.useController = true
+        // Configure player view for sorting mode - no controls
+        binding.playerView.useController = false
         binding.playerView.controllerAutoShow = false
         binding.playerView.controllerHideOnTouch = false
         
         exoPlayer?.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
+                Logger.d("SortActivity", "Video playback state changed: $playbackState")
                 when (playbackState) {
                     Player.STATE_BUFFERING -> {
+                        Logger.d("SortActivity", "Video buffering")
                         binding.videoLoadingLayout.visibility = View.VISIBLE
                     }
                     Player.STATE_READY -> {
+                        Logger.d("SortActivity", "Video ready")
                         binding.videoLoadingLayout.visibility = View.GONE
                     }
                     Player.STATE_ENDED -> {
+                        Logger.d("SortActivity", "Video ended")
                         binding.videoLoadingLayout.visibility = View.GONE
                         
                         // Auto-advance to next file if "Play video till end" is enabled (slideshow mode)
@@ -238,6 +242,7 @@ class SortActivity : LocaleActivity() {
             }
             
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                Logger.d("SortActivity", "Video player error: ${error.message}")
                 binding.videoLoadingLayout.visibility = View.GONE
                 
                 // Log error consistently
@@ -1595,6 +1600,7 @@ class SortActivity : LocaleActivity() {
         
         // Determine if current media is video
         isCurrentMediaVideo = MediaUtils.isVideo(mediaUrl)
+        Logger.d("SortActivity", "loadMedia() - mediaUrl: $mediaUrl, isVideo: $isCurrentMediaVideo")
         
         // Show/hide appropriate view
         if (isCurrentMediaVideo) {
@@ -1870,6 +1876,7 @@ class SortActivity : LocaleActivity() {
     }
     
     private fun loadVideo(videoUrl: String) {
+        Logger.d("SortActivity", "loadVideo() - Starting video playback for: $videoUrl")
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val fileName = videoUrl.substringAfterLast('/')
