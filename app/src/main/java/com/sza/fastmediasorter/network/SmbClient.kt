@@ -17,14 +17,14 @@ class SmbClient {
     
     private fun buildFullDiagnostic(e: Exception?, serverAddress: String, folderPath: String): String {
         val diagnostic = StringBuilder()
-        
+
         // Header
         diagnostic.append("=== SMB CONNECTION TEST DIAGNOSTIC ===\n")
         diagnostic.append("Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n")
         diagnostic.append("Server: $serverAddress\n")
         diagnostic.append("Folder: $folderPath\n\n")
-        
-        // Error information
+
+        // Error information with specific SMB error analysis
         if (e != null) {
             diagnostic.append("=== ERROR DETAILS ===\n")
             diagnostic.append("Exception: ${e.javaClass.simpleName}\n")
@@ -33,22 +33,148 @@ class SmbClient {
             if (e.cause != null) {
                 diagnostic.append("Cause Message: ${e.cause?.message ?: "No message"}\n")
             }
+
+            // Specific SMB error analysis
+            if (e is jcifs.smb.SmbException) {
+                diagnostic.append("\n=== SMB ERROR ANALYSIS ===\n")
+
+                val errorMessage = e.message ?: ""
+                val ntStatus = e.ntStatus // NT status code if available
+
+                // Analyze NT status codes
+                when (ntStatus) {
+                    -1073741790 -> { // STATUS_ACCESS_DENIED (0xC0000022)
+                        diagnostic.append("NT Status: 0xC0000022 (STATUS_ACCESS_DENIED)\n")
+                        diagnostic.append("Diagnosis: Access denied - insufficient permissions\n")
+                        diagnostic.append("Solutions:\n")
+                        diagnostic.append("• Check username/password\n")
+                        diagnostic.append("• Verify folder permissions on server\n")
+                        diagnostic.append("• Ensure share permissions allow access\n")
+                        diagnostic.append("• Try different credentials\n")
+                    }
+                    -1073741788 -> { // STATUS_OBJECT_NAME_NOT_FOUND (0xC0000034)
+                        diagnostic.append("NT Status: 0xC0000034 (STATUS_OBJECT_NAME_NOT_FOUND)\n")
+                        diagnostic.append("Diagnosis: Path or share not found\n")
+                        diagnostic.append("Solutions:\n")
+                        diagnostic.append("• Verify server address is correct\n")
+                        diagnostic.append("• Check share name spelling\n")
+                        diagnostic.append("• Ensure share is enabled on server\n")
+                        diagnostic.append("• Try accessing share from another device\n")
+                    }
+                    -1073741782 -> { // STATUS_OBJECT_PATH_NOT_FOUND (0xC000003A)
+                        diagnostic.append("NT Status: 0xC000003A (STATUS_OBJECT_PATH_NOT_FOUND)\n")
+                        diagnostic.append("Diagnosis: Folder path within share not found\n")
+                        diagnostic.append("Solutions:\n")
+                        diagnostic.append("• Check folder path spelling\n")
+                        diagnostic.append("• Verify folder exists on server\n")
+                        diagnostic.append("• Ensure path separators are correct (/ not \\)\n")
+                    }
+                    -1073741724 -> { // STATUS_ACCOUNT_LOCKED_OUT (0xC000023C)
+                        diagnostic.append("NT Status: 0xC000023C (STATUS_ACCOUNT_LOCKED_OUT)\n")
+                        diagnostic.append("Diagnosis: User account is locked\n")
+                        diagnostic.append("Solutions:\n")
+                        diagnostic.append("• Unlock account on server\n")
+                        diagnostic.append("• Wait for automatic unlock or contact administrator\n")
+                        diagnostic.append("• Try different user account\n")
+                    }
+                    -1073741715 -> { // STATUS_LOGON_FAILURE (0xC000006D)
+                        diagnostic.append("NT Status: 0xC000006D (STATUS_LOGON_FAILURE)\n")
+                        diagnostic.append("Diagnosis: Invalid username or password\n")
+                        diagnostic.append("Solutions:\n")
+                        diagnostic.append("• Verify username and password\n")
+                        diagnostic.append("• Check if Caps Lock is on\n")
+                        diagnostic.append("• Try domain\\username format if using domain\n")
+                        diagnostic.append("• Ensure account is not disabled\n")
+                    }
+                    -1073741714 -> { // STATUS_ACCOUNT_RESTRICTION (0xC000006E)
+                        diagnostic.append("NT Status: 0xC000006E (STATUS_ACCOUNT_RESTRICTION)\n")
+                        diagnostic.append("Diagnosis: Account restrictions prevent login\n")
+                        diagnostic.append("Solutions:\n")
+                        diagnostic.append("• Check account login hours\n")
+                        diagnostic.append("• Verify account is allowed to login from this location\n")
+                        diagnostic.append("• Contact server administrator\n")
+                    }
+                    -1073741711 -> { // STATUS_PASSWORD_EXPIRED (0xC0000071)
+                        diagnostic.append("NT Status: 0xC0000071 (STATUS_PASSWORD_EXPIRED)\n")
+                        diagnostic.append("Diagnosis: Password has expired\n")
+                        diagnostic.append("Solutions:\n")
+                        diagnostic.append("• Change password on server\n")
+                        diagnostic.append("• Contact server administrator\n")
+                    }
+                    -1073741485 -> { // STATUS_TIME_DIFFERENCE_AT_DC (0xC0000133)
+                        diagnostic.append("NT Status: 0xC0000133 (STATUS_TIME_DIFFERENCE_AT_DC)\n")
+                        diagnostic.append("Diagnosis: Time difference between devices too large\n")
+                        diagnostic.append("Solutions:\n")
+                        diagnostic.append("• Sync time on Android device\n")
+                        diagnostic.append("• Sync time on server\n")
+                        diagnostic.append("• Check timezone settings\n")
+                    }
+                    else -> {
+                        if (ntStatus != 0) {
+                            diagnostic.append("NT Status: 0x${ntStatus.toString(16).uppercase()} (Unknown)\n")
+                        }
+                        diagnostic.append("Diagnosis: Unspecified SMB error\n")
+                    }
+                }
+
+                // Additional analysis based on error message content
+                when {
+                    errorMessage.contains("Access is denied", ignoreCase = true) -> {
+                        diagnostic.append("\nAdditional Analysis: Access denied detected\n")
+                        diagnostic.append("Common causes:\n")
+                        diagnostic.append("• Insufficient share permissions\n")
+                        diagnostic.append("• NTFS permissions too restrictive\n")
+                        diagnostic.append("• Guest access disabled\n")
+                    }
+                    errorMessage.contains("network name cannot be found", ignoreCase = true) ||
+                    errorMessage.contains("network path was not found", ignoreCase = true) -> {
+                        diagnostic.append("\nAdditional Analysis: Network path not found\n")
+                        diagnostic.append("Common causes:\n")
+                        diagnostic.append("• Server name/IP incorrect\n")
+                        diagnostic.append("• Server not running\n")
+                        diagnostic.append("• Firewall blocking SMB\n")
+                        diagnostic.append("• DNS resolution failure\n")
+                    }
+                    errorMessage.contains("timed out", ignoreCase = true) -> {
+                        diagnostic.append("\nAdditional Analysis: Connection timeout\n")
+                        diagnostic.append("Common causes:\n")
+                        diagnostic.append("• Network connectivity issues\n")
+                        diagnostic.append("• Server overloaded or unresponsive\n")
+                        diagnostic.append("• Firewall blocking connection\n")
+                        diagnostic.append("• VPN interfering with connection\n")
+                    }
+                    errorMessage.contains("Connection refused", ignoreCase = true) -> {
+                        diagnostic.append("\nAdditional Analysis: Connection refused\n")
+                        diagnostic.append("Common causes:\n")
+                        diagnostic.append("• SMB service not running on server\n")
+                        diagnostic.append("• Port 445 blocked by firewall\n")
+                        diagnostic.append("• Server rejecting connections\n")
+                    }
+                    errorMessage.contains("algorithm", ignoreCase = true) ||
+                    errorMessage.contains("MD4", ignoreCase = true) ||
+                    errorMessage.contains("provider", ignoreCase = true) -> {
+                        diagnostic.append("\nAdditional Analysis: Security/Algorithm error\n")
+                        diagnostic.append("This indicates MD4 or cryptographic provider issues\n")
+                    }
+                }
+            }
+
             diagnostic.append("\n")
         }
-        
+
         // Security providers diagnostic
         diagnostic.append("=== SECURITY PROVIDERS ===\n")
         try {
             val providers = java.security.Security.getProviders()
             diagnostic.append("Total Providers: ${providers.size}\n\n")
-            
+
             providers.forEachIndexed { index, provider ->
                 diagnostic.append("${index + 1}. ${provider.name}\n")
                 diagnostic.append("   Version: ${provider.version}\n")
                 diagnostic.append("   Info: ${provider.info}\n")
                 diagnostic.append("   Class: ${provider.javaClass.name}\n\n")
             }
-            
+
             // BC Provider specific check
             val bcProvider = java.security.Security.getProvider("BC")
             diagnostic.append("=== BOUNCYCASTLE PROVIDER CHECK ===\n")
@@ -57,7 +183,7 @@ class SmbClient {
                 diagnostic.append("  Name: ${bcProvider.name}\n")
                 diagnostic.append("  Version: ${bcProvider.version}\n")
                 diagnostic.append("  Class: ${bcProvider.javaClass.name}\n\n")
-                
+
                 // Test MD4 algorithm
                 diagnostic.append("=== MD4 ALGORITHM TEST ===\n")
                 try {
@@ -69,39 +195,50 @@ class SmbClient {
                     diagnostic.append("✗ MD4 Algorithm: FAILED\n")
                     diagnostic.append("  Error: ${md4e.javaClass.simpleName}\n")
                     diagnostic.append("  Message: ${md4e.message}\n")
+                    diagnostic.append("  This is likely the cause of authentication errors!\n")
                 }
             } else {
                 diagnostic.append("✗ BouncyCastle Provider: NOT FOUND\n")
                 diagnostic.append("  This is likely the cause of MD4 errors!\n")
+                diagnostic.append("  Solutions:\n")
+                diagnostic.append("  • Ensure BouncyCastle library is included\n")
+                diagnostic.append("  • Check proguard rules don't remove BC provider\n")
+                diagnostic.append("  • Verify library version compatibility\n")
             }
             diagnostic.append("\n")
-            
+
         } catch (provEx: Exception) {
             diagnostic.append("Error checking security providers: ${provEx.message}\n\n")
         }
-        
+
         // System information
         diagnostic.append("=== SYSTEM INFORMATION ===\n")
         diagnostic.append("Android Version: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n")
         diagnostic.append("Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n")
         diagnostic.append("JVM: ${System.getProperty("java.vm.name")} ${System.getProperty("java.vm.version")}\n")
         diagnostic.append("Java Version: ${System.getProperty("java.version")}\n\n")
-        
+
         // Network information
         diagnostic.append("=== NETWORK CONFIGURATION ===\n")
         try {
             val connectivityManager = android.content.Context.CONNECTIVITY_SERVICE
             diagnostic.append("WiFi Status: Available\n") // Basic check
+            diagnostic.append("Network Recommendations:\n")
+            diagnostic.append("• Ensure same WiFi network as server\n")
+            diagnostic.append("• Check firewall settings (ports 445, 139)\n")
+            diagnostic.append("• Verify VPN is not interfering\n")
+            diagnostic.append("• Test ping to server IP\n")
         } catch (netEx: Exception) {
             diagnostic.append("Network check failed: ${netEx.message}\n")
         }
-        
+        diagnostic.append("\n")
+
         // Stack trace for errors
         if (e != null) {
-            diagnostic.append("\n=== FULL STACK TRACE ===\n")
+            diagnostic.append("=== FULL STACK TRACE ===\n")
             diagnostic.append(android.util.Log.getStackTraceString(e))
         }
-        
+
         return diagnostic.toString()
     }
     
@@ -374,25 +511,55 @@ class SmbClient {
                 Logger.e("SmbClient", "SmbAuthException", e)
                 ImageFilesResult(emptyList(), diagnostic)
             } catch (e: jcifs.smb.SmbException) {
-                val msg = when {
-                    e.message?.contains("Access is denied", ignoreCase = true) == true ->
-                        "Access denied to: smb://$serverAddress/$folderPath/\n\nCheck:\n• Username/password correct?\n• Folder permissions?\n• Share enabled?"
-                    e.message?.contains("does not exist", ignoreCase = true) == true ->
-                        "Folder not found: smb://$serverAddress/$folderPath/\n\nCheck:\n• Folder path correct?\n• Share name correct?"
-                    e.message?.contains("timed out", ignoreCase = true) == true ->
-                        "Connection timeout\n\nCheck:\n• Server reachable?\n• Firewall blocking SMB?\n• Same network?"
-                    e.message?.contains("Connection refused", ignoreCase = true) == true ->
-                        "Connection refused\n\nCheck:\n• SMB enabled on server?\n• Firewall settings?\n• Port 445 open?"
-                    e.message?.contains("algorithm", ignoreCase = true) == true ||
-                    e.message?.contains("MD4", ignoreCase = true) == true ||
-                    e.message?.contains("provider", ignoreCase = true) == true -> {
-                        val diagnostic = buildFullDiagnostic(e, serverAddress, folderPath)
-                        "SECURITY ERROR (likely MD4 issue):\n\n$diagnostic"
+                val errorMessage = e.message ?: "Unknown SMB error"
+                val ntStatus = e.ntStatus
+
+                val msg = when (ntStatus) {
+                    -1073741790 -> // STATUS_ACCESS_DENIED (0xC0000022)
+                        "Access denied to: smb://$serverAddress/$folderPath/\n\nThis usually means:\n• Username/password is incorrect\n• Account has insufficient permissions\n• Share permissions are too restrictive\n\nTry:\n• Double-check credentials\n• Use different user account\n• Contact server administrator"
+                    -1073741788 -> // STATUS_OBJECT_NAME_NOT_FOUND (0xC0000034)
+                        "Share not found: smb://$serverAddress/$folderPath/\n\nThis usually means:\n• Share name is misspelled\n• Share is not enabled on server\n• Server address is incorrect\n\nTry:\n• Check share name in server settings\n• Access share from another device first\n• Verify server IP/name"
+                    -1073741782 -> // STATUS_OBJECT_PATH_NOT_FOUND (0xC000003A)
+                        "Folder not found: smb://$serverAddress/$folderPath/\n\nThis usually means:\n• Folder path is incorrect\n• Folder doesn't exist on server\n• Path separators are wrong\n\nTry:\n• Check folder exists on server\n• Use forward slashes (/) not backslashes (\\)\n• Verify path from share root"
+                    -1073741724 -> // STATUS_ACCOUNT_LOCKED_OUT (0xC000023C)
+                        "Account locked: The user account is locked out\n\nThis usually means:\n• Too many failed login attempts\n• Account policy locked the account\n\nTry:\n• Wait for automatic unlock\n• Contact server administrator\n• Use different account"
+                    -1073741715 -> // STATUS_LOGON_FAILURE (0xC000006D)
+                        "Authentication failed: Invalid username or password\n\nThis usually means:\n• Username/password is wrong\n• Caps Lock might be on\n• Domain name missing (try DOMAIN\\username)\n\nTry:\n• Verify credentials carefully\n• Try domain\\username format\n• Reset password if expired"
+                    -1073741714 -> // STATUS_ACCOUNT_RESTRICTION (0xC000006E)
+                        "Account restrictions: Login not allowed\n\nThis usually means:\n• Account has login time restrictions\n• Account disabled for remote access\n• Account restricted to certain computers\n\nTry:\n• Check account login hours\n• Contact server administrator\n• Use different account"
+                    -1073741711 -> // STATUS_PASSWORD_EXPIRED (0xC0000071)
+                        "Password expired: Password needs to be changed\n\nThis usually means:\n• Password expired per policy\n• Account requires password change\n\nTry:\n• Change password on server\n• Contact server administrator"
+                    -1073741485 -> // STATUS_TIME_DIFFERENCE_AT_DC (0xC0000133)
+                        "Time synchronization error: Device time differs too much\n\nThis usually means:\n• Android device time is wrong\n• Server time is wrong\n• Timezone difference too large\n\nTry:\n• Sync Android time automatically\n• Check server time settings\n• Adjust timezone if needed"
+                    else -> when {
+                        errorMessage.contains("Access is denied", ignoreCase = true) ->
+                            "Access denied to: smb://$serverAddress/$folderPath/\n\nCheck:\n• Username/password correct?\n• Folder permissions?\n• Share enabled?\n• Try different credentials"
+                        errorMessage.contains("does not exist", ignoreCase = true) ->
+                            "Path not found: smb://$serverAddress/$folderPath/\n\nCheck:\n• Folder path correct?\n• Share name correct?\n• Server running?"
+                        errorMessage.contains("timed out", ignoreCase = true) ->
+                            "Connection timeout\n\nCheck:\n• Server reachable?\n• Firewall blocking SMB?\n• Same network?\n• Try different network"
+                        errorMessage.contains("Connection refused", ignoreCase = true) ->
+                            "Connection refused\n\nCheck:\n• SMB enabled on server?\n• Firewall settings?\n• Port 445 open?\n• Server accepting connections?"
+                        errorMessage.contains("algorithm", ignoreCase = true) ||
+                        errorMessage.contains("MD4", ignoreCase = true) ||
+                        errorMessage.contains("provider", ignoreCase = true) -> {
+                            val diagnostic = buildFullDiagnostic(e, serverAddress, folderPath)
+                            "SECURITY ERROR (MD4/Algorithm issue):\n\n$diagnostic"
+                        }
+                        errorMessage.contains("network name cannot be found", ignoreCase = true) ||
+                        errorMessage.contains("network path was not found", ignoreCase = true) ->
+                            "Network path not found\n\nCheck:\n• Server name/IP correct?\n• Server powered on?\n• Same WiFi network?\n• Firewall blocking SMB?"
+                        errorMessage.contains("bad network name", ignoreCase = true) ->
+                            "Bad network name\n\nCheck:\n• Server address format?\n• DNS resolution working?\n• Try IP address instead of name?"
+                        errorMessage.contains("logon failure", ignoreCase = true) ->
+                            "Logon failure\n\nCheck:\n• Username format (DOMAIN\\user)?\n• Password correct?\n• Account active?\n• Try different credentials"
+                        else -> {
+                            val diagnostic = buildFullDiagnostic(e, serverAddress, folderPath)
+                            "SMB Error: ${errorMessage}\n\nDetailed diagnostic:\n$diagnostic"
+                        }
                     }
-                    else ->
-                        "SMB Error: ${e.message ?: "Unknown error"}\n\nFull error details logged"
                 }
-                Logger.e("SmbClient", "SmbException details: ${e.message}", e)
+                Logger.e("SmbClient", "SmbException details: ${e.message} (NT Status: 0x${ntStatus.toString(16).uppercase()})", e)
                 e.printStackTrace()
                 ImageFilesResult(emptyList(), msg)
             } catch (e: java.net.SocketTimeoutException) {
