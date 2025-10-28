@@ -15,6 +15,7 @@ import com.sza.fastmediasorter.ui.base.LocaleActivity
 import com.sza.fastmediasorter.ui.network.NetworkFragment
 import com.sza.fastmediasorter.ui.slideshow.SlideshowActivity
 import com.sza.fastmediasorter.ui.welcome.WelcomeActivity
+import com.sza.fastmediasorter.utils.ErrorDialogHelper
 import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -285,11 +286,11 @@ preferenceManager.clearLastSession()
                 
             } catch (e: Exception) {
                 progressDialog.dismiss()
-                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Connection Failed")
-                    .setMessage("Cannot connect to folder:\n\n${e.message}")
-                    .setPositiveButton("OK", null)
-                    .show()
+                ErrorDialogHelper.showErrorWithCopy(
+                    this@MainActivity,
+                    "Connection Failed",
+                    "Cannot connect to folder:\n\n${e.message}"
+                )
             }
         }
     }
@@ -352,11 +353,11 @@ preferenceManager.clearLastSession()
                 
             } catch (e: Exception) {
                 progressDialog.dismiss()
-                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Connection Failed")
-                    .setMessage("Cannot connect to folder:\n\n${e.message}")
-                    .setPositiveButton("OK", null)
-                    .show()
+                ErrorDialogHelper.showErrorWithCopy(
+                    this@MainActivity,
+                    "Connection Failed",
+                    "Cannot connect to folder:\n\n${e.message}"
+                )
             }
         }
     }private fun setupClickListeners() {

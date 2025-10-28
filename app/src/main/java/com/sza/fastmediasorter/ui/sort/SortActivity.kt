@@ -1,6 +1,7 @@
 package com.sza.fastmediasorter.ui.sort
 
 import android.app.Activity
+import android.content.Context
 import android.content.IntentSender
 import android.net.Uri
 import android.os.Build
@@ -1203,12 +1204,13 @@ class SortActivity : LocaleActivity() {
                         val result = smbClient.getImageFiles(config.serverAddress, config.folderPath, isVideoEnabled, maxVideoSizeMb)
                         if (result.errorMessage != null) {
                             withContext(Dispatchers.Main) {
-                                androidx.appcompat.app.AlertDialog.Builder(this@SortActivity)
-                                    .setTitle("Connection Error")
-                                    .setMessage(result.errorMessage)
-                                    .setPositiveButton("OK") { _, _ -> finish() }
-                                    .setCancelable(false)
-                                    .show()
+                                com.sza.fastmediasorter.utils.ErrorDialogHelper.showErrorWithCopy(
+                                    this@SortActivity,
+                                    "Connection Error",
+                                    result.errorMessage
+                                ) {
+                                    finish()
+                                }
                             }
                             return@launch
                         }
@@ -2567,6 +2569,14 @@ class SortActivity : LocaleActivity() {
             .setTitle("Error Log (${errorLog.size} entries)")
             .setView(scrollView)
             .setPositiveButton("Close") { dialog, _ ->
+                consecutiveErrors = 0
+                dialog.dismiss()
+            }
+            .setNeutralButton("Copy") { dialog, _ ->
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = android.content.ClipData.newPlainText("Error Log", fullLog)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(this, "Error log copied to clipboard", Toast.LENGTH_SHORT).show()
                 consecutiveErrors = 0
                 dialog.dismiss()
             }

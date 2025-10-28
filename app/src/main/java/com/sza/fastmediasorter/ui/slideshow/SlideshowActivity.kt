@@ -1,5 +1,6 @@
 package com.sza.fastmediasorter.ui.slideshow
 
+import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -1712,6 +1713,14 @@ class SlideshowActivity : LocaleActivity() {
             .setTitle("Error Log (${errorLog.size} entries)")
             .setView(scrollView)
             .setPositiveButton("Close") { dialog, _ ->
+                consecutiveErrors = 0
+                dialog.dismiss()
+            }
+            .setNeutralButton("Copy") { dialog, _ ->
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = android.content.ClipData.newPlainText("Error Log", fullLog)
+                clipboard.setPrimaryClip(clip)
+                android.widget.Toast.makeText(this, "Error log copied to clipboard", android.widget.Toast.LENGTH_SHORT).show()
                 consecutiveErrors = 0
                 dialog.dismiss()
             }
