@@ -220,10 +220,11 @@ MediaStore.Images.Media._ID,
 MediaStore.Images.Media.DISPLAY_NAME,
 MediaStore.Images.Media.SIZE,
 MediaStore.Images.Media.DATE_MODIFIED,
-MediaStore.Images.Media.BUCKET_DISPLAY_NAME
+MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
+MediaStore.Images.Media.DATA
 )
-val selection = "${MediaStore.Images.Media.BUCKET_DISPLAY_NAME} = ?"
-val selectionArgs = arrayOf(bucketName)
+val selection = "${MediaStore.Images.Media.DATA} LIKE ?"
+val selectionArgs = arrayOf("%/$bucketName/%")
 val sortOrder = "${MediaStore.Images.Media.DISPLAY_NAME} ASC"
 
 var imageCount = 0
@@ -275,7 +276,8 @@ MediaStore.Video.Media._ID,
 MediaStore.Video.Media.DISPLAY_NAME,
 MediaStore.Video.Media.SIZE,
 MediaStore.Video.Media.DATE_MODIFIED,
-MediaStore.Video.Media.BUCKET_DISPLAY_NAME
+MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+MediaStore.Video.Media.DATA
 )
 try {
 context.contentResolver.query(

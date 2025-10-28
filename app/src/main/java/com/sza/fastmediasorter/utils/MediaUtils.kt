@@ -5,12 +5,30 @@ object MediaUtils {
     private val VIDEO_EXTENSIONS = setOf("mp4", "mkv", "mov", "webm", "3gp")
     
     fun isImage(filename: String): Boolean {
-        val extension = filename.substringAfterLast('.', "").lowercase()
+        // Handle Android content URIs by extracting filename from URI
+        val fileName = if (filename.startsWith("content://")) {
+            // For content URIs, extract the display name from the URI
+            filename.substringAfterLast('/', "").substringAfterLast("%2F", "")
+        } else {
+            // For regular file paths, use the filename as-is
+            filename.substringAfterLast('/')
+        }
+        
+        val extension = fileName.substringAfterLast('.', "").lowercase()
         return extension in IMAGE_EXTENSIONS
     }
     
     fun isVideo(filename: String): Boolean {
-        val extension = filename.substringAfterLast('.', "").lowercase()
+        // Handle Android content URIs by extracting filename from URI
+        val fileName = if (filename.startsWith("content://")) {
+            // For content URIs, extract the display name from the URI
+            filename.substringAfterLast('/', "").substringAfterLast("%2F", "")
+        } else {
+            // For regular file paths, use the filename as-is
+            filename.substringAfterLast('/')
+        }
+        
+        val extension = fileName.substringAfterLast('.', "").lowercase()
         return extension in VIDEO_EXTENSIONS
     }
     

@@ -318,6 +318,8 @@ preferenceManager.clearLastSession()
             }
         }
         val intent = Intent(this, SlideshowActivity::class.java)
+        intent.putExtra("configId", config.id)
+        intent.putExtra("connectionType", if (config.type == "SMB") "SMB" else "LOCAL")
         startActivity(intent)
     }
     
@@ -380,6 +382,8 @@ preferenceManager.clearLastSession()
                 }
                 
                 val intent = Intent(this@MainActivity, SlideshowActivity::class.java)
+                intent.putExtra("configId", config.id)
+                intent.putExtra("connectionType", if (config.type == "SMB") "SMB" else "LOCAL")
                 startActivity(intent)
                 
             } catch (e: Exception) {

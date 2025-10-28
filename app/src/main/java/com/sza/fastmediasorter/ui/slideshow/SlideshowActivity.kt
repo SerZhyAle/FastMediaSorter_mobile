@@ -108,7 +108,15 @@ class SlideshowActivity : LocaleActivity() {
         
         imageRepository = ImageRepository(SmbClient(), preferenceManager)
         
-        isLocalMode = preferenceManager.getConnectionType() == "LOCAL"
+        // Get configId from intent, like SortActivity does
+        val configId = intent.getLongExtra("configId", -1)
+        Logger.d(TAG, "SlideshowActivity onCreate - configId: $configId")
+        
+        // Determine connection type and local mode
+        val connectionType = intent.getStringExtra("connectionType") ?: "LOCAL"
+        isLocalMode = connectionType == "LOCAL"
+        Logger.d(TAG, "SlideshowActivity onCreate - connectionType: '$connectionType', isLocalMode: $isLocalMode")
+        
         if (isLocalMode) {
             localStorageClient = LocalStorageClient(this)
         }
@@ -123,12 +131,12 @@ class SlideshowActivity : LocaleActivity() {
                 images = imagesList
                 startSlideshow()
             } else {
-                loadImages()
+                loadImages(configId)
             }
         } else {
             // Try to restore last session index
             currentIndex = preferenceManager.getLastImageIndex()
-            loadImages()
+            loadImages(configId)
         }
     }
     
@@ -657,12 +665,13 @@ class SlideshowActivity : LocaleActivity() {
         Logger.d(TAG, "<<< skipToNextImage() END")
     }
     
-    private fun loadImages() {
+    private fun loadImages(configId: Long = -1L) {
+        Logger.d(TAG, "loadImages() called with configId: $configId")
         binding.progressBar.visibility = View.VISIBLE
         
         lifecycleScope.launch {
             // Load saved position for current connection
-            currentConfigId = loadCurrentConfigId()
+            currentConfigId = if (configId != -1L) configId else loadCurrentConfigId()
             currentInterval = preferenceManager.getInterval()
             if (currentConfigId > 0) {
                 currentIndex = loadSavedPosition(currentConfigId)
@@ -707,14 +716,27 @@ class SlideshowActivity : LocaleActivity() {
     }
     
     private suspend fun loadLocalImages() {
+        Logger.d(TAG, "loadLocalImages() called")
         try {
-            val localUri = preferenceManager.getLocalUri()
-            val bucketName = preferenceManager.getLocalBucketName()
+            // Load config from DB using currentConfigId, like SortActivity does
+            val config = if (currentConfigId > 0) {
+                val dao = AppDatabase.getDatabase(this@SlideshowActivity).connectionConfigDao()
+                dao.getConfigById(currentConfigId)
+            } else {
+                null
+            }
+            
+            Logger.d(TAG, "loadLocalImages() - loaded config: id=${config?.id}, type=${config?.type}, name=${config?.localDisplayName ?: config?.name}, localUri=${config?.localUri}")
+            
+            val localUri = config?.localUri?.takeIf { it.isNotEmpty() }?.let { Uri.parse(it) }
+            val bucketName = config?.localDisplayName?.ifEmpty { null }
             val isVideoEnabled = preferenceManager.isVideoEnabled()
             val maxVideoSizeMb = preferenceManager.getMaxVideoSizeMb()
             
-            val folderUri = if (localUri.isNotEmpty()) Uri.parse(localUri) else null
-            val imageInfoList = localStorageClient?.getImageFiles(folderUri, bucketName.ifEmpty { null }, isVideoEnabled, maxVideoSizeMb) ?: emptyList()
+            Logger.d(TAG, "loadLocalImages() - using localUri: $localUri, bucketName: $bucketName")
+            
+            val imageInfoList = localStorageClient?.getImageFiles(localUri, bucketName, isVideoEnabled, maxVideoSizeMb) ?: emptyList()
+            Logger.d(TAG, "loadLocalImages() - getImageFiles returned ${imageInfoList.size} files")
             
             val imageUris = imageInfoList.map { it.uri.toString() }
             sortedImages = imageUris.sorted()
@@ -725,6 +747,8 @@ class SlideshowActivity : LocaleActivity() {
             } else {
                 sortedImages
             }
+            
+            Logger.d(TAG, "loadLocalImages() - final images list size: ${images.size}")
             
             if (images.isNotEmpty()) {
                 // Load saved position for current connection
@@ -739,7 +763,8 @@ class SlideshowActivity : LocaleActivity() {
                 }
                 startSlideshow()
             } else {
-                showError("No images found")
+                Toast.makeText(this, "No media files found in selected folder", Toast.LENGTH_LONG).show()
+                finishSafely()
             }
         } catch (e: Exception) {
             preferenceManager.clearLastSession()
@@ -748,6 +773,7 @@ class SlideshowActivity : LocaleActivity() {
     }
     
     private fun startSlideshow() {
+        Logger.d(TAG, "startSlideshow() called - images.size: ${images.size}")
         slideshowJob = lifecycleScope.launch {
             while (true) {
                 if (images.isNotEmpty()) {
@@ -847,6 +873,7 @@ class SlideshowActivity : LocaleActivity() {
     private suspend fun loadCurrentMedia() {
         try {
             Logger.d(TAG, "loadCurrentMedia() called - currentIndex: $currentIndex, images.size: ${images.size}, blacklisted: ${blacklistedFiles.size}")
+            Logger.d(TAG, "loadCurrentMedia() - MODE CHECK: isLocalMode = $isLocalMode")
             
             // Check if all files are blacklisted
             if (blacklistedFiles.size >= images.size) {
@@ -877,13 +904,30 @@ class SlideshowActivity : LocaleActivity() {
             }
             
             // Determine if current media is video
+            // For local mode, get actual filename from MediaStore before type detection
+            val actualFileName = if (isLocalMode) {
+                Logger.d(TAG, "loadCurrentMedia() - LOCAL MODE: Getting file info for $mediaUrl")
+                try {
+                    val fileInfo = localStorageClient?.getFileInfo(Uri.parse(mediaUrl))
+                    Logger.d(TAG, "loadCurrentMedia() - LocalStorageClient returned: name=${fileInfo?.name}, size=${fileInfo?.size}")
+                    fileInfo?.name ?: mediaUrl.substringAfterLast('/')
+                } catch (e: Exception) {
+                    Logger.w(TAG, "Failed to get file info for $mediaUrl, using URI: ${e.message}")
+                    mediaUrl.substringAfterLast('/')
+                }
+            } else {
+                Logger.d(TAG, "loadCurrentMedia() - SMB MODE: Using URI filename")
+                mediaUrl.substringAfterLast('/')
+            }
+            
             val fileName = mediaUrl.substringAfterLast('/')
-            val extension = mediaUrl.substringAfterLast('.', "").lowercase()
-            isCurrentMediaVideo = MediaUtils.isVideo(mediaUrl)
+            val extension = actualFileName.substringAfterLast('.', "").lowercase()
+            isCurrentMediaVideo = MediaUtils.isVideo(actualFileName)
             
             Logger.d(TAG, "======================================")
             Logger.d(TAG, "loadCurrentMedia() - File Analysis:")
             Logger.d(TAG, "  File: $fileName")
+            Logger.d(TAG, "  Actual filename: $actualFileName")
             Logger.d(TAG, "  Extension: .$extension")
             Logger.d(TAG, "  Full URL: $mediaUrl")
             Logger.d(TAG, "  isVideo (MediaUtils): $isCurrentMediaVideo")

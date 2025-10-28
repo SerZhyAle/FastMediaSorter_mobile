@@ -3,12 +3,15 @@ package com.sza.fastmediasorter.ui.sort
 import android.app.Activity
 import android.content.Context
 import android.content.IntentSender
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
@@ -219,6 +222,17 @@ class SortActivity : LocaleActivity() {
                     }
                     Player.STATE_ENDED -> {
                         binding.videoLoadingLayout.visibility = View.GONE
+                        
+                        // Auto-advance to next file if "Play video till end" is enabled (slideshow mode)
+                        if (preferenceManager.isPlayVideoTillEnd() && imageFiles.isNotEmpty()) {
+                            Logger.d("SortActivity", "Video ended, auto-advancing to next file (slideshow mode)")
+                            currentIndex = if (currentIndex < imageFiles.size - 1) {
+                                currentIndex + 1
+                            } else {
+                                0  // Loop to first
+                            }
+                            loadMedia()
+                        }
                     }
                 }
             }
@@ -248,7 +262,9 @@ class SortActivity : LocaleActivity() {
         viewModel.sortDestinations.observe(this) { destinations ->
             Logger.d("SortActivity", "sortDestinations observed: ${destinations.size} items, currentConfig=${currentConfig?.id}")
             sortDestinations = destinations
-            setupSortButtons()
+            if (currentConfig != null) {
+                setupSortButtons()
+            }
         }
     }
     
@@ -576,6 +592,32 @@ class SortActivity : LocaleActivity() {
             val renameParams = binding.renameButton.layoutParams
             renameParams.height = compactHeight
             binding.renameButton.layoutParams = renameParams
+            
+            // Reduce vertical margins for compact layout
+            // Copy section margins
+            val copyLabelParams = binding.copyToLabel.layoutParams as ViewGroup.MarginLayoutParams
+            copyLabelParams.bottomMargin = (3 * resources.displayMetrics.density).toInt() // 3dp instead of 6dp
+            binding.copyToLabel.layoutParams = copyLabelParams
+            
+            val buttonsRow1Params = binding.buttonsRow1.layoutParams as ViewGroup.MarginLayoutParams
+            buttonsRow1Params.bottomMargin = (2 * resources.displayMetrics.density).toInt() // 2dp instead of 4dp
+            binding.buttonsRow1.layoutParams = buttonsRow1Params
+            
+            // Move section margins
+            val moveLabelParams = binding.moveToLabel.layoutParams as ViewGroup.MarginLayoutParams
+            moveLabelParams.topMargin = (6 * resources.displayMetrics.density).toInt() // 6dp instead of 12dp
+            moveLabelParams.bottomMargin = (3 * resources.displayMetrics.density).toInt() // 3dp instead of 6dp
+            binding.moveToLabel.layoutParams = moveLabelParams
+            
+            val moveButtonsRow1Params = binding.moveButtonsRow1.layoutParams as ViewGroup.MarginLayoutParams
+            moveButtonsRow1Params.bottomMargin = (2 * resources.displayMetrics.density).toInt() // 2dp instead of 4dp
+            binding.moveButtonsRow1.layoutParams = moveButtonsRow1Params
+            
+            // Delete/Rename section margin
+            val deleteRenameContainer = binding.deleteButton.parent as LinearLayout
+            val deleteRenameParams = deleteRenameContainer.layoutParams as ViewGroup.MarginLayoutParams
+            deleteRenameParams.topMargin = (6 * resources.displayMetrics.density).toInt() // 6dp instead of 12dp
+            deleteRenameContainer.layoutParams = deleteRenameParams
         }
     }
     
@@ -1134,6 +1176,8 @@ class SortActivity : LocaleActivity() {
                 localDisplayName = bucketName
             )
             
+            setupSortButtons()
+            
             isLocalMode = true
             localStorageClient = LocalStorageClient(this@SortActivity)
             smbClient = SmbClient() // Still need for destinations
@@ -1174,6 +1218,8 @@ class SortActivity : LocaleActivity() {
         
         currentConfig = config
         Logger.d("SortActivity", "Set currentConfig: id=${currentConfig?.id}, type=${currentConfig?.type}")
+        
+        setupSortButtons()
         isLocalMode = config.type == "LOCAL_CUSTOM" || config.type == "LOCAL_STANDARD"
         
         if (isLocalMode) {
@@ -1662,13 +1708,14 @@ class SortActivity : LocaleActivity() {
                     
                     withContext(Dispatchers.Main) {
                         Glide.with(this@SortActivity)
+                            .asBitmap() // Disable GIF animation for sorting mode
                             .load(imageBytes)
                             .error(R.drawable.error_placeholder)
-                            .listener(object : RequestListener<android.graphics.drawable.Drawable> {
+                            .listener(object : RequestListener<android.graphics.Bitmap> {
                                 override fun onLoadFailed(
                                     e: GlideException?,
                                     model: Any?,
-                                    target: Target<android.graphics.drawable.Drawable>,
+                                    target: Target<android.graphics.Bitmap>,
                                     isFirstResource: Boolean
                                 ): Boolean {
                                     Logger.e("SortActivity", "Failed to load image: ${e?.message}", e)
@@ -1677,9 +1724,9 @@ class SortActivity : LocaleActivity() {
                                 }
                                 
                                 override fun onResourceReady(
-                                    resource: android.graphics.drawable.Drawable,
+                                    resource: android.graphics.Bitmap,
                                     model: Any,
-                                    target: Target<android.graphics.drawable.Drawable>?,
+                                    target: Target<android.graphics.Bitmap>?,
                                     dataSource: DataSource,
                                     isFirstResource: Boolean
                                 ): Boolean {
@@ -1772,13 +1819,14 @@ class SortActivity : LocaleActivity() {
                         
                         if (imageBytes != null) {
                             Glide.with(this@SortActivity)
+                                .asBitmap() // Disable GIF animation for sorting mode
                                 .load(imageBytes)
                                 .error(R.drawable.error_placeholder)
-                                .listener(object : RequestListener<android.graphics.drawable.Drawable> {
+                                .listener(object : RequestListener<android.graphics.Bitmap> {
                                     override fun onLoadFailed(
                                         e: GlideException?,
                                         model: Any?,
-                                        target: Target<android.graphics.drawable.Drawable>,
+                                        target: Target<android.graphics.Bitmap>,
                                         isFirstResource: Boolean
                                     ): Boolean {
                                         Logger.e("SortActivity", "Failed to load image: ${e?.message}", e)
@@ -1787,9 +1835,9 @@ class SortActivity : LocaleActivity() {
                                     }
                                     
                                     override fun onResourceReady(
-                                        resource: android.graphics.drawable.Drawable,
+                                        resource: android.graphics.Bitmap,
                                         model: Any,
-                                        target: Target<android.graphics.drawable.Drawable>?,
+                                        target: Target<android.graphics.Bitmap>?,
                                         dataSource: DataSource,
                                         isFirstResource: Boolean
                                     ): Boolean {
@@ -1923,6 +1971,17 @@ class SortActivity : LocaleActivity() {
                                             }
                                             Player.STATE_ENDED -> {
                                                 binding.videoLoadingLayout.visibility = View.GONE
+                                                
+                                                // Auto-advance to next file if "Play video till end" is enabled (slideshow mode)
+                                                if (preferenceManager.isPlayVideoTillEnd() && imageFiles.isNotEmpty()) {
+                                                    Logger.d("SortActivity", "SMB Video ended, auto-advancing to next file (slideshow mode)")
+                                                    currentIndex = if (currentIndex < imageFiles.size - 1) {
+                                                        currentIndex + 1
+                                                    } else {
+                                                        0  // Loop to first
+                                                    }
+                                                    loadMedia()
+                                                }
                                             }
                                         }
                                     }
