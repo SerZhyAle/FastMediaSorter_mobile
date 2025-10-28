@@ -532,6 +532,35 @@ class SortActivity : LocaleActivity() {
             }
         }
         Logger.d("SortActivity", "========== SETUP SORT BUTTONS END ==========")
+        
+        // Adjust button heights for small buttons mode
+        if (useSmallButtons) {
+            binding.root.post {
+                // Get all visible copy buttons
+                val visibleCopyButtons = copyButtons.filter { it.visibility == View.VISIBLE }
+                val visibleMoveButtons = moveButtons.filter { it.visibility == View.VISIBLE }
+                
+                if (visibleCopyButtons.isNotEmpty()) {
+                    // Calculate target height (half of button width to make them square and smaller)
+                    val buttonWidth = visibleCopyButtons.first().width
+                    val targetHeight = buttonWidth / 2
+                    
+                    // Apply height to all copy buttons
+                    visibleCopyButtons.forEach { button ->
+                        val params = button.layoutParams
+                        params.height = targetHeight
+                        button.layoutParams = params
+                    }
+                    
+                    // Apply height to all move buttons
+                    visibleMoveButtons.forEach { button ->
+                        val params = button.layoutParams
+                        params.height = targetHeight
+                        button.layoutParams = params
+                    }
+                }
+            }
+        }
     }
     
     private fun copyToDestination(destination: ConnectionConfig) {

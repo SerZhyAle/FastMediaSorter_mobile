@@ -5,7 +5,8 @@
 ### Added
 - **Small Buttons Setting**: New "Use small buttons" checkbox in Sort Settings
   - When enabled, displays all 10 sort buttons in a single row with smaller text size (10sp)
-  - When disabled, maintains original layout with larger text size (14sp)
+  - Buttons become compact square buttons with half the height of their width for better space utilization
+  - When disabled, maintains original layout with larger text size (14sp) and standard button heights
   - Improves interface compactness for users with many sort destinations
 
 ### Enhanced
@@ -16,7 +17,8 @@
 ### Technical
 - Version code bumped to 7
 - Added `KEY_USE_SMALL_BUTTONS` constant and getter/setter methods in `PreferenceManager.kt`
-- Modified `setupSortButtons()` in `SortActivity.kt` to respect small buttons preference
+- Modified `setupSortButtons()` in `SortActivity.kt` to respect small buttons preference and adjust button heights dynamically
+- Added programmatic height adjustment for square compact buttons when small buttons mode is enabled
 - Updated string resources across all language files
 
 ## [1.2.1] - 2025-10-28
