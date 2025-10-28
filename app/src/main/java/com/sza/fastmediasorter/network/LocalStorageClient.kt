@@ -396,51 +396,30 @@ suspend fun deleteImage(uri: Uri): Boolean = withContext(Dispatchers.IO) {
 try {
 Logger.d("LocalStorageClient", "Attempting to delete media: $uri")
 Logger.d("LocalStorageClient", "Android version: ${Build.VERSION.SDK_INT} (${Build.VERSION.RELEASE})")
-        
-// First, try using ContentResolver (works for MediaStore URIs)
-if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-// Android 11+ (API 30+)
-Logger.d("LocalStorageClient", "Using Android 11+ delete method")
-try {
-val deleted = context.contentResolver.delete(uri, null, null)
-Logger.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
-if (deleted > 0) return@withContext true
-} catch (e: SecurityException) {
-Logger.w("LocalStorageClient", "ContentResolver delete failed with SecurityException, trying DocumentFile", e)
-}
-} else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-// Android 10 (API 29)
-Logger.d("LocalStorageClient", "Using Android 10 delete method")
-try {
-val deleted = context.contentResolver.delete(uri, null, null)
-Logger.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
-if (deleted > 0) return@withContext true
-} catch (e: SecurityException) {
-Logger.w("LocalStorageClient", "ContentResolver delete failed with SecurityException", e)
-if (e is android.app.RecoverableSecurityException) {
-Logger.e("LocalStorageClient", "RecoverableSecurityException - would need user permission dialog")
-}
-}
+
+// Determine URI type and use appropriate deletion method
+val uriString = uri.toString()
+
+if (uriString.startsWith("content://com.android.externalstorage.documents/")) {
+    // SAF/DocumentFile URI - use DocumentFile API
+    Logger.d("LocalStorageClient", "Using DocumentFile delete for SAF URI")
+    val documentFile = DocumentFile.fromSingleUri(context, uri)
+    if (documentFile != null && documentFile.exists()) {
+        val deleted = documentFile.delete()
+        Logger.d("LocalStorageClient", "DocumentFile delete result: $deleted")
+        return@withContext deleted
+    } else {
+        Logger.e("LocalStorageClient", "DocumentFile is null or doesn't exist for SAF URI")
+        return@withContext false
+    }
 } else {
-// Android 9 and below
-Logger.d("LocalStorageClient", "Using Android 9 and below delete method")
-val deleted = context.contentResolver.delete(uri, null, null)
-Logger.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
-if (deleted > 0) return@withContext true
+    // MediaStore URI - use ContentResolver
+    Logger.d("LocalStorageClient", "Using ContentResolver delete for MediaStore URI")
+    val deleted = context.contentResolver.delete(uri, null, null)
+    Logger.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
+    return@withContext deleted > 0
 }
-        
-// Fallback: Try DocumentFile delete (works for some URIs that ContentResolver can't handle)
-Logger.d("LocalStorageClient", "Trying DocumentFile fallback delete method")
-val documentFile = DocumentFile.fromSingleUri(context, uri)
-if (documentFile != null && documentFile.exists()) {
-val deleted = documentFile.delete()
-Logger.d("LocalStorageClient", "DocumentFile delete result: $deleted")
-return@withContext deleted
-} else {
-Logger.e("LocalStorageClient", "DocumentFile is null or doesn't exist")
-return@withContext false
-}
-        
+
 } catch (e: Exception) {
 Logger.e("LocalStorageClient", "Exception during delete: ${e.javaClass.simpleName}: ${e.message}", e)
 e.printStackTrace()
@@ -464,68 +443,94 @@ suspend fun renameFile(uri: Uri, newFileName: String): Pair<Boolean, String>? = 
 try {
 Logger.d("LocalStorageClient", "Attempting to rename file: $uri to $newFileName")
 
-// Get current file info
-val projection = arrayOf(
-android.provider.MediaStore.MediaColumns._ID,
-android.provider.MediaStore.MediaColumns.DISPLAY_NAME,
-android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
-android.provider.MediaStore.MediaColumns.MIME_TYPE
-)
+// Determine URI type and use appropriate rename method
+val uriString = uri.toString()
 
-val cursor = context.contentResolver.query(uri, projection, null, null, null)
-cursor?.use {
-if (it.moveToFirst()) {
-val idColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID)
-val nameColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
-val pathColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.RELATIVE_PATH)
-val mimeColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.MIME_TYPE)
-
-val id = it.getLong(idColumn)
-val oldName = it.getString(nameColumn)
-val relativePath = it.getString(pathColumn)
-val mimeType = it.getString(mimeColumn)
-
-Logger.d("LocalStorageClient", "Old name: $oldName, New name: $newFileName")
-Logger.d("LocalStorageClient", "Path: $relativePath, MIME: $mimeType")
-
-// Check if file with new name already exists
-val collection = when {
-mimeType.startsWith("image/") -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-mimeType.startsWith("video/") -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-else -> return@withContext Pair(false, uri.toString())
-}
-
-val checkSelection = "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.MediaColumns.RELATIVE_PATH} = ?"
-val checkArgs = arrayOf(newFileName, relativePath)
-val checkCursor = context.contentResolver.query(collection, arrayOf(android.provider.MediaStore.MediaColumns._ID), checkSelection, checkArgs, null)
-val exists = checkCursor?.use { it.count > 0 } ?: false
-checkCursor?.close()
-
-if (exists) {
-Logger.d("LocalStorageClient", "File with new name already exists")
-return@withContext Pair(false, uri.toString())
-}
-
-// Perform rename using ContentValues
-val values = android.content.ContentValues().apply {
-put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, newFileName)
-}
-
-val updated = context.contentResolver.update(uri, values, null, null)
-if (updated > 0) {
-Logger.d("LocalStorageClient", "File renamed successfully")
-// Create new URI for renamed file
-val newUri = android.content.ContentUris.withAppendedId(collection, id)
-return@withContext Pair(true, newUri.toString())
+if (uriString.startsWith("content://com.android.externalstorage.documents/")) {
+    // SAF/DocumentFile URI - use DocumentFile API
+    Logger.d("LocalStorageClient", "Using DocumentFile rename for SAF URI")
+    val documentFile = DocumentFile.fromSingleUri(context, uri)
+    if (documentFile != null && documentFile.exists()) {
+        val renamed = documentFile.renameTo(newFileName)
+        Logger.d("LocalStorageClient", "DocumentFile rename result: $renamed")
+        if (renamed) {
+            // Return the same URI since DocumentFile.renameTo() modifies the file in place
+            return@withContext Pair(true, uri.toString())
+        } else {
+            Logger.d("LocalStorageClient", "DocumentFile rename failed")
+            return@withContext Pair(false, uri.toString())
+        }
+    } else {
+        Logger.e("LocalStorageClient", "DocumentFile is null or doesn't exist for SAF URI")
+        return@withContext Pair(false, uri.toString())
+    }
 } else {
-Logger.d("LocalStorageClient", "Failed to rename file")
-return@withContext Pair(false, uri.toString())
-}
-}
-}
+    // MediaStore URI - use ContentResolver approach
+    Logger.d("LocalStorageClient", "Using ContentResolver rename for MediaStore URI")
 
-Logger.d("LocalStorageClient", "Failed to query file info")
-return@withContext Pair(false, uri.toString())
+    // Get current file info
+    val projection = arrayOf(
+        android.provider.MediaStore.MediaColumns._ID,
+        android.provider.MediaStore.MediaColumns.DISPLAY_NAME,
+        android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+        android.provider.MediaStore.MediaColumns.MIME_TYPE
+    )
+
+    val cursor = context.contentResolver.query(uri, projection, null, null, null)
+    cursor?.use {
+        if (it.moveToFirst()) {
+            val idColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID)
+            val nameColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
+            val pathColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.RELATIVE_PATH)
+            val mimeColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.MIME_TYPE)
+
+            val id = it.getLong(idColumn)
+            val oldName = it.getString(nameColumn)
+            val relativePath = it.getString(pathColumn)
+            val mimeType = it.getString(mimeColumn)
+
+            Logger.d("LocalStorageClient", "Old name: $oldName, New name: $newFileName")
+            Logger.d("LocalStorageClient", "Path: $relativePath, MIME: $mimeType")
+
+            // Check if file with new name already exists
+            val collection = when {
+                mimeType.startsWith("image/") -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                mimeType.startsWith("video/") -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                else -> return@withContext Pair(false, uri.toString())
+            }
+
+            val checkSelection = "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.MediaColumns.RELATIVE_PATH} = ?"
+            val checkArgs = arrayOf(newFileName, relativePath)
+            val checkCursor = context.contentResolver.query(collection, arrayOf(android.provider.MediaStore.MediaColumns._ID), checkSelection, checkArgs, null)
+            val exists = checkCursor?.use { it.count > 0 } ?: false
+            checkCursor?.close()
+
+            if (exists) {
+                Logger.d("LocalStorageClient", "File with new name already exists")
+                return@withContext Pair(false, uri.toString())
+            }
+
+            // Perform rename using ContentValues
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, newFileName)
+            }
+
+            val updated = context.contentResolver.update(uri, values, null, null)
+            if (updated > 0) {
+                Logger.d("LocalStorageClient", "File renamed successfully")
+                // Create new URI for renamed file
+                val newUri = android.content.ContentUris.withAppendedId(collection, id)
+                return@withContext Pair(true, newUri.toString())
+            } else {
+                Logger.d("LocalStorageClient", "Failed to rename file")
+                return@withContext Pair(false, uri.toString())
+            }
+        }
+    }
+
+    Logger.d("LocalStorageClient", "Failed to query file info")
+    return@withContext Pair(false, uri.toString())
+}
 } catch (securityException: android.app.RecoverableSecurityException) {
 Logger.e("LocalStorageClient", "RecoverableSecurityException - need user permission", securityException)
 // Re-throw to be handled by caller
