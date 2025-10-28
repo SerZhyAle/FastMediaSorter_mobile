@@ -358,9 +358,10 @@ class SortDestinationsFragment : Fragment() {
         viewModel.allConfigs.observe(viewLifecycleOwner) { configs ->
             viewModel.sortDestinations.value?.let { destinations ->
                 val usedIds = destinations.map { it.id }.toSet()
-                val available = configs.filter { 
-                    it.id !in usedIds
-                }
+                val usedNames = destinations.mapNotNull { it.localDisplayName ?: it.name }.toSet()
+                val available = configs.filter { config ->
+                    config.id !in usedIds && (config.localDisplayName ?: config.name) !in usedNames
+                }.distinctBy { it.localDisplayName ?: it.name } // Remove duplicates by name
                 connectionAdapter.setConnections(available)
             }
         }
@@ -754,7 +755,7 @@ class SettingsFragment : Fragment() {
             
             val allLines = bufferedReader.readLines()
             
-            // Filter by app name and session time
+            // Filter by app name and session time - include logs from last 3 sessions (approximately)
             val appLines = allLines.filter { line ->
                 // Check if line contains app-related tags
                 val isAppRelated = line.contains("fastmediasorter", ignoreCase = true) ||
@@ -784,8 +785,10 @@ class SettingsFragment : Fragment() {
                         
                         val logTimestamp = logCalendar.timeInMillis
                         
-                        // Include only logs from current session
-                        return@filter logTimestamp >= sessionStartTime
+                        // Include logs from last 3 sessions (approximately 3 hours back)
+                        // This is a rough approximation since we don't store previous session times
+                        val threeHoursAgo = sessionStartTime - (3 * 60 * 60 * 1000)
+                        return@filter logTimestamp >= threeHoursAgo
                     } catch (e: Exception) {
                         // If parsing fails, include the line
                         return@filter true
@@ -796,14 +799,14 @@ class SettingsFragment : Fragment() {
                 true
             }
             
-            // Take last 1000 lines from session
-            val last1000 = if (appLines.size > 1000) {
-                appLines.takeLast(1000)
+            // Take last 512 lines from recent sessions (instead of 1000)
+            val last512 = if (appLines.size > 512) {
+                appLines.takeLast(512)
             } else {
                 appLines
             }
             
-            last1000.joinToString("\n")
+            last512.joinToString("\n")
         } catch (e: Exception) {
             "Error reading session logs: ${e.message}"
         }

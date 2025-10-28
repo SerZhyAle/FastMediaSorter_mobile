@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.1] - 2025-10-28
+
+### Fixed
+- **SMB Write Permissions**: Fixed missing action buttons for SMB folders in Sort mode by defaulting writePermission to true
+- **Slideshow Diagnostics**: Added comprehensive logging to loadImage() and loadVideo() functions for troubleshooting GIF/video display issues
+- **Build Errors**: Resolved compilation errors from misplaced code during logging implementation
+
+### Enhanced
+- **Error Handling**: Improved error reporting with detailed ExoPlayer error codes and diagnostic information
+- **Documentation**: Updated README.md with recent changes, troubleshooting guide, and API 35 compatibility notes
+
+### Technical
+- Version code bumped to 6
+- Enhanced SlideshowActivity with diagnostic logging functions
+- Fixed AlertDialog import issues in slideshow error handling
+
 ## [1.2.0] - 2025-10-22
 
 ### Added

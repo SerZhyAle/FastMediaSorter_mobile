@@ -203,7 +203,9 @@ class WelcomeActivity : LocaleActivity() {
         preferenceManager.setWelcomeShown()
         
         if (isFirstLaunch) {
-            // First launch: start MainActivity
+            // First launch: set flag for MainActivity
+            preferenceManager.setReturnedFromWelcome(true)
+            // Start MainActivity
             val intent = Intent(this, MainActivity::class.java)
             startActivity(intent)
         }

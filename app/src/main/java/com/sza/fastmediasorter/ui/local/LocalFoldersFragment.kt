@@ -10,6 +10,7 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.documentfile.provider.DocumentFile
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -43,15 +44,34 @@ class LocalFoldersFragment : Fragment() {
     var onFolderDoubleClick: ((LocalFolder) -> Unit)? = null
     
     private val pickFolderLauncher = registerForActivityResult(
-ActivityResultContracts.OpenDocumentTree()
-) { uri ->
-uri?.let {
-requireContext().contentResolver.takePersistableUriPermission(
-it,
-Intent.FLAG_GRANT_READ_URI_PERMISSION
-)
-}
-}
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let { selectedUri ->
+            // Get persistent permission for the selected folder
+            requireContext().contentResolver.takePersistableUriPermission(
+                selectedUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            
+            // Get folder name from DocumentFile
+            val documentFile = DocumentFile.fromTreeUri(requireContext(), selectedUri)
+            val folderName = documentFile?.name ?: "Custom Folder"
+            
+            // Add to database as custom folder
+            lifecycleScope.launch {
+                try {
+                    viewModel.addLocalCustomFolder(folderName, selectedUri.toString())
+                    Toast.makeText(requireContext(), "Folder added: $folderName", Toast.LENGTH_SHORT).show()
+                    
+                    // Reload folders to show the new one
+                    loadCustomFolders()
+                } catch (e: Exception) {
+                    Toast.makeText(requireContext(), "Failed to add folder: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
 override fun onCreateView(
 inflater: LayoutInflater,
@@ -181,6 +201,14 @@ var updatedFoldersCount = 0
 // Reload folders to update counts
 loadStandardFolders()
 loadCustomFolders()
+
+// Mark first local scan as completed (with write permission assumed for standard folders)
+val preferenceManager = com.sza.fastmediasorter.utils.PreferenceManager(requireContext())
+if (!preferenceManager.isFirstLocalScanCompleted()) {
+    preferenceManager.setFirstLocalScanCompleted()
+    // Now that first scan is completed, auto-add local folders as sort destinations
+    viewModel.autoAddLocalFoldersAsSortDestinations()
+}
 
 val message = when {
 newFoldersCount > 0 && updatedFoldersCount > 0 ->

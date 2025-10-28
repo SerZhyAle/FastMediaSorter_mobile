@@ -360,6 +360,7 @@ class SortActivity : LocaleActivity() {
         // Check if current source folder has write permissions
         val sourceHasWritePermission = when (currentConfig?.type) {
             "LOCAL_CUSTOM", "LOCAL_STANDARD" -> true  // Local folders always have write permission
+            "SMB" -> currentConfig?.writePermission ?: true  // SMB folders default to writable (user has access)
             else -> currentConfig?.writePermission ?: false
         }
         
@@ -423,9 +424,10 @@ class SortActivity : LocaleActivity() {
         Logger.d("SortActivity", "sourceHasWritePermission=$sourceHasWritePermission (type=${currentConfig?.type}, writePermission=${currentConfig?.writePermission})")
         Logger.d("SortActivity", "hasDestinations=$hasDestinations")
         
-        // Show warning if no destinations
-        binding.noDestinationsWarning.visibility = if (!hasDestinations && allowDelete) View.VISIBLE else View.GONE
-        Logger.d("SortActivity", "No destinations warning: ${if (!hasDestinations && allowDelete) "VISIBLE" else "GONE"}")
+        // Show warning only if NO destinations configured at all (not just filtered out)
+        val totalDestinationsCount = sortDestinations.size
+        binding.noDestinationsWarning.visibility = if (totalDestinationsCount == 0 && allowDelete) View.VISIBLE else View.GONE
+        Logger.d("SortActivity", "No destinations warning: ${if (totalDestinationsCount == 0 && allowDelete) "VISIBLE" else "GONE"} (totalDestinationsCount=$totalDestinationsCount)")
         
         // Hide/show copy section (only if we have destinations)
         val showCopy = allowCopy && hasDestinations

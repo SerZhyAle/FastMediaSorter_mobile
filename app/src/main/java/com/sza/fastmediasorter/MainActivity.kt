@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.tabs.TabLayoutMediator
 import com.sza.fastmediasorter.data.ConnectionConfig
@@ -29,6 +30,18 @@ private val viewModel: ConnectionViewModel by viewModels()
 private var currentConfigId: Long? = null
 private var currentConfig: ConnectionConfig? = null
 
+private val requestPermissionLauncher = registerForActivityResult(
+    androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+) { isGranted ->
+    if (isGranted) {
+        // Permission granted - show restart dialog
+        showRestartDialog()
+    } else {
+        // Permission denied - open main screen with network tab and show message
+        openMainWithNetworkTab()
+    }
+}
+
 override fun onCreate(savedInstanceState: Bundle?) {
 super.onCreate(savedInstanceState)
 binding = ActivityMainBinding.inflate(layoutInflater)
@@ -41,7 +54,17 @@ supportActionBar?.hide()
         
         // Auto-add local folders to sort destinations (first launch or after scan)
         lifecycleScope.launch {
-            viewModel.autoAddLocalFoldersAsSortDestinations()
+            // Only add local folders to sort destinations if media permission granted and first scan completed
+            if (com.sza.fastmediasorter.network.LocalStorageClient.hasMediaPermission(this@MainActivity)) {
+                // Ensure local folders are in database first
+                viewModel.ensureStandardLocalFoldersInDatabase()
+                preferenceManager.setFirstLocalScanCompleted()
+                
+                // Auto-add Camera and Download as destinations only on first launch
+                if (!preferenceManager.isWelcomeShown()) {
+                    viewModel.autoAddLocalFoldersAsSortDestinations()
+                }
+            }
             // Fix SMB write permissions for existing connections
             viewModel.fixSmbWritePermissions()
         }
@@ -54,6 +77,16 @@ if (!preferenceManager.isWelcomeShown()) {
     val intent = Intent(this, WelcomeActivity::class.java)
     intent.putExtra("isFirstLaunch", true)
     startActivity(intent)
+} else {
+    // Check if we just returned from welcome and need to request permission
+    val justReturnedFromWelcome = preferenceManager.isReturnedFromWelcome()
+    if (justReturnedFromWelcome && !com.sza.fastmediasorter.network.LocalStorageClient.hasMediaPermission(this)) {
+        requestMediaPermission()
+    } else if (justReturnedFromWelcome && com.sza.fastmediasorter.network.LocalStorageClient.hasMediaPermission(this)) {
+        // Returned from welcome with permission already granted - open settings
+        preferenceManager.setReturnedFromWelcome(false) // Clear flag
+        openSettingsForFirstLaunch()
+    }
 }
 
 tryAutoResumeSession()
@@ -124,10 +157,8 @@ val config = if (folder.isCustom) {
 // Custom folders from SCAN or manual selection - stored in DB
 viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
 } else {
-// Standard folders - get from DB (they should be there after auto-add)
-viewModel.allConfigs.value?.find { 
-    it.type == "LOCAL_STANDARD" && it.localDisplayName == folder.name 
-}
+// Standard folders - search in database directly (not relying on LiveData which may be stale)
+viewModel.getConfigByName(folder.name)
 }
 config?.let {
 currentConfigId = it.id
@@ -138,6 +169,23 @@ if (currentInterval == null || currentInterval !in 1..300) {
     binding.intervalInput.setText(it.interval.toString())
 }
 updateButtonsState()
+} ?: run {
+// Config not found - this shouldn't happen for standard folders after ensureStandardLocalFoldersInDatabase
+// but could happen for custom folders not yet saved
+if (!folder.isCustom) {
+    // For standard folders, try to ensure they exist in DB and retry
+    viewModel.ensureStandardLocalFoldersInDatabase()
+    val retryConfig = viewModel.getConfigByName(folder.name)
+    retryConfig?.let {
+        currentConfigId = it.id
+        currentConfig = it
+        val currentInterval = binding.intervalInput.text.toString().toIntOrNull()
+        if (currentInterval == null || currentInterval !in 1..300) {
+            binding.intervalInput.setText(it.interval.toString())
+        }
+        updateButtonsState()
+    }
+}
 }
 }
 }
@@ -147,10 +195,8 @@ val config = if (folder.isCustom) {
 // Custom folders - use existing DB record
 viewModel.localCustomFolders.value?.find { it.localDisplayName == folder.name }
 } else {
-// Standard folders - get from DB
-viewModel.allConfigs.value?.find { 
-    it.type == "LOCAL_STANDARD" && it.localDisplayName == folder.name 
-}
+// Standard folders - search in database directly
+viewModel.getConfigByName(folder.name)
 }
 config?.let {
 val interval = binding.intervalInput.text.toString().toIntOrNull() ?: it.interval
@@ -160,6 +206,20 @@ if (it.id > 0) {
 viewModel.updateConfig(updatedConfig)
 }
 loadConfigAndStartSlideshow(updatedConfig)
+} ?: run {
+// Config not found for standard folder - ensure it exists and retry
+if (!folder.isCustom) {
+viewModel.ensureStandardLocalFoldersInDatabase()
+val retryConfig = viewModel.getConfigByName(folder.name)
+retryConfig?.let {
+    val interval = binding.intervalInput.text.toString().toIntOrNull() ?: it.interval
+    val updatedConfig = it.copy(interval = interval)
+    if (it.id > 0) {
+        viewModel.updateConfig(updatedConfig)
+    }
+    loadConfigAndStartSlideshow(updatedConfig)
+}
+}
 }
 }
 }
@@ -182,8 +242,46 @@ preferenceManager.clearLastSession()
 
     private fun openSettingsForFirstLaunch() {
         val intent = Intent(this, com.sza.fastmediasorter.ui.settings.SettingsActivity::class.java)
-        intent.putExtra("initialTab", 2) // Open Settings tab (index 2)
+        intent.putExtra("initialTab", 0) // Open Sort tab (index 0)
         startActivity(intent)
+    }
+
+    private fun restartApplication() {
+        val intent = packageManager.getLaunchIntentForPackage(packageName)
+        intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+        finishAffinity()
+    }
+
+    private fun showRestartDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Permission Granted")
+            .setMessage("Media access permission granted. The app needs to restart to scan your local folders. Restart now?")
+            .setPositiveButton("Restart Now") { _, _ -> 
+                restartApplication()
+            }
+            .setNegativeButton("Restart Later") { dialog, _ -> 
+                dialog.dismiss()
+                // Still open settings since permission was granted
+                openSettingsForFirstLaunch()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun openMainWithNetworkTab() {
+        // Already on main screen, just switch to network tab and show message
+        binding.viewPager.setCurrentItem(1, false) // Switch to Network tab
+        Toast.makeText(this, "Please add some network folders to get started", Toast.LENGTH_LONG).show()
+    }
+
+    private fun requestMediaPermission() {
+        val permission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            android.Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        requestPermissionLauncher.launch(permission)
     }
 
     private fun loadConfigAndStartSlideshow(config: ConnectionConfig) {
@@ -392,18 +490,25 @@ Toast.makeText(this, getString(R.string.select_connection_first), Toast.LENGTH_S
 }
 }
 binding.sortButton.setOnClickListener {
-currentConfigId?.let { configId ->
-lifecycleScope.launch {
-val config = updateConfigInterval(configId)
-if (config != null) {
-testConnectionAndStartSort(config, configId)
-} else {
-Toast.makeText(this@MainActivity, getString(R.string.select_connection_first), Toast.LENGTH_SHORT).show()
-}
-}
-} ?: run {
-Toast.makeText(this, getString(R.string.select_connection_first), Toast.LENGTH_SHORT).show()
-}
+    currentConfigId?.let { configId ->
+        lifecycleScope.launch {
+            val config = updateConfigInterval(configId)
+            if (config != null) {
+                // Check if sort is possible (has destinations or deletion allowed)
+                val hasDestinations = viewModel.getSortDestinationsCount() > 0
+                val deletionAllowed = preferenceManager.isAllowDelete()
+                if (hasDestinations || deletionAllowed) {
+                    testConnectionAndStartSort(config, configId)
+                } else {
+                    Toast.makeText(this@MainActivity, "Please add sort destinations in Settings or enable deletion", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                Toast.makeText(this@MainActivity, getString(R.string.select_connection_first), Toast.LENGTH_SHORT).show()
+            }
+        }
+    } ?: run {
+        Toast.makeText(this, getString(R.string.select_connection_first), Toast.LENGTH_SHORT).show()
+    }
 }
 binding.settingsButton.setOnClickListener {
 val intent = Intent(this, com.sza.fastmediasorter.ui.settings.SettingsActivity::class.java)
@@ -419,17 +524,9 @@ updateButtonsState()
 }
 
 private fun updateButtonsState() {
-val isEnabled = currentConfigId != null
-binding.slideshowButton.isEnabled = isEnabled
-// Sort button enabled if folder selected AND (has destinations OR deletion allowed)
-if (isEnabled) {
-lifecycleScope.launch {
-val hasDestinations = viewModel.getSortDestinationsCount() > 0
-val deletionAllowed = preferenceManager.isAllowDelete()
-binding.sortButton.isEnabled = hasDestinations || deletionAllowed
-}
-} else {
-binding.sortButton.isEnabled = false
-}
+    val isEnabled = currentConfigId != null
+    binding.slideshowButton.isEnabled = isEnabled
+    // Sort button enabled if folder selected (destinations check moved to click handler)
+    binding.sortButton.isEnabled = isEnabled
 }
 }

@@ -100,6 +100,11 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
         repository.autoAddLocalFoldersAsSortDestinations()
     }
     
+    // Ensure standard local folders are in database
+    fun ensureStandardLocalFoldersInDatabase() = viewModelScope.launch(Dispatchers.IO) {
+        repository.ensureStandardLocalFoldersInDatabase()
+    }
+    
     // Fix SMB write permissions for existing connections
     fun fixSmbWritePermissions() = viewModelScope.launch(Dispatchers.IO) {
         repository.fixSmbWritePermissions()

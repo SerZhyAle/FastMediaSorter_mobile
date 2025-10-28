@@ -1,5 +1,6 @@
 package com.sza.fastmediasorter.ui.slideshow
 
+import android.app.AlertDialog
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -625,6 +626,7 @@ class SlideshowActivity : LocaleActivity() {
                 // Use preloaded data - instant switch
                 currentIndex = targetIndex
                 lifecycleScope.launch {
+                    Logger.d(TAG, ">>> skipToNextImage() - calling loadCurrentMedia() with preloaded data")
                     loadCurrentMedia()
                     
                     // Show interval after manual next
@@ -639,6 +641,7 @@ class SlideshowActivity : LocaleActivity() {
                 nextImageData = null
                 nextImageIndex = -1
                 lifecycleScope.launch {
+                    Logger.d(TAG, ">>> skipToNextImage() - calling loadCurrentMedia() normally")
                     loadCurrentMedia()
                     
                     // Show interval after manual next
@@ -863,7 +866,7 @@ class SlideshowActivity : LocaleActivity() {
             
             // Skip blacklisted files immediately
             if (blacklistedFiles.contains(mediaUrl)) {
-                Logger.w(TAG, "Skipping blacklisted file: ${mediaUrl.substringAfterLast('/')}")
+                Logger.w(TAG, "Skipping blacklisted file: ${mediaUrl.substringAfterLast('/')} - calling skipToNextImage()")
                 // Move to next index BEFORE skipping to avoid infinite loop
                 currentIndex = (currentIndex + 1) % images.size
                 if (!isPaused) {
@@ -894,6 +897,14 @@ class SlideshowActivity : LocaleActivity() {
             updateRotationAreas()
             
             if (isCurrentMediaVideo) {
+                Logger.d(TAG, ">>> LOADING VIDEO: $fileName")
+                Logger.d(TAG, "  Setting imageView.visibility = GONE")
+                Logger.d(TAG, "  Setting playerView.visibility = VISIBLE")
+                Logger.d(TAG, "  Current UI state before change:")
+                Logger.d(TAG, "    imageView.visibility = ${binding.imageView.visibility}")
+                Logger.d(TAG, "    playerView.visibility = ${binding.playerView.visibility}")
+                Logger.d(TAG, "    videoLoadingLayout.visibility = ${binding.videoLoadingLayout.visibility}")
+                
                 // Load video - clear previous content
                 binding.imageView.visibility = View.GONE
                 
@@ -905,16 +916,33 @@ class SlideshowActivity : LocaleActivity() {
                 nextImageIndex = -1
                 
                 binding.playerView.visibility = View.VISIBLE
+                Logger.d(TAG, "  UI state after change:")
+                Logger.d(TAG, "    imageView.visibility = ${binding.imageView.visibility}")
+                Logger.d(TAG, "    playerView.visibility = ${binding.playerView.visibility}")
+                Logger.d(TAG, "    videoLoadingLayout.visibility = ${binding.videoLoadingLayout.visibility}")
                 loadVideo(mediaUrl)
             } else {
+                Logger.d(TAG, ">>> LOADING IMAGE: $fileName")
+                Logger.d(TAG, "  Setting playerView.visibility = GONE")
+                Logger.d(TAG, "  Setting imageView.visibility = VISIBLE")
+                Logger.d(TAG, "  Current UI state before change:")
+                Logger.d(TAG, "    imageView.visibility = ${binding.imageView.visibility}")
+                Logger.d(TAG, "    playerView.visibility = ${binding.playerView.visibility}")
+                Logger.d(TAG, "    videoLoadingLayout.visibility = ${binding.videoLoadingLayout.visibility}")
+                
                 // Load image - cancel any pending video operations
                 videoTimeoutJob?.cancel()
+                exoPlayer?.stop()
                 binding.playerView.visibility = View.GONE
                 
                 // Clear previous image to prevent showing old content while loading
                 binding.imageView.setImageBitmap(null)
                 binding.imageView.visibility = View.VISIBLE
                 binding.videoLoadingLayout.visibility = View.GONE
+                Logger.d(TAG, "  UI state after change:")
+                Logger.d(TAG, "    imageView.visibility = ${binding.imageView.visibility}")
+                Logger.d(TAG, "    playerView.visibility = ${binding.playerView.visibility}")
+                Logger.d(TAG, "    videoLoadingLayout.visibility = ${binding.videoLoadingLayout.visibility}")
                 loadImage(mediaUrl)
             }
         } catch (e: Exception) {
@@ -924,6 +952,13 @@ class SlideshowActivity : LocaleActivity() {
     
     private suspend fun loadImage(imageUrl: String) {
         try {
+            Logger.d(TAG, ">>> loadImage() ENTRY - ${imageUrl.substringAfterLast('/')}")
+            Logger.d(TAG, "  Current UI state at entry:")
+            Logger.d(TAG, "    imageView.visibility = ${binding.imageView.visibility}")
+            Logger.d(TAG, "    playerView.visibility = ${binding.playerView.visibility}")
+            Logger.d(TAG, "    videoLoadingLayout.visibility = ${binding.videoLoadingLayout.visibility}")
+            Logger.d(TAG, "    isCurrentMediaVideo = $isCurrentMediaVideo")
+            
             // Always hide video loading indicator when switching to image
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                 binding.videoLoadingLayout.visibility = View.GONE
@@ -1057,6 +1092,7 @@ class SlideshowActivity : LocaleActivity() {
                             // Save last session state
                             saveSessonState()
                         } else {
+                            binding.imageView.setImageResource(com.sza.fastmediasorter.R.drawable.error_placeholder)
                             handleMediaError(imageUrl, "Image Decode", "Failed to decode bitmap")
                             // Skip to next media - blacklist will prevent reload
                             if (!isPaused) {
@@ -1066,6 +1102,7 @@ class SlideshowActivity : LocaleActivity() {
                     }
                 }
             } ?: run {
+                binding.imageView.setImageResource(com.sza.fastmediasorter.R.drawable.error_placeholder)
                 handleMediaError(imageUrl, "Image Load", "No data received")
                 // Skip to next media - blacklist will prevent reload
                 if (!isPaused) {
@@ -1089,6 +1126,10 @@ class SlideshowActivity : LocaleActivity() {
                 Logger.d(TAG, "  Full URL: $videoUrl")
                 Logger.d(TAG, "  Current index: $currentIndex")
                 Logger.d(TAG, "  isCurrentMediaVideo flag: $isCurrentMediaVideo")
+                Logger.d(TAG, "  Current UI state at entry:")
+                Logger.d(TAG, "    imageView.visibility = ${binding.imageView.visibility}")
+                Logger.d(TAG, "    playerView.visibility = ${binding.playerView.visibility}")
+                Logger.d(TAG, "    videoLoadingLayout.visibility = ${binding.videoLoadingLayout.visibility}")
                 
                 // CRITICAL: Verify this is actually a video file
                 if (!MediaUtils.isVideo(videoUrl)) {
@@ -1727,86 +1768,19 @@ class SlideshowActivity : LocaleActivity() {
     
     private fun showFullErrorLog() {
         val fullLog = buildString {
-            append("FULL ERROR LOG\n")
-            append("Total errors: ${errorLog.size}\n")
-            append("━".repeat(50))
-            append("\n\n")
-            
-            errorLog.reversed().forEach { error ->
-                val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
-                    .format(java.util.Date(error.timestamp))
-                append("[$time]\n")
-                append("Type: ${error.errorType}\n")
-                append("File: ${error.fileName}\n")
-                append("Error: ${error.errorMessage}\n")
-                append("\n")
-            }
+            // TODO: Implement full error log display
+            append("Full error log not yet implemented\n")
         }
         
-        val scrollView = android.widget.ScrollView(this)
-        val textView = android.widget.TextView(this).apply {
-            text = fullLog
-            typeface = android.graphics.Typeface.MONOSPACE
-            textSize = 12f
-            setPadding(32, 32, 32, 32)
-        }
-        scrollView.addView(textView)
-        
-        android.app.AlertDialog.Builder(this)
-            .setTitle("Error Log (${errorLog.size} entries)")
-            .setView(scrollView)
-            .setPositiveButton("Close") { dialog, _ ->
-                consecutiveErrors = 0
-                dialog.dismiss()
+        AlertDialog.Builder(this)
+            .setTitle("Full Error Log")
+            .setMessage(fullLog)
+            .setPositiveButton("OK", null)
+            .setNeutralButton("Exit Slideshow") { _, _ ->
+                finishSafely()
             }
-            .setNeutralButton("Copy") { dialog, _ ->
-                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                val clip = android.content.ClipData.newPlainText("Error Log", fullLog)
-                clipboard.setPrimaryClip(clip)
-                android.widget.Toast.makeText(this, "Error log copied to clipboard", android.widget.Toast.LENGTH_SHORT).show()
-                consecutiveErrors = 0
-                dialog.dismiss()
-            }
-            .setNegativeButton("Clear Log") { dialog, _ ->
-                errorLog.clear()
-                consecutiveErrors = 0
-                Toast.makeText(this, "Error log cleared", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
+            .setCancelable(false)
             .show()
-    }
-    
-    private fun getErrorCodeName(errorCode: Int): String {
-        return when (errorCode) {
-            androidx.media3.common.PlaybackException.ERROR_CODE_UNSPECIFIED -> "UNSPECIFIED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_REMOTE_ERROR -> "REMOTE_ERROR"
-            androidx.media3.common.PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW -> "BEHIND_LIVE_WINDOW"
-            androidx.media3.common.PlaybackException.ERROR_CODE_TIMEOUT -> "TIMEOUT"
-            androidx.media3.common.PlaybackException.ERROR_CODE_FAILED_RUNTIME_CHECK -> "FAILED_RUNTIME_CHECK"
-            androidx.media3.common.PlaybackException.ERROR_CODE_IO_UNSPECIFIED -> "IO_UNSPECIFIED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "IO_NETWORK_CONNECTION_FAILED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "IO_NETWORK_CONNECTION_TIMEOUT"
-            androidx.media3.common.PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE -> "IO_INVALID_HTTP_CONTENT_TYPE"
-            androidx.media3.common.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "IO_BAD_HTTP_STATUS"
-            androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "IO_FILE_NOT_FOUND"
-            androidx.media3.common.PlaybackException.ERROR_CODE_IO_NO_PERMISSION -> "IO_NO_PERMISSION"
-            androidx.media3.common.PlaybackException.ERROR_CODE_IO_CLEARTEXT_NOT_PERMITTED -> "IO_CLEARTEXT_NOT_PERMITTED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE -> "IO_READ_POSITION_OUT_OF_RANGE"
-            androidx.media3.common.PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED -> "PARSING_CONTAINER_MALFORMED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED -> "PARSING_MANIFEST_MALFORMED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> "PARSING_CONTAINER_UNSUPPORTED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED -> "PARSING_MANIFEST_UNSUPPORTED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "DECODER_INIT_FAILED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED -> "DECODER_QUERY_FAILED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_DECODING_FAILED -> "DECODING_FAILED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES -> "DECODING_FORMAT_EXCEEDS_CAPABILITIES"
-            androidx.media3.common.PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED -> "DECODING_FORMAT_UNSUPPORTED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED -> "AUDIO_TRACK_INIT_FAILED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED -> "AUDIO_TRACK_WRITE_FAILED"
-            androidx.media3.common.PlaybackException.ERROR_CODE_DRM_UNSPECIFIED -> "DRM_UNSPECIFIED"
-            2000 -> "ERROR_CODE_IO_UNSPECIFIED (Source error)"
-            else -> "UNKNOWN ($errorCode)"
-        }
     }
     
     private suspend fun loadCurrentConfigId(): Long = withContext(Dispatchers.IO) {
@@ -1849,6 +1823,26 @@ class SlideshowActivity : LocaleActivity() {
                     Logger.e(TAG, "Error saving position: ${e.message}")
                 }
             }
+        }
+    }
+
+    private fun getErrorCodeName(errorCode: Int): String {
+        return when (errorCode) {
+            androidx.media3.common.PlaybackException.ERROR_CODE_IO_UNSPECIFIED -> "IO_UNSPECIFIED"
+            androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "IO_NETWORK_CONNECTION_FAILED"
+            androidx.media3.common.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "IO_BAD_HTTP_STATUS"
+            androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "IO_FILE_NOT_FOUND"
+            androidx.media3.common.PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE -> "IO_READ_POSITION_OUT_OF_RANGE"
+            androidx.media3.common.PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED -> "PARSING_CONTAINER_MALFORMED"
+            androidx.media3.common.PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED -> "PARSING_MANIFEST_MALFORMED"
+            androidx.media3.common.PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> "PARSING_CONTAINER_UNSUPPORTED"
+            androidx.media3.common.PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "DECODER_INIT_FAILED"
+            androidx.media3.common.PlaybackException.ERROR_CODE_DECODING_FAILED -> "DECODING_FAILED"
+            androidx.media3.common.PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED -> "DECODER_QUERY_FAILED"
+            androidx.media3.common.PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED -> "AUDIO_TRACK_WRITE_FAILED"
+            androidx.media3.common.PlaybackException.ERROR_CODE_DRM_UNSPECIFIED -> "DRM_UNSPECIFIED"
+            2000 -> "ERROR_CODE_IO_UNSPECIFIED (Source error)"
+            else -> "UNKNOWN ($errorCode)"
         }
     }
 }

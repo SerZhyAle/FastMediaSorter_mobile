@@ -2,6 +2,24 @@
 
 A lightweight and private Android application for viewing, sorting, and managing images and videos from your device's local storage and SMB (Samba/Windows) network shares. Perfect for creating a digital photo frame, organizing media, or simply browsing your collection with intuitive controls.
 
+## Recent Updates
+
+### Version 1.2.1 (2025-10-28)
+- **SMB Permissions Fix**: Resolved missing action buttons for SMB folders in Sort mode
+- **Slideshow Diagnostics**: Added comprehensive logging for troubleshooting GIF/video display issues
+- **Build Stability**: Fixed compilation errors and improved error handling
+
+### Version 1.2.0 (2025-10-22)
+- **API 35 Support**: Updated to Android 15 with latest security and performance optimizations
+- **Global Crash Handler**: Comprehensive error handling with detailed crash reports and logging
+- **Enhanced Diagnostics**: Improved error visibility and troubleshooting capabilities
+
+### Version 1.1.0 (2025-10-20)
+- **Write Permissions System**: Automatic detection and validation of SMB folder permissions
+- **Video Playback Control**: New "Play video till end" option for complete video playback
+- **Improved Slideshow**: Fixed image flashing during transitions and enhanced empty folder handling
+- **Bug Fixes**: Resolved slideshow interval persistence issues
+
 ## Key Features
 
 -   **Dual Media Access**: Seamlessly browse media from both local device folders (Camera, Screenshots, etc.) and remote SMB network shares.
@@ -12,7 +30,7 @@ A lightweight and private Android application for viewing, sorting, and managing
     -   Connection testing with comprehensive diagnostics.
     -   Write permission detection - automatically tests and displays write access status for folders.
 -   **Powerful Slideshow**:
-    -   Supports both images and videos.
+    -   Supports images (including GIF animations), videos, and mixed media types.
     -   Configurable interval (1-300 seconds) with persistent settings.
     -   Image and video preloading for smooth, instant transitions.
     -   Two control modes: invisible touch zones or a visible button panel.
@@ -39,6 +57,7 @@ A lightweight and private Android application for viewing, sorting, and managing
 -   **Privacy-Focused**:
     -   No internet access required (only local network for SMB).
     -   No data collection, analytics, or tracking. All settings are stored locally on your device.
+    -   Global crash handler with detailed error reporting for troubleshooting.
 -   **Modern UI**:
     -   Clean, intuitive interface built with Material Design 3.
     -   Optimized for both phones and tablets in portrait and landscape orientations.
@@ -106,7 +125,7 @@ Enable this mode in **Settings → Slideshow Settings → Show Controls**. A min
 -   **Max Video Size**: Set maximum file size for videos (in MB).
 -   **Play video till end**: Choose whether videos play completely or follow slideshow interval timing.
 -   **Show detailed video error information**: Display comprehensive error diagnostics when video playback fails.
--   **Supported Formats**: MP4, MKV, MOV, WEBM, 3GP (AVI format not supported for SMB streaming due to library compatibility issues).
+-   **Supported Formats**: MP4, MKV, MOV, WEBM, 3GP (AVI format not supported for SMB streaming due to library compatibility issues). Images: JPG, JPEG, PNG, GIF, BMP, WEBP.
 
 ### General Settings
 
@@ -117,19 +136,49 @@ Enable this mode in **Settings → Slideshow Settings → Show Controls**. A min
 To build the application from the source code, follow these steps:
 
 1.  Clone the repository.
-2.  To sign a release build, create a `keystore.properties` file in the root directory with your signing key details.
-3.  Run the appropriate Gradle task:
+2.  Ensure you have Android SDK with API 35 installed.
+3.  To sign a release build, create a `keystore.properties` file in the root directory with your signing key details.
+4.  Run the appropriate Gradle task:
 
     -   **Debug APK**:
-        '''bash
+        ```bash
         ./gradlew assembleDebug
-        '''
+        ```
     -   **Release App Bundle (for Google Play)**:
-        '''bash
+        ```bash
         ./gradlew bundleRelease
-        '''
+        ```
 
-## Technical Details
+## Troubleshooting
+
+### Slideshow Issues
+
+If videos or GIFs are not displaying in slideshow mode:
+
+1. **Check Logs**: The app includes detailed logging for media loading diagnostics. Check the device logs using Android Studio's Logcat with filter `tag:SlideshowActivity`.
+2. **Video Playback**: Ensure videos are in supported formats (MP4, MKV, MOV, WEBM, 3GP). AVI is not supported for SMB streaming.
+3. **GIF Support**: Animated GIFs are supported as image files and should display with animation.
+4. **File Size**: Check that video files don't exceed the maximum size limit set in Video Settings.
+5. **Network Issues**: For SMB shares, ensure stable network connection and proper permissions.
+6. **Crash Logs**: If the app crashes, detailed error information is saved to the app's external files directory and displayed in crash dialogs.
+
+### SMB Connection Issues
+
+- **Write Permissions**: The app automatically detects write permissions for SMB folders. If sort buttons are missing, the folder may be read-only. Note: SMB folders default to write-enabled for better compatibility.
+- **Connection Testing**: Use the Test button when adding SMB connections to verify access.
+- **Auto-discovery**: Use the 🔍 button to automatically find available shares on a server.
+
+### Performance Issues
+
+- **Media Validation**: The app performs fast header validation (<100ms) to skip corrupted files.
+- **Preloading**: Images and videos are preloaded for smooth transitions.
+- **Memory**: Large video files may cause performance issues - adjust the max video size setting.
+
+### Getting Help
+
+- **Crash Reports**: Crash dialogs include full stack traces and device information.
+- **Logs**: Enable detailed logging in development builds for troubleshooting.
+- **Error Codes**: Video playback errors include ExoPlayer error codes for precise diagnosis.
 
 -   **Language**: 100% Kotlin
 -   **Architecture**: MVVM with a Repository pattern, using LiveData and Kotlin Coroutines.

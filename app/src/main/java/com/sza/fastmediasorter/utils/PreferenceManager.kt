@@ -49,6 +49,8 @@ class PreferenceManager(context: Context) {
         private const val KEY_SHOW_VIDEO_ERROR_DETAILS = "show_video_error_details"
         private const val KEY_PLAY_VIDEO_TILL_END = "play_video_till_end"
         private const val KEY_LANGUAGE = "language"
+        private const val KEY_FIRST_LOCAL_SCAN_COMPLETED = "first_local_scan_completed"
+        private const val KEY_RETURNED_FROM_WELCOME = "returned_from_welcome"
     }
     
     init {
@@ -244,5 +246,19 @@ class PreferenceManager(context: Context) {
     
     fun setLanguage(language: String) {
         prefs.edit().putString(KEY_LANGUAGE, language).apply()
+    }
+    
+    // First local scan with write permission completed
+    fun isFirstLocalScanCompleted(): Boolean = prefs.getBoolean(KEY_FIRST_LOCAL_SCAN_COMPLETED, false)
+    
+    fun setFirstLocalScanCompleted() {
+        prefs.edit().putBoolean(KEY_FIRST_LOCAL_SCAN_COMPLETED, true).apply()
+    }
+    
+    // Returned from welcome flag
+    fun isReturnedFromWelcome(): Boolean = prefs.getBoolean(KEY_RETURNED_FROM_WELCOME, false)
+    
+    fun setReturnedFromWelcome(returned: Boolean) {
+        prefs.edit().putBoolean(KEY_RETURNED_FROM_WELCOME, returned).apply()
     }
 }

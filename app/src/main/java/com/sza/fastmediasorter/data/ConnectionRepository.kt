@@ -154,9 +154,6 @@ class ConnectionRepository(private val dao: ConnectionConfigDao) {
     }
     
     suspend fun autoAddLocalFoldersAsSortDestinations() {
-        // First ensure standard folders are in database
-        ensureStandardLocalFoldersInDatabase()
-        
         // Get current sort destinations
         val currentDestinations = dao.getSortDestinations().first()
         
@@ -165,10 +162,12 @@ class ConnectionRepository(private val dao: ConnectionConfigDao) {
             return
         }
         
-        // Get all local folders (both standard and custom) with write permission
+        // Get Camera and Download folders only (both standard and custom) with write permission
         val allConfigs = dao.getAllConfigs().first()
         val localFolders = allConfigs.filter { 
-            (it.type == "LOCAL_STANDARD" || it.type == "LOCAL_CUSTOM") && it.writePermission 
+            (it.type == "LOCAL_STANDARD" || it.type == "LOCAL_CUSTOM") && 
+            it.writePermission && 
+            (it.localDisplayName == "Camera" || it.localDisplayName == "Download")
         }
         
         // Add local folders to destinations (max 10)
