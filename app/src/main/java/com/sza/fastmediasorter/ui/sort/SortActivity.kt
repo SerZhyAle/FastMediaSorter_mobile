@@ -535,8 +535,8 @@ class SortActivity : LocaleActivity() {
         
         // Adjust button heights for small buttons mode
         if (useSmallButtons) {
-            // Set compact height for small buttons (48dp instead of wrap_content)
-            val compactHeight = (48 * resources.displayMetrics.density).toInt()
+            // Set compact height for small buttons (36dp instead of wrap_content)
+            val compactHeight = (36 * resources.displayMetrics.density).toInt()
             
             // Apply compact height to all copy buttons
             copyButtons.forEach { button ->
