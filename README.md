@@ -4,6 +4,10 @@ A lightweight and private Android application for viewing, sorting, and managing
 
 ## Recent Updates
 
+### Version 1.2.2 (2025-10-28)
+- **Small Buttons Setting**: Added "Use small buttons" option to display all 10 sort buttons in a single row with smaller text size for compact interface
+- **UI Improvements**: Enhanced button layout and text sizing options for better user experience
+
 ### Version 1.2.1 (2025-10-28)
 - **SMB Permissions Fix**: Resolved missing action buttons for SMB folders in Sort mode
 - **Slideshow Diagnostics**: Added comprehensive logging for troubleshooting GIF/video display issues
@@ -54,6 +58,7 @@ A lightweight and private Android application for viewing, sorting, and managing
     -   Control which operations are allowed (copy, move, delete, rename).
     -   Prevent device from sleeping during slideshow and sorting.
     -   Optional confirmation dialogs for destructive operations.
+    -   **Use small buttons**: Display all 10 sort buttons in a single row with smaller text size for compact interface.
 -   **Privacy-Focused**:
     -   No internet access required (only local network for SMB).
     -   No data collection, analytics, or tracking. All settings are stored locally on your device.
