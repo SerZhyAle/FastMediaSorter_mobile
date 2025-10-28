@@ -964,7 +964,7 @@ class SlideshowActivity : LocaleActivity() {
                 Logger.d(TAG, "    imageView.visibility = ${binding.imageView.visibility}")
                 Logger.d(TAG, "    playerView.visibility = ${binding.playerView.visibility}")
                 Logger.d(TAG, "    videoLoadingLayout.visibility = ${binding.videoLoadingLayout.visibility}")
-                loadVideo(mediaUrl)
+                loadVideo(mediaUrl, actualFileName)
             } else {
                 Logger.d(TAG, ">>> LOADING IMAGE: $fileName")
                 Logger.d(TAG, "  Setting playerView.visibility = GONE")
@@ -987,14 +987,14 @@ class SlideshowActivity : LocaleActivity() {
                 Logger.d(TAG, "    imageView.visibility = ${binding.imageView.visibility}")
                 Logger.d(TAG, "    playerView.visibility = ${binding.playerView.visibility}")
                 Logger.d(TAG, "    videoLoadingLayout.visibility = ${binding.videoLoadingLayout.visibility}")
-                loadImage(mediaUrl)
+                loadImage(mediaUrl, actualFileName)
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
     
-    private suspend fun loadImage(imageUrl: String) {
+    private suspend fun loadImage(imageUrl: String, actualFileName: String) {
         try {
             Logger.d(TAG, ">>> loadImage() ENTRY - ${imageUrl.substringAfterLast('/')}")
             Logger.d(TAG, "  Current UI state at entry:")
@@ -1082,19 +1082,20 @@ class SlideshowActivity : LocaleActivity() {
             }
             
             imageData?.let { data ->
-                val isGif = imageUrl.lowercase().endsWith(".gif")
+                val isGif = actualFileName.lowercase().endsWith(".gif")
                 
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                     if (isGif) {
                         // Use Glide for GIF animations
                         Glide.with(this@SlideshowActivity)
+                            .asGif()
                             .load(data)
                             .error(com.sza.fastmediasorter.R.drawable.error_placeholder)
-                            .listener(object : com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable> {
+                            .listener(object : com.bumptech.glide.request.RequestListener<com.bumptech.glide.load.resource.gif.GifDrawable> {
                                 override fun onLoadFailed(
                                     e: com.bumptech.glide.load.engine.GlideException?,
                                     model: Any?,
-                                    target: com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable>,
+                                    target: com.bumptech.glide.request.target.Target<com.bumptech.glide.load.resource.gif.GifDrawable>,
                                     isFirstResource: Boolean
                                 ): Boolean {
                                     Logger.e(TAG, "Failed to load GIF: ${e?.message}", e)
@@ -1108,9 +1109,9 @@ class SlideshowActivity : LocaleActivity() {
                                 }
                                 
                                 override fun onResourceReady(
-                                    resource: android.graphics.drawable.Drawable,
+                                    resource: com.bumptech.glide.load.resource.gif.GifDrawable,
                                     model: Any,
-                                    target: com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable>?,
+                                    target: com.bumptech.glide.request.target.Target<com.bumptech.glide.load.resource.gif.GifDrawable>?,
                                     dataSource: com.bumptech.glide.load.DataSource,
                                     isFirstResource: Boolean
                                 ): Boolean {
@@ -1158,11 +1159,11 @@ class SlideshowActivity : LocaleActivity() {
         }
     }
     
-    private suspend fun loadVideo(videoUrl: String) {
+    private suspend fun loadVideo(videoUrl: String, actualFileName: String) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
             try {
-                val fileName = videoUrl.substringAfterLast('/')
-                val extension = videoUrl.substringAfterLast('.', "").lowercase()
+                val fileName = actualFileName
+                val extension = actualFileName.substringAfterLast('.', "").lowercase()
                 
                 Logger.d(TAG, ">>> loadVideo() ENTRY >>>")
                 Logger.d(TAG, "  Requested file: $fileName")
@@ -1176,7 +1177,7 @@ class SlideshowActivity : LocaleActivity() {
                 Logger.d(TAG, "    videoLoadingLayout.visibility = ${binding.videoLoadingLayout.visibility}")
                 
                 // CRITICAL: Verify this is actually a video file
-                if (!MediaUtils.isVideo(videoUrl)) {
+                if (!MediaUtils.isVideo(actualFileName)) {
                     Logger.e(TAG, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                     Logger.e(TAG, "!!! CRITICAL ERROR - NON-VIDEO IN loadVideo() !!!")
                     Logger.e(TAG, "  File: $fileName")

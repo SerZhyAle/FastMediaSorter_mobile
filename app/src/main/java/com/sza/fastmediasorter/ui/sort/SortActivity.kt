@@ -27,6 +27,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import com.sza.fastmediasorter.R
 import com.sza.fastmediasorter.data.ConnectionConfig
 import com.sza.fastmediasorter.databinding.ActivitySortBinding
@@ -206,25 +208,40 @@ class SortActivity : LocaleActivity() {
         exoPlayer = ExoPlayer.Builder(this).build()
         binding.playerView.player = exoPlayer
         
-        // Configure player view for sorting mode - no controls
-        binding.playerView.useController = false
-        binding.playerView.controllerAutoShow = false
-        binding.playerView.controllerHideOnTouch = false
+        // Configure player view for sorting mode - enable controls and ensure video is visible
+        binding.playerView.useController = true
+        binding.playerView.controllerAutoShow = true
+        binding.playerView.controllerShowTimeoutMs = 3000
+        binding.playerView.controllerHideOnTouch = true
+        
+        // Ensure video surface is properly configured
+        binding.playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
+        binding.playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+        
+        Logger.d("SortActivity", "ExoPlayer setup complete - controls enabled, buffering always shown")
         
         exoPlayer?.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 Logger.d("SortActivity", "Video playback state changed: $playbackState")
                 when (playbackState) {
                     Player.STATE_BUFFERING -> {
-                        Logger.d("SortActivity", "Video buffering")
+                        Logger.d("SortActivity", "Video buffering - showing loading layout")
                         binding.videoLoadingLayout.visibility = View.VISIBLE
                     }
                     Player.STATE_READY -> {
-                        Logger.d("SortActivity", "Video ready")
+                        Logger.d("SortActivity", "Video ready - hiding loading, video should be visible")
                         binding.videoLoadingLayout.visibility = View.GONE
+                        
+                        // Log video details
+                        val videoSize = exoPlayer?.videoSize
+                        Logger.d("SortActivity", "Video ready: size=${videoSize?.width}x${videoSize?.height}, duration=${exoPlayer?.duration}")
+                        
+                        // Ensure player view is visible and properly sized
+                        binding.playerView.visibility = View.VISIBLE
+                        binding.playerView.requestLayout()
                     }
                     Player.STATE_ENDED -> {
-                        Logger.d("SortActivity", "Video ended")
+                        Logger.d("SortActivity", "Video ended - hiding loading")
                         binding.videoLoadingLayout.visibility = View.GONE
                         
                         // Auto-advance to next file if "Play video till end" is enabled (slideshow mode)
@@ -258,6 +275,16 @@ class SortActivity : LocaleActivity() {
                         Toast.LENGTH_SHORT
                     ).show()
                 }
+            }
+            
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                Logger.d("SortActivity", "Video size changed: ${videoSize.width}x${videoSize.height}")
+                super.onVideoSizeChanged(videoSize)
+            }
+            
+            override fun onRenderedFirstFrame() {
+                Logger.d("SortActivity", "Video first frame rendered - video should now be visible")
+                super.onRenderedFirstFrame()
             }
         })
     }
@@ -1322,7 +1349,12 @@ class SortActivity : LocaleActivity() {
                     val files = if (isLocalMode) {
                         val localUri = if (!config.localUri.isNullOrEmpty()) Uri.parse(config.localUri) else null
                         val bucketName = config.localDisplayName?.ifEmpty { null }
+                        Logger.d("SortActivity", "Loading local files: bucketName='$bucketName', localUri='$localUri', isVideoEnabled=$isVideoEnabled")
                         val imageInfoList = localStorageClient?.getImageFiles(localUri, bucketName, isVideoEnabled, maxVideoSizeMb) ?: emptyList()
+                        Logger.d("SortActivity", "Found ${imageInfoList.size} local files:")
+                        imageInfoList.forEachIndexed { index, info ->
+                            Logger.d("SortActivity", "  [$index] ${info.name} (${MediaUtils.formatFileSize(info.size)})")
+                        }
                         imageInfoList.map { it.uri.toString() }
                     } else {
                         val result = smbClient.getImageFiles(config.serverAddress, config.folderPath, isVideoEnabled, maxVideoSizeMb)
@@ -1598,18 +1630,34 @@ class SortActivity : LocaleActivity() {
         
         val mediaUrl = imageFiles[currentIndex]
         
-        // Determine if current media is video
-        isCurrentMediaVideo = MediaUtils.isVideo(mediaUrl)
-        Logger.d("SortActivity", "loadMedia() - mediaUrl: $mediaUrl, isVideo: $isCurrentMediaVideo")
+        // Determine if current media is video - get actual filename for local files
+        val actualFileName = if (isLocalMode) {
+            try {
+                val uri = Uri.parse(mediaUrl)
+                localStorageClient?.getFileInfo(uri)?.name ?: mediaUrl.substringAfterLast('/')
+            } catch (e: Exception) {
+                Logger.w("SortActivity", "Failed to get file info for $mediaUrl: ${e.message}")
+                mediaUrl.substringAfterLast('/')
+            }
+        } else {
+            mediaUrl.substringAfterLast('/')
+        }
+        
+        isCurrentMediaVideo = MediaUtils.isVideo(actualFileName)
+        Logger.d("SortActivity", "loadMedia() - mediaUrl: $mediaUrl, actualFileName: $actualFileName, isVideo: $isCurrentMediaVideo")
         
         // Show/hide appropriate view
         if (isCurrentMediaVideo) {
+            Logger.d("SortActivity", "▶▶▶ LOADING VIDEO: hiding imageView, showing playerView")
             binding.imageView.visibility = View.GONE
             binding.playerView.visibility = View.VISIBLE
+            Logger.d("SortActivity", "  PlayerView visibility set to VISIBLE, imageView set to GONE")
             loadVideo(mediaUrl)
         } else {
+            Logger.d("SortActivity", "▶▶▶ LOADING IMAGE: hiding playerView, showing imageView")
             binding.playerView.visibility = View.GONE
             binding.imageView.visibility = View.VISIBLE
+            Logger.d("SortActivity", "  ImageView visibility set to VISIBLE, playerView set to GONE")
             loadImage(mediaUrl)
         }
         
@@ -1689,8 +1737,11 @@ class SortActivity : LocaleActivity() {
     }
     
     private fun loadImageAfterValidation(imageUrl: String) {
+        Logger.d("SortActivity", "loadImageAfterValidation() - imageUrl: $imageUrl, nextImageIndex: $nextImageIndex, currentIndex: $currentIndex")
+        
         // Check if we have preloaded this image
         if (nextImageIndex == currentIndex && nextImageData != null) {
+            Logger.d("SortActivity", "▶▶▶ USING PRELOAD PATH: preloaded data available for index $currentIndex")
             // Use preloaded data
             val imageBytes = nextImageData
             nextImageData = null
@@ -1713,34 +1764,74 @@ class SortActivity : LocaleActivity() {
                     }
                     
                     withContext(Dispatchers.Main) {
-                        Glide.with(this@SortActivity)
-                            .asBitmap() // Disable GIF animation for sorting mode
-                            .load(imageBytes)
-                            .error(R.drawable.error_placeholder)
-                            .listener(object : RequestListener<android.graphics.Bitmap> {
-                                override fun onLoadFailed(
-                                    e: GlideException?,
-                                    model: Any?,
-                                    target: Target<android.graphics.Bitmap>,
-                                    isFirstResource: Boolean
-                                ): Boolean {
-                                    Logger.e("SortActivity", "Failed to load image: ${e?.message}", e)
-                                    handleMediaError(imageUrl, "Image Load", e?.message ?: "Glide load failed")
-                                    return false
-                                }
-                                
-                                override fun onResourceReady(
-                                    resource: android.graphics.Bitmap,
-                                    model: Any,
-                                    target: Target<android.graphics.Bitmap>?,
-                                    dataSource: DataSource,
-                                    isFirstResource: Boolean
-                                ): Boolean {
-                                    consecutiveErrors = 0
-                                    return false
-                                }
-                            })
-                            .into(binding.imageView)
+                        val fileName = fileInfo?.name ?: imageUrl.substringAfterLast('/')
+                        val isGif = fileName.substringAfterLast('.', "").lowercase() == "gif"
+                        
+                        if (isGif) {
+                            Logger.d("SortActivity", "▶▶▶ PRELOAD PATH: LOADING ANIMATED GIF")
+                            // Load GIF with animation
+                            Glide.with(this@SortActivity)
+                                .asGif()
+                                .load(imageBytes)
+                                .error(R.drawable.error_placeholder)
+                                .listener(object : RequestListener<com.bumptech.glide.load.resource.gif.GifDrawable> {
+                                    override fun onLoadFailed(
+                                        e: GlideException?,
+                                        model: Any?,
+                                        target: Target<com.bumptech.glide.load.resource.gif.GifDrawable>,
+                                        isFirstResource: Boolean
+                                    ): Boolean {
+                                        Logger.e("SortActivity", "PRELOAD PATH: Failed to load GIF: ${e?.message}", e)
+                                        handleMediaError(imageUrl, "GIF Load", e?.message ?: "Glide load failed")
+                                        return false
+                                    }
+                                    
+                                    override fun onResourceReady(
+                                        resource: com.bumptech.glide.load.resource.gif.GifDrawable,
+                                        model: Any,
+                                        target: Target<com.bumptech.glide.load.resource.gif.GifDrawable>?,
+                                        dataSource: DataSource,
+                                        isFirstResource: Boolean
+                                    ): Boolean {
+                                        Logger.d("SortActivity", "PRELOAD PATH: GIF loaded successfully: ${resource.intrinsicWidth}x${resource.intrinsicHeight}, ${resource.frameCount} frames")
+                                        consecutiveErrors = 0
+                                        return false
+                                    }
+                                })
+                                .into(binding.imageView)
+                        } else {
+                            Logger.d("SortActivity", "▶▶▶ PRELOAD PATH: LOADING STATIC IMAGE")
+                            // Load static image
+                            Glide.with(this@SortActivity)
+                                .asBitmap()
+                                .load(imageBytes)
+                                .error(R.drawable.error_placeholder)
+                                .listener(object : RequestListener<android.graphics.Bitmap> {
+                                    override fun onLoadFailed(
+                                        e: GlideException?,
+                                        model: Any?,
+                                        target: Target<android.graphics.Bitmap>,
+                                        isFirstResource: Boolean
+                                    ): Boolean {
+                                        Logger.e("SortActivity", "PRELOAD PATH: Failed to load image: ${e?.message}", e)
+                                        handleMediaError(imageUrl, "Image Load", e?.message ?: "Glide load failed")
+                                        return false
+                                    }
+                                    
+                                    override fun onResourceReady(
+                                        resource: android.graphics.Bitmap,
+                                        model: Any,
+                                        target: Target<android.graphics.Bitmap>?,
+                                        dataSource: DataSource,
+                                        isFirstResource: Boolean
+                                    ): Boolean {
+                                        Logger.d("SortActivity", "PRELOAD PATH: Image loaded successfully: ${resource.width}x${resource.height}")
+                                        consecutiveErrors = 0
+                                        return false
+                                    }
+                                })
+                                .into(binding.imageView)
+                        }
                         
                         updateFileInfo(fileInfo)
                     }
@@ -1752,6 +1843,7 @@ class SortActivity : LocaleActivity() {
                 preloadNextImage()
             }
         } else {
+            Logger.d("SortActivity", "▶▶▶ USING NORMAL PATH: no preloaded data available")
             // Load normally
             lifecycleScope.launch(Dispatchers.IO) {
                 var toastShown = false
@@ -1824,8 +1916,47 @@ class SortActivity : LocaleActivity() {
                         }
                         
                         if (imageBytes != null) {
+                        val fileName = fileInfo?.name ?: imageUrl.substringAfterLast('/')
+                        val isGif = fileName.substringAfterLast('.', "").lowercase() == "gif"
+                        Logger.d("SortActivity", "▶ NORMAL PATH: Loading image: fileName='$fileName', isGif=$isGif, hasPreloadedData=${imageBytes != null}")
+                        
+                        if (isGif) {
+                            Logger.d("SortActivity", "▶▶▶ NORMAL PATH: LOADING ANIMATED GIF")
+                            // Load GIF with animation
                             Glide.with(this@SortActivity)
-                                .asBitmap() // Disable GIF animation for sorting mode
+                                .asGif()
+                                .load(imageBytes)
+                                .error(R.drawable.error_placeholder)
+                                .listener(object : RequestListener<com.bumptech.glide.load.resource.gif.GifDrawable> {
+                                    override fun onLoadFailed(
+                                        e: GlideException?,
+                                        model: Any?,
+                                        target: Target<com.bumptech.glide.load.resource.gif.GifDrawable>,
+                                        isFirstResource: Boolean
+                                    ): Boolean {
+                                        Logger.e("SortActivity", "NORMAL PATH: Failed to load GIF: ${e?.message}", e)
+                                        handleMediaError(imageUrl, "GIF Load", e?.message ?: "Glide load failed")
+                                        return false
+                                    }
+                                    
+                                    override fun onResourceReady(
+                                        resource: com.bumptech.glide.load.resource.gif.GifDrawable,
+                                        model: Any,
+                                        target: Target<com.bumptech.glide.load.resource.gif.GifDrawable>?,
+                                        dataSource: DataSource,
+                                        isFirstResource: Boolean
+                                    ): Boolean {
+                                        Logger.d("SortActivity", "NORMAL PATH: GIF loaded successfully: ${resource.intrinsicWidth}x${resource.intrinsicHeight}, ${resource.frameCount} frames")
+                                        consecutiveErrors = 0
+                                        return false
+                                    }
+                                })
+                                .into(binding.imageView)
+                        } else {
+                            Logger.d("SortActivity", "▶▶▶ NORMAL PATH: LOADING STATIC IMAGE")
+                            // Load static image
+                            Glide.with(this@SortActivity)
+                                .asBitmap() // Static images only
                                 .load(imageBytes)
                                 .error(R.drawable.error_placeholder)
                                 .listener(object : RequestListener<android.graphics.Bitmap> {
@@ -1835,7 +1966,7 @@ class SortActivity : LocaleActivity() {
                                         target: Target<android.graphics.Bitmap>,
                                         isFirstResource: Boolean
                                     ): Boolean {
-                                        Logger.e("SortActivity", "Failed to load image: ${e?.message}", e)
+                                        Logger.e("SortActivity", "NORMAL PATH: Failed to load image: ${e?.message}", e)
                                         handleMediaError(imageUrl, "Image Load", e?.message ?: "Glide load failed")
                                         return false
                                     }
@@ -1847,12 +1978,13 @@ class SortActivity : LocaleActivity() {
                                         dataSource: DataSource,
                                         isFirstResource: Boolean
                                     ): Boolean {
+                                        Logger.d("SortActivity", "NORMAL PATH: Image loaded successfully: ${resource.width}x${resource.height}")
                                         consecutiveErrors = 0
                                         return false
                                     }
                                 })
                                 .into(binding.imageView)
-                            
+                        }
                             updateFileInfo(fileInfo)
                         } else {
                             handleMediaError(imageUrl, "Image Download", "No data received")
@@ -1942,20 +2074,29 @@ class SortActivity : LocaleActivity() {
                 
                 withContext(Dispatchers.Main) {
                     try {
+                        Logger.d("SortActivity", "▶▶▶ STARTING VIDEO LOAD: $videoUrl")
+                        Logger.d("SortActivity", "  PlayerView visibility before: ${binding.playerView.visibility}")
+                        Logger.d("SortActivity", "  PlayerView size: ${binding.playerView.width}x${binding.playerView.height}")
+                        
                         // Stop current playback
                         exoPlayer?.stop()
                         exoPlayer?.clearMediaItems()
                         
                         if (isLocalMode) {
+                            Logger.d("SortActivity", "  Loading local video: $videoUrl")
                             // Local video - use URI directly
                             val mediaItem = MediaItem.fromUri(Uri.parse(videoUrl))
                             exoPlayer?.setMediaItem(mediaItem)
                             exoPlayer?.prepare()
                             exoPlayer?.play()
+                            
+                            Logger.d("SortActivity", "  Local video prepared and play() called")
                         } else {
+                            Logger.d("SortActivity", "  Loading SMB video: $videoUrl")
                             // SMB video - need to recreate player with custom data source
                             val smbContext = smbClient.getContext()
                             if (smbContext != null) {
+                                Logger.d("SortActivity", "  SMB context available, recreating player")
                                 // Release old player
                                 exoPlayer?.release()
                                 
@@ -1966,17 +2107,26 @@ class SortActivity : LocaleActivity() {
                                     .build()
                                 binding.playerView.player = exoPlayer
                                 
+                                Logger.d("SortActivity", "  New SMB player created and attached to PlayerView")
+                                
                                 // Re-attach listener after recreating player
                                 exoPlayer?.addListener(object : Player.Listener {
                                     override fun onPlaybackStateChanged(playbackState: Int) {
+                                        Logger.d("SortActivity", "SMB Video playback state: $playbackState")
                                         when (playbackState) {
                                             Player.STATE_BUFFERING -> {
+                                                Logger.d("SortActivity", "SMB Video buffering")
                                                 binding.videoLoadingLayout.visibility = View.VISIBLE
                                             }
                                             Player.STATE_READY -> {
+                                                Logger.d("SortActivity", "SMB Video ready - should be playing now")
                                                 binding.videoLoadingLayout.visibility = View.GONE
+                                                
+                                                val videoSize = exoPlayer?.videoSize
+                                                Logger.d("SortActivity", "SMB Video size: ${videoSize?.width}x${videoSize?.height}")
                                             }
                                             Player.STATE_ENDED -> {
+                                                Logger.d("SortActivity", "SMB Video ended")
                                                 binding.videoLoadingLayout.visibility = View.GONE
                                                 
                                                 // Auto-advance to next file if "Play video till end" is enabled (slideshow mode)
@@ -1994,6 +2144,7 @@ class SortActivity : LocaleActivity() {
                                     }
                                     
                                     override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                                        Logger.d("SortActivity", "SMB Video player error: ${error.message}")
                                         binding.videoLoadingLayout.visibility = View.GONE
                                         handleMediaError(videoUrl, "Video Playback", error.message ?: "Playback error")
                                         
@@ -2007,20 +2158,34 @@ class SortActivity : LocaleActivity() {
                                             ).show()
                                         }
                                     }
+                                    
+                                    override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                                        Logger.d("SortActivity", "SMB Video size changed: ${videoSize.width}x${videoSize.height}")
+                                        super.onVideoSizeChanged(videoSize)
+                                    }
+                                    
+                                    override fun onRenderedFirstFrame() {
+                                        Logger.d("SortActivity", "SMB Video first frame rendered")
+                                        super.onRenderedFirstFrame()
+                                    }
                                 })
                                 
                                 val mediaItem = MediaItem.fromUri(videoUrl)
                                 exoPlayer?.setMediaItem(mediaItem)
                                 exoPlayer?.prepare()
                                 exoPlayer?.play()
+                                
+                                Logger.d("SortActivity", "  SMB video prepared and play() called")
                                 consecutiveErrors = 0
                             } else {
+                                Logger.e("SortActivity", "  SMB context not available for video: $videoUrl")
                                 handleMediaError(videoUrl, "Video Load", "SMB context not available")
                                 return@withContext
                             }
                         }
                         
                         updateFileInfo(fileInfo)
+                        Logger.d("SortActivity", "▶▶▶ VIDEO LOAD COMPLETED: $videoUrl")
                         
                     } catch (e: Exception) {
                         Logger.e("SortActivity", "Failed to load video: ${e.message}", e)

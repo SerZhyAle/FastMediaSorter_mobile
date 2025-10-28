@@ -214,115 +214,172 @@ Logger.d("LocalStorageClient", "⏱️ START: MediaStore query for bucket '$buck
 val mediaFiles = mutableListOf<LocalImageInfo>()
 val maxVideoSizeBytes = maxVideoSizeMb * 1024L * 1024L
 
-// Query images
-val imageProjection = arrayOf(
-MediaStore.Images.Media._ID,
-MediaStore.Images.Media.DISPLAY_NAME,
-MediaStore.Images.Media.SIZE,
-MediaStore.Images.Media.DATE_MODIFIED,
-MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
-MediaStore.Images.Media.DATA
-)
-val selection = "${MediaStore.Images.Media.DATA} LIKE ?"
-val selectionArgs = arrayOf("%/$bucketName/%")
+// Determine query method based on bucket name
+val standardFolders = setOf("Camera", "Screenshots", "Pictures", "Download")
+val useBucketDisplayName = bucketName in standardFolders
+
+val selection: String
+val selectionArgs: Array<String>
+
+if (useBucketDisplayName) {
+    // Use BUCKET_DISPLAY_NAME for standard Android folders
+    selection = "${MediaStore.Images.Media.BUCKET_DISPLAY_NAME} = ?"
+    selectionArgs = arrayOf(bucketName)
+    Logger.d("LocalStorageClient", "Using BUCKET_DISPLAY_NAME query for standard folder: $bucketName")
+} else {
+    // Use DATA LIKE for custom/user folders
+    selection = "${MediaStore.Images.Media.DATA} LIKE ?"
+    selectionArgs = arrayOf("%/$bucketName/%")
+    Logger.d("LocalStorageClient", "Using DATA LIKE query for custom folder: $bucketName")
+}
+
 val sortOrder = "${MediaStore.Images.Media.DISPLAY_NAME} ASC"
 
 var imageCount = 0
 var videoCount = 0
 var skippedLargeVideo = 0
 
-try {
-val imageQueryStart = System.currentTimeMillis()
-Logger.d("LocalStorageClient", "⏱️ Querying images...")
-context.contentResolver.query(
-MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-imageProjection,
-selection,
-selectionArgs,
-sortOrder
-)?.use { cursor ->
-val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
-val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
-imageCount = cursor.count
-Logger.d("LocalStorageClient", "⏱️ Image cursor returned $imageCount rows")
-while (cursor.moveToNext()) {
-val id = cursor.getLong(idColumn)
-val uri = Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id.toString())
-mediaFiles.add(
-LocalImageInfo(
-uri = uri,
-name = cursor.getString(nameColumn),
-size = cursor.getLong(sizeColumn),
-dateModified = cursor.getLong(dateColumn) * 1000
+// Query images
+val imageProjection = arrayOf(
+    MediaStore.Images.Media._ID,
+    MediaStore.Images.Media.DISPLAY_NAME,
+    MediaStore.Images.Media.SIZE,
+    MediaStore.Images.Media.DATE_MODIFIED,
+    MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
+    MediaStore.Images.Media.DATA
 )
-)
-}
-}
-val imageQueryDuration = System.currentTimeMillis() - imageQueryStart
-Logger.d("LocalStorageClient", "⏱️ Image query took ${imageQueryDuration}ms, found $imageCount images")
-} catch (e: Exception) {
-Logger.e("LocalStorageClient", "⏱️ Image query failed", e)
-e.printStackTrace()
-}
 
-// Query videos if enabled
+try {
+    val imageQueryStart = System.currentTimeMillis()
+    Logger.d("LocalStorageClient", "⏱️ Querying images for bucket '$bucketName'...")
+    Logger.d("LocalStorageClient", "⏱️ Image query selection: '$selection'")
+    Logger.d("LocalStorageClient", "⏱️ Image query args: ${selectionArgs.joinToString(", ") { "'$it'" }}")
+    
+    context.contentResolver.query(
+        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+        imageProjection,
+        selection,
+        selectionArgs,
+        sortOrder
+    )?.use { cursor ->
+        val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+        val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
+        val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
+        val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
+        val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
+        val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+        
+        imageCount = cursor.count
+        Logger.d("LocalStorageClient", "⏱️ Image cursor returned $imageCount rows")
+        
+        var processedImages = 0
+        while (cursor.moveToNext()) {
+            val imageName = cursor.getString(nameColumn)
+            val imageBucket = cursor.getString(bucketColumn)
+            val imageData = cursor.getString(dataColumn)
+            val imageSize = cursor.getLong(sizeColumn)
+            
+            if (processedImages < 5) { // Log first 5 images for debugging
+                Logger.d("LocalStorageClient", "⏱️ Image #$processedImages: name='$imageName', bucket='$imageBucket', size=${imageSize/1024}KB")
+                Logger.d("LocalStorageClient", "⏱️ Image #$processedImages: data path='$imageData'")
+            } else if (processedImages == 5) {
+                Logger.d("LocalStorageClient", "⏱️ ... (showing first 5 images only)")
+            }
+            
+            val id = cursor.getLong(idColumn)
+            val uri = Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id.toString())
+            mediaFiles.add(
+                LocalImageInfo(
+                    uri = uri,
+                    name = imageName,
+                    size = imageSize,
+                    dateModified = cursor.getLong(dateColumn) * 1000
+                )
+            )
+            processedImages++
+        }
+    }
+    val imageQueryDuration = System.currentTimeMillis() - imageQueryStart
+    Logger.d("LocalStorageClient", "⏱️ Image query took ${imageQueryDuration}ms, found $imageCount images")
+} catch (e: Exception) {
+    Logger.e("LocalStorageClient", "⏱️ Image query failed", e)
+    e.printStackTrace()
+}// Query videos if enabled
 if (isVideoEnabled) {
-val videoQueryStart = System.currentTimeMillis()
-Logger.d("LocalStorageClient", "⏱️ Querying videos...")
-val videoProjection = arrayOf(
-MediaStore.Video.Media._ID,
-MediaStore.Video.Media.DISPLAY_NAME,
-MediaStore.Video.Media.SIZE,
-MediaStore.Video.Media.DATE_MODIFIED,
-MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
-MediaStore.Video.Media.DATA
-)
-try {
-context.contentResolver.query(
-MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-videoProjection,
-selection,
-selectionArgs,
-sortOrder
-)?.use { cursor ->
-val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
-val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
-val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
-val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED)
-val totalVideos = cursor.count
-Logger.d("LocalStorageClient", "⏱️ Video cursor returned $totalVideos rows")
-while (cursor.moveToNext()) {
-val size = cursor.getLong(sizeColumn)
-if (size <= maxVideoSizeBytes) {
-val id = cursor.getLong(idColumn)
-val uri = Uri.withAppendedPath(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id.toString())
-mediaFiles.add(
-LocalImageInfo(
-uri = uri,
-name = cursor.getString(nameColumn),
-size = size,
-dateModified = cursor.getLong(dateColumn) * 1000
-)
-)
-videoCount++
+    val videoQueryStart = System.currentTimeMillis()
+    Logger.d("LocalStorageClient", "⏱️ Querying videos for bucket '$bucketName' (useBucketDisplayName=$useBucketDisplayName)...")
+    Logger.d("LocalStorageClient", "⏱️ Video query selection: '$selection'")
+    Logger.d("LocalStorageClient", "⏱️ Video query args: ${selectionArgs.joinToString(", ") { "'$it'" }}")
+    
+    val videoProjection = arrayOf(
+        MediaStore.Video.Media._ID,
+        MediaStore.Video.Media.DISPLAY_NAME,
+        MediaStore.Video.Media.SIZE,
+        MediaStore.Video.Media.DATE_MODIFIED,
+        MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+        MediaStore.Video.Media.DATA
+    )
+    try {
+        context.contentResolver.query(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            videoProjection,
+            selection,
+            selectionArgs,
+            sortOrder
+        )?.use { cursor ->
+            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+            val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+            val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
+            val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED)
+            val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
+            val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
+            
+            val totalVideos = cursor.count
+            Logger.d("LocalStorageClient", "⏱️ Video cursor returned $totalVideos rows")
+            
+            var processedVideos = 0
+            while (cursor.moveToNext()) {
+                val videoName = cursor.getString(nameColumn)
+                val videoBucket = cursor.getString(bucketColumn)
+                val videoData = cursor.getString(dataColumn)
+                val videoSize = cursor.getLong(sizeColumn)
+                
+                Logger.d("LocalStorageClient", "⏱️ Video #$processedVideos: name='$videoName', bucket='$videoBucket', size=${videoSize/1024}KB")
+                Logger.d("LocalStorageClient", "⏱️ Video #$processedVideos: data path='$videoData'")
+                
+                if (videoSize <= maxVideoSizeBytes) {
+                    val id = cursor.getLong(idColumn)
+                    val uri = Uri.withAppendedPath(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id.toString())
+                    mediaFiles.add(
+                        LocalImageInfo(
+                            uri = uri,
+                            name = videoName,
+                            size = videoSize,
+                            dateModified = cursor.getLong(dateColumn) * 1000
+                        )
+                    )
+                    videoCount++
+                    Logger.d("LocalStorageClient", "⏱️ Video #$processedVideos: ADDED to results")
+                } else {
+                    skippedLargeVideo++
+                    Logger.d("LocalStorageClient", "⏱️ Video #$processedVideos: SKIPPED (too large: ${videoSize/1024/1024}MB > ${maxVideoSizeMb}MB)")
+                }
+                processedVideos++
+            }
+        }
+        val videoQueryDuration = System.currentTimeMillis() - videoQueryStart
+        Logger.d("LocalStorageClient", "⏱️ Video query took ${videoQueryDuration}ms, found $videoCount videos, skipped $skippedLargeVideo large")
+    } catch (e: Exception) {
+        Logger.e("LocalStorageClient", "⏱️ Video query failed", e)
+        e.printStackTrace()
+    }
 } else {
-skippedLargeVideo++
+    Logger.d("LocalStorageClient", "⏱️ Video querying DISABLED (isVideoEnabled=false)")
 }
-}
-}
-val videoQueryDuration = System.currentTimeMillis() - videoQueryStart
-Logger.d("LocalStorageClient", "⏱️ Video query took ${videoQueryDuration}ms, found $videoCount videos, skipped $skippedLargeVideo large")
-} catch (e: Exception) {
-Logger.e("LocalStorageClient", "⏱️ Video query failed", e)
-e.printStackTrace()
-}
-}
-
 val totalDuration = System.currentTimeMillis() - startTime
 Logger.d("LocalStorageClient", "⏱️ SUMMARY:")
 Logger.d("LocalStorageClient", "  - Total time: ${totalDuration}ms (${totalDuration/1000.0}s)")
+Logger.d("LocalStorageClient", "  - Query method: ${if (useBucketDisplayName) "BUCKET_DISPLAY_NAME" else "DATA LIKE"}")
 Logger.d("LocalStorageClient", "  - Images: $imageCount")
 Logger.d("LocalStorageClient", "  - Videos: $videoCount")
 Logger.d("LocalStorageClient", "  - Skipped (too large): $skippedLargeVideo")
