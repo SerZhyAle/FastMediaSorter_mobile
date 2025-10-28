@@ -395,147 +395,113 @@ class SortActivity : LocaleActivity() {
             Logger.d("SortActivity", "setupSortButtons: currentConfig is null, skipping")
             return
         }
-        
+
         val copyButtons = listOf(
             binding.sortButton0, binding.sortButton1, binding.sortButton2,
             binding.sortButton3, binding.sortButton4, binding.sortButton5,
             binding.sortButton6, binding.sortButton7, binding.sortButton8,
             binding.sortButton9
         )
-        
+
         val moveButtons = listOf(
             binding.moveButton0, binding.moveButton1, binding.moveButton2,
             binding.moveButton3, binding.moveButton4, binding.moveButton5,
             binding.moveButton6, binding.moveButton7, binding.moveButton8,
             binding.moveButton9
         )
-        
+
         // Check if current source folder has write permissions
         val sourceHasWritePermission = when (currentConfig?.type) {
             "LOCAL_CUSTOM", "LOCAL_STANDARD" -> true  // Local folders always have write permission
             "SMB" -> currentConfig?.writePermission ?: true  // SMB folders default to writable (user has access)
             else -> currentConfig?.writePermission ?: false
         }
-        
-        Logger.d("SortActivity", "========== SETUP SORT BUTTONS START ==========")
-        Logger.d("SortActivity", "Source config: id=${currentConfig?.id}, type=${currentConfig?.type}, name=${currentConfig?.localDisplayName ?: currentConfig?.name}, localUri=${currentConfig?.localUri}")
-        if (currentConfig?.type == "SMB") {
-            Logger.d("SortActivity", "SMB Source details: server=${currentConfig?.serverAddress}, folder=${currentConfig?.folderPath}, writePermission=${currentConfig?.writePermission}")
-        }
-        Logger.d("SortActivity", "Total sort destinations from DB: ${sortDestinations.size}")
-        sortDestinations.forEachIndexed { index, dest ->
-            Logger.d("SortActivity", "  Destination[$index]: id=${dest.id}, type=${dest.type}, name=${dest.localDisplayName ?: dest.name}, sortName=${dest.sortName}, writePermission=${dest.writePermission}, localUri=${dest.localUri}")
-            if (dest.type == "SMB") {
-                Logger.d("SortActivity", "    SMB details: server=${dest.serverAddress}, folder=${dest.folderPath}")
-            }
-        }
-        
-        Logger.d("SortActivity", "Permissions: write=$sourceHasWritePermission, allowMove=${preferenceManager.isAllowMove()}, allowDelete=${preferenceManager.isAllowDelete()}, allowRename=${preferenceManager.isAllowRename()}, allowCopy=${preferenceManager.isAllowCopy()}")
-        
+
         // Check if move is allowed
         val allowMove = preferenceManager.isAllowMove() && sourceHasWritePermission
-        
+
         // Check if copy is allowed
         val allowCopy = preferenceManager.isAllowCopy()
-        
+
         // Check if delete is allowed
         val allowDelete = preferenceManager.isAllowDelete() && sourceHasWritePermission
-        
-        Logger.d("SortActivity", "Calculated permissions: allowCopy=$allowCopy, allowMove=$allowMove, allowDelete=$allowDelete")
-        
+
         // Filter out destinations that are the same as source (pre-calculation for UI logic)
-        Logger.d("SortActivity", "--- Filtering destinations ---")
         val filteredDestinations = sortDestinations.filter { config ->
             // Skip if it's the same as current source connection
             currentConfig?.let { currentSource ->
                 // Skip if same config ID (primary check - works for all types)
                 if (config.id == currentSource.id) {
-                    Logger.d("SortActivity", "❌ Filtered out destination (same ID): id=${config.id}, name=${config.localDisplayName ?: config.name}")
                     return@filter false
                 }
-                
+
                 // For network connections, also compare server+folder as fallback
                 if (currentSource.type == "SMB" && config.type == "SMB") {
                     val sameServer = currentSource.serverAddress == config.serverAddress
                     val sameFolder = currentSource.folderPath == config.folderPath
-                    Logger.d("SortActivity", "SMB comparison: dest=${config.serverAddress}${config.folderPath} vs source=${currentSource.serverAddress}${currentSource.folderPath}")
-                    Logger.d("SortActivity", "  sameServer=$sameServer, sameFolder=$sameFolder")
                     if (sameServer && sameFolder) {
-                        Logger.d("SortActivity", "❌ Filtered out destination (same SMB path): ${config.serverAddress}${config.folderPath}")
                         return@filter false
                     }
                 }
             }
-            Logger.d("SortActivity", "✅ Keeping destination: id=${config.id}, type=${config.type}, name=${config.localDisplayName ?: config.name}")
             true
         }
-        
+
         // Check if we have destinations after filtering
         val hasDestinations = filteredDestinations.isNotEmpty()
-        Logger.d("SortActivity", "Filtered destinations count: ${filteredDestinations.size}")
-        Logger.d("SortActivity", "--- Calculating button visibility ---")
-        Logger.d("SortActivity", "sourceHasWritePermission=$sourceHasWritePermission (type=${currentConfig?.type}, writePermission=${currentConfig?.writePermission})")
-        Logger.d("SortActivity", "hasDestinations=$hasDestinations")
-        
+
         // Show warning only if NO destinations configured at all (not just filtered out)
         val totalDestinationsCount = sortDestinations.size
         binding.noDestinationsWarning.visibility = if (totalDestinationsCount == 0 && allowDelete) View.VISIBLE else View.GONE
-        Logger.d("SortActivity", "No destinations warning: ${if (totalDestinationsCount == 0 && allowDelete) "VISIBLE" else "GONE"} (totalDestinationsCount=$totalDestinationsCount)")
-        
+
         // Check if small buttons are enabled
         val useSmallButtons = preferenceManager.isUseSmallButtons()
-        
+
         // Hide/show copy section (only if we have destinations)
         val showCopy = allowCopy && hasDestinations
         binding.copyToLabel.visibility = if (showCopy) View.VISIBLE else View.GONE
         binding.buttonsRow1.visibility = if (showCopy) View.VISIBLE else View.GONE
         // Always show second row when copy is enabled (small buttons just change text size)
         binding.buttonsRow2.visibility = if (showCopy) View.VISIBLE else View.GONE
-        
+
         // Adjust label text size for small buttons mode
         if (useSmallButtons) {
             binding.copyToLabel.textSize = 10f  // Smaller text for labels
         } else {
             binding.copyToLabel.textSize = 12f  // Default text size
         }
-        
-        Logger.d("SortActivity", "📋 Copy section: ${if (showCopy) "VISIBLE" else "GONE"} (allowCopy=$allowCopy, hasDestinations=$hasDestinations, useSmallButtons=$useSmallButtons)")
-        
+
         // Hide/show move section (only if we have destinations)
         val showMove = allowMove && hasDestinations
         binding.moveToLabel.visibility = if (showMove) View.VISIBLE else View.GONE
         binding.moveButtonsRow1.visibility = if (showMove) View.VISIBLE else View.GONE
         // Always show second row when move is enabled (small buttons just change text size)
         binding.moveButtonsRow2.visibility = if (showMove) View.VISIBLE else View.GONE
-        
+
         // Adjust label text size for small buttons mode
         if (useSmallButtons) {
             binding.moveToLabel.textSize = 10f  // Smaller text for labels
         } else {
             binding.moveToLabel.textSize = 12f  // Default text size
         }
-        
-        Logger.d("SortActivity", "➡️ Move section: ${if (showMove) "VISIBLE" else "GONE"} (allowMove=$allowMove, hasDestinations=$hasDestinations, sourceHasWritePermission=$sourceHasWritePermission, useSmallButtons=$useSmallButtons)")
-        
+
         // Hide/show delete button
         binding.deleteButton.visibility = if (allowDelete) View.VISIBLE else View.GONE
-        Logger.d("SortActivity", "🗑️ Delete button: ${if (allowDelete) "VISIBLE" else "GONE"} (allowDelete=$allowDelete, sourceHasWritePermission=$sourceHasWritePermission)")
-        
+
         // Setup delete button click listener
         binding.deleteButton.setOnClickListener {
             deleteCurrentImage()
         }
-        
+
         // Hide/show rename button
         val allowRename = preferenceManager.isAllowRename() && sourceHasWritePermission
         binding.renameButton.visibility = if (allowRename) View.VISIBLE else View.GONE
-        Logger.d("SortActivity", "✏️ Rename button: ${if (allowRename) "VISIBLE" else "GONE"} (allowRename=${preferenceManager.isAllowRename()}, sourceHasWritePermission=$sourceHasWritePermission)")
-        
+
         // Setup rename button click listener
         binding.renameButton.setOnClickListener {
             renameCurrentMedia()
         }
-        
+
         // Color shades for buttons
         val colors = listOf(
             android.graphics.Color.parseColor("#5C6BC0"), // Indigo
@@ -549,12 +515,11 @@ class SortActivity : LocaleActivity() {
             android.graphics.Color.parseColor("#AB47BC"), // Purple
             android.graphics.Color.parseColor("#EC407A")  // Pink
         )
-        
+
         // Hide all buttons first
         copyButtons.forEach { it.visibility = View.GONE }
         moveButtons.forEach { it.visibility = View.GONE }
-        
-        Logger.d("SortActivity", "--- Configuring destination buttons ---")
+
         // Show and configure buttons for filtered destinations
         filteredDestinations.forEachIndexed { index, config ->
             if (index < copyButtons.size) {
@@ -562,89 +527,86 @@ class SortActivity : LocaleActivity() {
                 copyButton.text = config.sortName
                 copyButton.setBackgroundColor(colors[index])
                 copyButton.setTextColor(android.graphics.Color.BLACK)
-                
+
                 // Adjust text size for small buttons
                 if (useSmallButtons) {
                     copyButton.textSize = 10f  // Smaller text for small buttons
                 } else {
                     copyButton.textSize = 14f  // Default text size
                 }
-                
+
                 copyButton.visibility = View.VISIBLE
                 copyButton.setOnClickListener {
                     copyToDestination(config)
                 }
-                
+
                 val moveButton = moveButtons[index]
                 moveButton.text = config.sortName
                 moveButton.setBackgroundColor(colors[index])
                 moveButton.setTextColor(android.graphics.Color.BLACK)
-                
+
                 // Adjust text size for small buttons
                 if (useSmallButtons) {
                     moveButton.textSize = 10f  // Smaller text for small buttons
                 } else {
                     moveButton.textSize = 14f  // Default text size
                 }
-                
+
                 moveButton.visibility = View.VISIBLE
                 moveButton.setOnClickListener {
                     moveToDestination(config)
                 }
-                
-                Logger.d("SortActivity", "Configured button[$index]: sortName=${config.sortName}, type=${config.type}, name=${config.localDisplayName ?: config.name}, useSmallButtons=$useSmallButtons")
             }
         }
-        Logger.d("SortActivity", "========== SETUP SORT BUTTONS END ==========")
-        
+
         // Adjust button heights for small buttons mode
         if (useSmallButtons) {
             // Set compact height for small buttons (36dp instead of wrap_content)
             val compactHeight = (36 * resources.displayMetrics.density).toInt()
-            
+
             // Apply compact height to all copy buttons
             copyButtons.forEach { button ->
                 val params = button.layoutParams
                 params.height = compactHeight
                 button.layoutParams = params
             }
-            
+
             // Apply compact height to all move buttons
             moveButtons.forEach { button ->
                 val params = button.layoutParams
                 params.height = compactHeight
                 button.layoutParams = params
             }
-            
+
             // Apply compact height to delete and rename buttons
             val deleteParams = binding.deleteButton.layoutParams
             deleteParams.height = compactHeight
             binding.deleteButton.layoutParams = deleteParams
-            
+
             val renameParams = binding.renameButton.layoutParams
             renameParams.height = compactHeight
             binding.renameButton.layoutParams = renameParams
-            
+
             // Reduce vertical margins for compact layout
             // Copy section margins
             val copyLabelParams = binding.copyToLabel.layoutParams as ViewGroup.MarginLayoutParams
             copyLabelParams.bottomMargin = (3 * resources.displayMetrics.density).toInt() // 3dp instead of 6dp
             binding.copyToLabel.layoutParams = copyLabelParams
-            
+
             val buttonsRow1Params = binding.buttonsRow1.layoutParams as ViewGroup.MarginLayoutParams
             buttonsRow1Params.bottomMargin = (2 * resources.displayMetrics.density).toInt() // 2dp instead of 4dp
             binding.buttonsRow1.layoutParams = buttonsRow1Params
-            
+
             // Move section margins
             val moveLabelParams = binding.moveToLabel.layoutParams as ViewGroup.MarginLayoutParams
             moveLabelParams.topMargin = (6 * resources.displayMetrics.density).toInt() // 6dp instead of 12dp
             moveLabelParams.bottomMargin = (3 * resources.displayMetrics.density).toInt() // 3dp instead of 6dp
             binding.moveToLabel.layoutParams = moveLabelParams
-            
+
             val moveButtonsRow1Params = binding.moveButtonsRow1.layoutParams as ViewGroup.MarginLayoutParams
             moveButtonsRow1Params.bottomMargin = (2 * resources.displayMetrics.density).toInt() // 2dp instead of 4dp
             binding.moveButtonsRow1.layoutParams = moveButtonsRow1Params
-            
+
             // Delete/Rename section margin
             val deleteRenameContainer = binding.deleteButton.parent as LinearLayout
             val deleteRenameParams = deleteRenameContainer.layoutParams as ViewGroup.MarginLayoutParams

@@ -36,77 +36,45 @@ class LocalStorageClient(private val context: Context) {
         maxVideoSizeMb: Int = 100
     ): List<LocalImageInfo> = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
-        Logger.d("LocalStorageClient", "⏱️ START: getImageFiles - bucketName: $bucketName, folderUri: $folderUri")
+        Logger.d("LocalStorageClient", "getImageFiles - bucketName: $bucketName, folderUri: $folderUri")
         
         // Priority 1: MediaStore access (for SCAN-discovered folders)
         if (bucketName != null) {
             val result = getImageFilesByBucketName(bucketName, isVideoEnabled, maxVideoSizeMb)
             val duration = System.currentTimeMillis() - startTime
-            Logger.d("LocalStorageClient", "⏱️ DONE: MediaStore query took ${duration}ms, found ${result.size} files")
+            Logger.d("LocalStorageClient", "MediaStore query took ${duration}ms, found ${result.size} files")
             return@withContext result
         }
         
         // Priority 2: SAF/DocumentFile access (for user-selected folders)
         if (folderUri == null) {
-            Logger.d("LocalStorageClient", "⏱️ DONE: No folder URI provided")
+            Logger.d("LocalStorageClient", "No folder URI provided")
             return@withContext emptyList()
         }
         
         val maxVideoSizeBytes = maxVideoSizeMb * 1024L * 1024L
         
         try {
-            val listStartTime = System.currentTimeMillis()
-            Logger.d("LocalStorageClient", "⏱️ START: Listing DocumentFile contents...")
+            Logger.d("LocalStorageClient", "Listing DocumentFile contents...")
             val folder = DocumentFile.fromTreeUri(context, folderUri)
             val files = folder?.listFiles()
-            val listDuration = System.currentTimeMillis() - listStartTime
-            Logger.d("LocalStorageClient", "⏱️ DONE: DocumentFile listing took ${listDuration}ms, found ${files?.size ?: 0} files")
-            
-            val processStartTime = System.currentTimeMillis()
-            var imageCount = 0
-            var videoCount = 0
-            var skippedLargeVideo = 0
-            var skippedOther = 0
             
             val result = files?.filterIndexed { index, file ->
-                // Log progress every 100 files
-                if (index % 100 == 0 && index > 0) {
-                    val elapsed = System.currentTimeMillis() - processStartTime
-                    val rate = index.toFloat() / elapsed * 1000
-                    Logger.d("LocalStorageClient", "⏱️ Progress: $index/${files.size} files (${rate.toInt()} files/sec)")
-                }
-                
                 if (!file.isFile) {
-                    skippedOther++
                     return@filterIndexed false
                 }
                 
-                val mimeType = file.type ?: run {
-                    skippedOther++
-                    return@filterIndexed false
-                }
+                val mimeType = file.type ?: return@filterIndexed false
                 val isImage = mimeType.startsWith("image/")
                 val isVideo = mimeType.startsWith("video/")
                 
                 when {
-                    isImage -> {
-                        imageCount++
-                        true
-                    }
+                    isImage -> true
                     isVideo && isVideoEnabled -> {
                         val fileSize = file.length()
-                        if (fileSize <= maxVideoSizeBytes) {
-                            videoCount++
-                            true
-                        } else {
-                            skippedLargeVideo++
-                            false
-                        }
+                        fileSize <= maxVideoSizeBytes
                     }
-                    else -> {
-                        skippedOther++
-                        false
-                    }
+                    else -> false
                 }
             }?.map {
                 LocalImageInfo(
@@ -117,22 +85,13 @@ class LocalStorageClient(private val context: Context) {
                 )
             }?.sortedBy { it.name } ?: emptyList()
             
-            val processDuration = System.currentTimeMillis() - processStartTime
             val totalDuration = System.currentTimeMillis() - startTime
-            
-            Logger.d("LocalStorageClient", "⏱️ SUMMARY:")
-            Logger.d("LocalStorageClient", "  - Total time: ${totalDuration}ms (${totalDuration/1000.0}s)")
-            Logger.d("LocalStorageClient", "  - Total files scanned: ${files?.size ?: 0}")
-            Logger.d("LocalStorageClient", "  - Images found: $imageCount")
-            Logger.d("LocalStorageClient", "  - Videos found: $videoCount")
-            Logger.d("LocalStorageClient", "  - Skipped (too large): $skippedLargeVideo")
-            Logger.d("LocalStorageClient", "  - Skipped (other): $skippedOther")
-            Logger.d("LocalStorageClient", "  - Processing rate: ${if (processDuration > 0) (files?.size ?: 0).toFloat() / processDuration * 1000 else 0} files/sec")
+            Logger.d("LocalStorageClient", "DocumentFile scan took ${totalDuration}ms, found ${result.size} files")
             
             result
         } catch (e: Exception) {
             val duration = System.currentTimeMillis() - startTime
-            Logger.e("LocalStorageClient", "⏱️ ERROR: Failed after ${duration}ms", e)
+            Logger.e("LocalStorageClient", "Failed after ${duration}ms", e)
             emptyList()
         }
     }
@@ -208,109 +167,77 @@ suspend fun getImageFilesByBucketName(
     isVideoEnabled: Boolean = false,
     maxVideoSizeMb: Int = 100
 ): List<LocalImageInfo> = withContext(Dispatchers.IO) {
-val startTime = System.currentTimeMillis()
-Logger.d("LocalStorageClient", "⏱️ START: MediaStore query for bucket '$bucketName'")
+    val startTime = System.currentTimeMillis()
+    Logger.d("LocalStorageClient", "MediaStore query for bucket '$bucketName'")
 
-val mediaFiles = mutableListOf<LocalImageInfo>()
-val maxVideoSizeBytes = maxVideoSizeMb * 1024L * 1024L
+    val mediaFiles = mutableListOf<LocalImageInfo>()
+    val maxVideoSizeBytes = maxVideoSizeMb * 1024L * 1024L
 
-// Determine query method based on bucket name
-val standardFolders = setOf("Camera", "Screenshots", "Pictures", "Download")
-val useBucketDisplayName = bucketName in standardFolders
+    // Determine query method based on bucket name
+    val standardFolders = setOf("Camera", "Screenshots", "Pictures", "Download")
+    val useBucketDisplayName = bucketName in standardFolders
 
-val selection: String
-val selectionArgs: Array<String>
+    val selection: String
+    val selectionArgs: Array<String>
 
-if (useBucketDisplayName) {
-    // Use BUCKET_DISPLAY_NAME for standard Android folders
-    selection = "${MediaStore.Images.Media.BUCKET_DISPLAY_NAME} = ?"
-    selectionArgs = arrayOf(bucketName)
-    Logger.d("LocalStorageClient", "Using BUCKET_DISPLAY_NAME query for standard folder: $bucketName")
-} else {
-    // Use DATA LIKE for custom/user folders
-    selection = "${MediaStore.Images.Media.DATA} LIKE ?"
-    selectionArgs = arrayOf("%/$bucketName/%")
-    Logger.d("LocalStorageClient", "Using DATA LIKE query for custom folder: $bucketName")
-}
-
-val sortOrder = "${MediaStore.Images.Media.DISPLAY_NAME} ASC"
-
-var imageCount = 0
-var videoCount = 0
-var skippedLargeVideo = 0
-
-// Query images
-val imageProjection = arrayOf(
-    MediaStore.Images.Media._ID,
-    MediaStore.Images.Media.DISPLAY_NAME,
-    MediaStore.Images.Media.SIZE,
-    MediaStore.Images.Media.DATE_MODIFIED,
-    MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
-    MediaStore.Images.Media.DATA
-)
-
-try {
-    val imageQueryStart = System.currentTimeMillis()
-    Logger.d("LocalStorageClient", "⏱️ Querying images for bucket '$bucketName'...")
-    Logger.d("LocalStorageClient", "⏱️ Image query selection: '$selection'")
-    Logger.d("LocalStorageClient", "⏱️ Image query args: ${selectionArgs.joinToString(", ") { "'$it'" }}")
-    
-    context.contentResolver.query(
-        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-        imageProjection,
-        selection,
-        selectionArgs,
-        sortOrder
-    )?.use { cursor ->
-        val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-        val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-        val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
-        val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
-        val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
-        val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
-        
-        imageCount = cursor.count
-        Logger.d("LocalStorageClient", "⏱️ Image cursor returned $imageCount rows")
-        
-        var processedImages = 0
-        while (cursor.moveToNext()) {
-            val imageName = cursor.getString(nameColumn)
-            val imageBucket = cursor.getString(bucketColumn)
-            val imageData = cursor.getString(dataColumn)
-            val imageSize = cursor.getLong(sizeColumn)
-            
-            if (processedImages < 5) { // Log first 5 images for debugging
-                Logger.d("LocalStorageClient", "⏱️ Image #$processedImages: name='$imageName', bucket='$imageBucket', size=${imageSize/1024}KB")
-                Logger.d("LocalStorageClient", "⏱️ Image #$processedImages: data path='$imageData'")
-            } else if (processedImages == 5) {
-                Logger.d("LocalStorageClient", "⏱️ ... (showing first 5 images only)")
-            }
-            
-            val id = cursor.getLong(idColumn)
-            val uri = Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id.toString())
-            mediaFiles.add(
-                LocalImageInfo(
-                    uri = uri,
-                    name = imageName,
-                    size = imageSize,
-                    dateModified = cursor.getLong(dateColumn) * 1000
-                )
-            )
-            processedImages++
-        }
+    if (useBucketDisplayName) {
+        // Use BUCKET_DISPLAY_NAME for standard Android folders
+        selection = "${MediaStore.Images.Media.BUCKET_DISPLAY_NAME} = ?"
+        selectionArgs = arrayOf(bucketName)
+    } else {
+        // Use DATA LIKE for custom/user folders
+        selection = "${MediaStore.Images.Media.DATA} LIKE ?"
+        selectionArgs = arrayOf("%/$bucketName/%")
     }
-    val imageQueryDuration = System.currentTimeMillis() - imageQueryStart
-    Logger.d("LocalStorageClient", "⏱️ Image query took ${imageQueryDuration}ms, found $imageCount images")
-} catch (e: Exception) {
-    Logger.e("LocalStorageClient", "⏱️ Image query failed", e)
-    e.printStackTrace()
-}// Query videos if enabled
+
+    val sortOrder = "${MediaStore.Images.Media.DISPLAY_NAME} ASC"
+
+    var imageCount = 0
+    var videoCount = 0
+    var skippedLargeVideo = 0
+
+    // Query images
+    val imageProjection = arrayOf(
+        MediaStore.Images.Media._ID,
+        MediaStore.Images.Media.DISPLAY_NAME,
+        MediaStore.Images.Media.SIZE,
+        MediaStore.Images.Media.DATE_MODIFIED,
+        MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
+        MediaStore.Images.Media.DATA
+    )
+
+    try {
+        context.contentResolver.query(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            imageProjection,
+            selection,
+            selectionArgs,
+            sortOrder
+        )?.use { cursor ->
+            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+            val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
+            val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
+            val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
+
+            imageCount = cursor.count
+
+            while (cursor.moveToNext()) {
+                val id = cursor.getLong(idColumn)
+                val uri = Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id.toString())
+                mediaFiles.add(
+                    LocalImageInfo(
+                        uri = uri,
+                        name = cursor.getString(nameColumn),
+                        size = cursor.getLong(sizeColumn),
+                        dateModified = cursor.getLong(dateColumn) * 1000
+                    )
+                )
+            }
+        }
+    } catch (e: Exception) {
+        Logger.e("LocalStorageClient", "Image query failed", e)
+    }// Query videos if enabled
 if (isVideoEnabled) {
-    val videoQueryStart = System.currentTimeMillis()
-    Logger.d("LocalStorageClient", "⏱️ Querying videos for bucket '$bucketName' (useBucketDisplayName=$useBucketDisplayName)...")
-    Logger.d("LocalStorageClient", "⏱️ Video query selection: '$selection'")
-    Logger.d("LocalStorageClient", "⏱️ Video query args: ${selectionArgs.joinToString(", ") { "'$it'" }}")
-    
     val videoProjection = arrayOf(
         MediaStore.Video.Media._ID,
         MediaStore.Video.Media.DISPLAY_NAME,
@@ -331,159 +258,102 @@ if (isVideoEnabled) {
             val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
             val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
             val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED)
-            val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
-            val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
-            
-            val totalVideos = cursor.count
-            Logger.d("LocalStorageClient", "⏱️ Video cursor returned $totalVideos rows")
-            
-            var processedVideos = 0
+
             while (cursor.moveToNext()) {
-                val videoName = cursor.getString(nameColumn)
-                val videoBucket = cursor.getString(bucketColumn)
-                val videoData = cursor.getString(dataColumn)
                 val videoSize = cursor.getLong(sizeColumn)
-                
-                Logger.d("LocalStorageClient", "⏱️ Video #$processedVideos: name='$videoName', bucket='$videoBucket', size=${videoSize/1024}KB")
-                Logger.d("LocalStorageClient", "⏱️ Video #$processedVideos: data path='$videoData'")
-                
+
                 if (videoSize <= maxVideoSizeBytes) {
                     val id = cursor.getLong(idColumn)
                     val uri = Uri.withAppendedPath(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id.toString())
                     mediaFiles.add(
                         LocalImageInfo(
                             uri = uri,
-                            name = videoName,
+                            name = cursor.getString(nameColumn),
                             size = videoSize,
                             dateModified = cursor.getLong(dateColumn) * 1000
                         )
                     )
                     videoCount++
-                    Logger.d("LocalStorageClient", "⏱️ Video #$processedVideos: ADDED to results")
                 } else {
                     skippedLargeVideo++
-                    Logger.d("LocalStorageClient", "⏱️ Video #$processedVideos: SKIPPED (too large: ${videoSize/1024/1024}MB > ${maxVideoSizeMb}MB)")
                 }
-                processedVideos++
             }
         }
-        val videoQueryDuration = System.currentTimeMillis() - videoQueryStart
-        Logger.d("LocalStorageClient", "⏱️ Video query took ${videoQueryDuration}ms, found $videoCount videos, skipped $skippedLargeVideo large")
     } catch (e: Exception) {
-        Logger.e("LocalStorageClient", "⏱️ Video query failed", e)
-        e.printStackTrace()
+        Logger.e("LocalStorageClient", "Video query failed", e)
     }
-} else {
-    Logger.d("LocalStorageClient", "⏱️ Video querying DISABLED (isVideoEnabled=false)")
 }
+
 val totalDuration = System.currentTimeMillis() - startTime
-Logger.d("LocalStorageClient", "⏱️ SUMMARY:")
-Logger.d("LocalStorageClient", "  - Total time: ${totalDuration}ms (${totalDuration/1000.0}s)")
-Logger.d("LocalStorageClient", "  - Query method: ${if (useBucketDisplayName) "BUCKET_DISPLAY_NAME" else "DATA LIKE"}")
-Logger.d("LocalStorageClient", "  - Images: $imageCount")
-Logger.d("LocalStorageClient", "  - Videos: $videoCount")
-Logger.d("LocalStorageClient", "  - Skipped (too large): $skippedLargeVideo")
-Logger.d("LocalStorageClient", "  - Total media: ${mediaFiles.size}")
+Logger.d("LocalStorageClient", "Query completed in ${totalDuration}ms, found ${mediaFiles.size} files")
 
 return@withContext mediaFiles.sortedBy { it.name }
 }
 
 suspend fun downloadImage(uri: Uri): ByteArray? = withContext(Dispatchers.IO) {
-try {
-Logger.d("LocalStorageClient", "Reading image from URI: $uri")
-val result = context.contentResolver.openInputStream(uri)?.use { input ->
-val buffer = ByteArrayOutputStream()
-val data = ByteArray(16384)
-var count: Int
-while (input.read(data, 0, data.size).also { count = it } != -1) {
-buffer.write(data, 0, count)
-}
-buffer.toByteArray()
-}
-if (result != null) {
-Logger.d("LocalStorageClient", "Successfully read ${result.size} bytes")
-} else {
-Logger.e("LocalStorageClient", "Failed to open input stream for URI: $uri")
-}
-result
-} catch (e: Exception) {
-Logger.e("LocalStorageClient", "Error reading image from URI: $uri", e)
-e.printStackTrace()
-null
-}
+    try {
+        val result = context.contentResolver.openInputStream(uri)?.use { input ->
+            val buffer = ByteArrayOutputStream()
+            val data = ByteArray(16384)
+            var count: Int
+            while (input.read(data, 0, data.size).also { count = it } != -1) {
+                buffer.write(data, 0, count)
+            }
+            buffer.toByteArray()
+        }
+        result
+    } catch (e: Exception) {
+        Logger.e("LocalStorageClient", "Error reading image from URI: $uri", e)
+        null
+    }
 }
 
 fun getFileInfo(uri: Uri): LocalImageInfo? {
-return try {
-Logger.d("LocalStorageClient", "Getting file info for URI: $uri")
-Logger.d("LocalStorageClient", "URI scheme: ${uri.scheme}, authority: ${uri.authority}")
-Logger.d("LocalStorageClient", "URI path: ${uri.path}")
+    return try {
+        val file = DocumentFile.fromSingleUri(context, uri)
 
-val file = DocumentFile.fromSingleUri(context, uri)
-Logger.d("LocalStorageClient", "DocumentFile created: ${file != null}")
-
-if (file != null) {
-Logger.d("LocalStorageClient", "File exists: ${file.exists()}, canRead: ${file.canRead()}")
-Logger.d("LocalStorageClient", "File name: ${file.name}, type: ${file.type}")
-Logger.d("LocalStorageClient", "File length: ${file.length()}, lastModified: ${file.lastModified()}")
-
-if (file.exists()) {
-val info = LocalImageInfo(
-uri = uri,
-name = file.name ?: "unknown",
-size = file.length(),
-dateModified = file.lastModified()
-)
-Logger.d("LocalStorageClient", "File info SUCCESS: name=${info.name}, size=${info.size}")
-info
-} else {
-Logger.e("LocalStorageClient", "File exists() returned false for: $uri")
-null
-}
-} else {
-Logger.e("LocalStorageClient", "DocumentFile.fromSingleUri returned null for: $uri")
-null
-}
-} catch (e: Exception) {
-Logger.e("LocalStorageClient", "EXCEPTION getting file info for URI: $uri", e)
-e.printStackTrace()
-null
-}
+        if (file != null && file.exists()) {
+            LocalImageInfo(
+                uri = uri,
+                name = file.name ?: "unknown",
+                size = file.length(),
+                dateModified = file.lastModified()
+            )
+        } else {
+            Logger.e("LocalStorageClient", "File not found: $uri")
+            null
+        }
+    } catch (e: Exception) {
+        Logger.e("LocalStorageClient", "Error getting file info for URI: $uri", e)
+        null
+    }
 }
 
 suspend fun deleteImage(uri: Uri): Boolean = withContext(Dispatchers.IO) {
-try {
-Logger.d("LocalStorageClient", "Attempting to delete media: $uri")
-Logger.d("LocalStorageClient", "Android version: ${Build.VERSION.SDK_INT} (${Build.VERSION.RELEASE})")
+    try {
+        // Determine URI type and use appropriate deletion method
+        val uriString = uri.toString()
 
-// Determine URI type and use appropriate deletion method
-val uriString = uri.toString()
+        if (uriString.startsWith("content://com.android.externalstorage.documents/")) {
+            // SAF/DocumentFile URI - use DocumentFile API
+            val documentFile = DocumentFile.fromSingleUri(context, uri)
+            if (documentFile != null && documentFile.exists()) {
+                val deleted = documentFile.delete()
+                return@withContext deleted
+            } else {
+                Logger.e("LocalStorageClient", "DocumentFile is null or doesn't exist for SAF URI")
+                return@withContext false
+            }
+        } else {
+            // MediaStore URI - use ContentResolver
+            val deleted = context.contentResolver.delete(uri, null, null)
+            return@withContext deleted > 0
+        }
 
-if (uriString.startsWith("content://com.android.externalstorage.documents/")) {
-    // SAF/DocumentFile URI - use DocumentFile API
-    Logger.d("LocalStorageClient", "Using DocumentFile delete for SAF URI")
-    val documentFile = DocumentFile.fromSingleUri(context, uri)
-    if (documentFile != null && documentFile.exists()) {
-        val deleted = documentFile.delete()
-        Logger.d("LocalStorageClient", "DocumentFile delete result: $deleted")
-        return@withContext deleted
-    } else {
-        Logger.e("LocalStorageClient", "DocumentFile is null or doesn't exist for SAF URI")
+    } catch (e: Exception) {
+        Logger.e("LocalStorageClient", "Exception during delete: ${e.javaClass.simpleName}: ${e.message}", e)
         return@withContext false
     }
-} else {
-    // MediaStore URI - use ContentResolver
-    Logger.d("LocalStorageClient", "Using ContentResolver delete for MediaStore URI")
-    val deleted = context.contentResolver.delete(uri, null, null)
-    Logger.d("LocalStorageClient", "ContentResolver delete result: $deleted row(s)")
-    return@withContext deleted > 0
-}
-
-} catch (e: Exception) {
-Logger.e("LocalStorageClient", "Exception during delete: ${e.javaClass.simpleName}: ${e.message}", e)
-e.printStackTrace()
-return@withContext false
-}
 }
 
 companion object {
@@ -499,114 +369,98 @@ android.content.pm.PackageManager.PERMISSION_GRANTED
 }
 
 suspend fun renameFile(uri: Uri, newFileName: String): Pair<Boolean, String>? = withContext(Dispatchers.IO) {
-try {
-Logger.d("LocalStorageClient", "Attempting to rename file: $uri to $newFileName")
+    try {
+        // Determine URI type and use appropriate rename method
+        val uriString = uri.toString()
 
-// Determine URI type and use appropriate rename method
-val uriString = uri.toString()
-
-if (uriString.startsWith("content://com.android.externalstorage.documents/")) {
-    // SAF/DocumentFile URI - use DocumentFile API
-    Logger.d("LocalStorageClient", "Using DocumentFile rename for SAF URI")
-    val documentFile = DocumentFile.fromSingleUri(context, uri)
-    if (documentFile != null && documentFile.exists()) {
-        val renamed = documentFile.renameTo(newFileName)
-        Logger.d("LocalStorageClient", "DocumentFile rename result: $renamed")
-        if (renamed) {
-            // Return the same URI since DocumentFile.renameTo() modifies the file in place
-            return@withContext Pair(true, uri.toString())
+        if (uriString.startsWith("content://com.android.externalstorage.documents/")) {
+            // SAF/DocumentFile URI - use DocumentFile API
+            val documentFile = DocumentFile.fromSingleUri(context, uri)
+            if (documentFile != null && documentFile.exists()) {
+                val renamed = documentFile.renameTo(newFileName)
+                if (renamed) {
+                    // Return the same URI since DocumentFile.renameTo() modifies the file in place
+                    return@withContext Pair(true, uri.toString())
+                } else {
+                    return@withContext Pair(false, uri.toString())
+                }
+            } else {
+                Logger.e("LocalStorageClient", "DocumentFile is null or doesn't exist for SAF URI")
+                return@withContext Pair(false, uri.toString())
+            }
         } else {
-            Logger.d("LocalStorageClient", "DocumentFile rename failed")
+            // MediaStore URI - use ContentResolver approach
+            // Get current file info
+            val projection = arrayOf(
+                android.provider.MediaStore.MediaColumns._ID,
+                android.provider.MediaStore.MediaColumns.DISPLAY_NAME,
+                android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                android.provider.MediaStore.MediaColumns.MIME_TYPE
+            )
+
+            val cursor = context.contentResolver.query(uri, projection, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val idColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID)
+                    val nameColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
+                    val pathColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.RELATIVE_PATH)
+                    val mimeColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.MIME_TYPE)
+
+                    val id = it.getLong(idColumn)
+                    val oldName = it.getString(nameColumn)
+                    val relativePath = it.getString(pathColumn)
+                    val mimeType = it.getString(mimeColumn)
+
+                    // Check if file with new name already exists
+                    val collection = when {
+                        mimeType.startsWith("image/") -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                        mimeType.startsWith("video/") -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                        else -> return@withContext Pair(false, uri.toString())
+                    }
+
+                    val checkSelection = "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.MediaColumns.RELATIVE_PATH} = ?"
+                    val checkArgs = arrayOf(newFileName, relativePath)
+                    val checkCursor = context.contentResolver.query(collection, arrayOf(android.provider.MediaStore.MediaColumns._ID), checkSelection, checkArgs, null)
+                    val exists = checkCursor?.use { it.count > 0 } ?: false
+                    checkCursor?.close()
+
+                    if (exists) {
+                        return@withContext Pair(false, uri.toString())
+                    }
+
+                    // Perform rename using ContentValues
+                    val values = android.content.ContentValues().apply {
+                        put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, newFileName)
+                    }
+
+                    val updated = context.contentResolver.update(uri, values, null, null)
+                    if (updated > 0) {
+                        // Create new URI for renamed file
+                        val newUri = android.content.ContentUris.withAppendedId(collection, id)
+                        return@withContext Pair(true, newUri.toString())
+                    } else {
+                        return@withContext Pair(false, uri.toString())
+                    }
+                }
+            }
+
             return@withContext Pair(false, uri.toString())
         }
-    } else {
-        Logger.e("LocalStorageClient", "DocumentFile is null or doesn't exist for SAF URI")
+    } catch (securityException: android.app.RecoverableSecurityException) {
+        Logger.e("LocalStorageClient", "RecoverableSecurityException - need user permission", securityException)
+        // Re-throw to be handled by caller
+        throw securityException
+    } catch (e: Exception) {
+        Logger.e("LocalStorageClient", "Error renaming file", e)
         return@withContext Pair(false, uri.toString())
     }
-} else {
-    // MediaStore URI - use ContentResolver approach
-    Logger.d("LocalStorageClient", "Using ContentResolver rename for MediaStore URI")
-
-    // Get current file info
-    val projection = arrayOf(
-        android.provider.MediaStore.MediaColumns._ID,
-        android.provider.MediaStore.MediaColumns.DISPLAY_NAME,
-        android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
-        android.provider.MediaStore.MediaColumns.MIME_TYPE
-    )
-
-    val cursor = context.contentResolver.query(uri, projection, null, null, null)
-    cursor?.use {
-        if (it.moveToFirst()) {
-            val idColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID)
-            val nameColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
-            val pathColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.RELATIVE_PATH)
-            val mimeColumn = it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.MIME_TYPE)
-
-            val id = it.getLong(idColumn)
-            val oldName = it.getString(nameColumn)
-            val relativePath = it.getString(pathColumn)
-            val mimeType = it.getString(mimeColumn)
-
-            Logger.d("LocalStorageClient", "Old name: $oldName, New name: $newFileName")
-            Logger.d("LocalStorageClient", "Path: $relativePath, MIME: $mimeType")
-
-            // Check if file with new name already exists
-            val collection = when {
-                mimeType.startsWith("image/") -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-                mimeType.startsWith("video/") -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-                else -> return@withContext Pair(false, uri.toString())
-            }
-
-            val checkSelection = "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.MediaColumns.RELATIVE_PATH} = ?"
-            val checkArgs = arrayOf(newFileName, relativePath)
-            val checkCursor = context.contentResolver.query(collection, arrayOf(android.provider.MediaStore.MediaColumns._ID), checkSelection, checkArgs, null)
-            val exists = checkCursor?.use { it.count > 0 } ?: false
-            checkCursor?.close()
-
-            if (exists) {
-                Logger.d("LocalStorageClient", "File with new name already exists")
-                return@withContext Pair(false, uri.toString())
-            }
-
-            // Perform rename using ContentValues
-            val values = android.content.ContentValues().apply {
-                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, newFileName)
-            }
-
-            val updated = context.contentResolver.update(uri, values, null, null)
-            if (updated > 0) {
-                Logger.d("LocalStorageClient", "File renamed successfully")
-                // Create new URI for renamed file
-                val newUri = android.content.ContentUris.withAppendedId(collection, id)
-                return@withContext Pair(true, newUri.toString())
-            } else {
-                Logger.d("LocalStorageClient", "Failed to rename file")
-                return@withContext Pair(false, uri.toString())
-            }
-        }
-    }
-
-    Logger.d("LocalStorageClient", "Failed to query file info")
-    return@withContext Pair(false, uri.toString())
-}
-} catch (securityException: android.app.RecoverableSecurityException) {
-Logger.e("LocalStorageClient", "RecoverableSecurityException - need user permission", securityException)
-// Re-throw to be handled by caller
-throw securityException
-} catch (e: Exception) {
-Logger.e("LocalStorageClient", "Error renaming file", e)
-return@withContext Pair(false, uri.toString())
-}
 }
 
 suspend fun writeFile(destinationFolderUri: Uri, fileName: String, data: ByteArray): Boolean = withContext(Dispatchers.IO) {
     try {
-        Logger.d("LocalStorageClient", "Writing file: $fileName (${data.size} bytes) to $destinationFolderUri")
-        
         // Check if this is a DocumentFile TreeUri or MediaStore URI
         val uriString = destinationFolderUri.toString()
-        
+
         if (uriString.startsWith("content://com.android.externalstorage.documents/tree/")) {
             // SAF/DocumentFile approach for user-selected folders
             val folder = DocumentFile.fromTreeUri(context, destinationFolderUri)
@@ -614,7 +468,7 @@ suspend fun writeFile(destinationFolderUri: Uri, fileName: String, data: ByteArr
                 Logger.e("LocalStorageClient", "Invalid destination folder URI")
                 return@withContext false
             }
-            
+
             // Determine MIME type from file extension
             val mimeType = when {
                 fileName.endsWith(".jpg", ignoreCase = true) || fileName.endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
@@ -625,35 +479,34 @@ suspend fun writeFile(destinationFolderUri: Uri, fileName: String, data: ByteArr
                 fileName.endsWith(".mkv", ignoreCase = true) -> "video/x-matroska"
                 else -> "application/octet-stream"
             }
-            
+
             // Check if file already exists
             val existingFile = folder.listFiles().find { it.name == fileName }
             if (existingFile != null) {
                 Logger.w("LocalStorageClient", "File already exists: $fileName")
                 return@withContext false
             }
-            
+
             // Create new file
             val newFile = folder.createFile(mimeType, fileName)
             if (newFile == null) {
                 Logger.e("LocalStorageClient", "Failed to create file")
                 return@withContext false
             }
-            
+
             // Write data
             context.contentResolver.openOutputStream(newFile.uri)?.use { output ->
                 output.write(data)
                 output.flush()
             }
-            
-            Logger.d("LocalStorageClient", "File written successfully via SAF")
+
             return@withContext true
-            
+
         } else {
             Logger.e("LocalStorageClient", "Unsupported URI format for write: $destinationFolderUri")
             return@withContext false
         }
-        
+
     } catch (e: Exception) {
         Logger.e("LocalStorageClient", "Error writing file", e)
         return@withContext false
@@ -662,8 +515,6 @@ suspend fun writeFile(destinationFolderUri: Uri, fileName: String, data: ByteArr
 
 suspend fun writeFileToStandardFolder(fileName: String, data: ByteArray, folderName: String): Boolean = withContext(Dispatchers.IO) {
     try {
-        Logger.d("LocalStorageClient", "Writing file: $fileName (${data.size} bytes) to standard folder: $folderName")
-        
         // Determine MIME type and collection
         val mimeType = when {
             fileName.endsWith(".jpg", ignoreCase = true) || fileName.endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
@@ -674,7 +525,7 @@ suspend fun writeFileToStandardFolder(fileName: String, data: ByteArray, folderN
             fileName.endsWith(".mkv", ignoreCase = true) -> "video/x-matroska"
             else -> "application/octet-stream"
         }
-        
+
         val collection = when {
             mimeType.startsWith("image/") -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
             mimeType.startsWith("video/") -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
@@ -683,7 +534,7 @@ suspend fun writeFileToStandardFolder(fileName: String, data: ByteArray, folderN
                 return@withContext false
             }
         }
-        
+
         // Map folder names to relative paths
         val relativePath = when (folderName) {
             "Camera" -> "DCIM/Camera/"
@@ -692,7 +543,7 @@ suspend fun writeFileToStandardFolder(fileName: String, data: ByteArray, folderN
             "Download" -> "Download/"
             else -> "Pictures/"
         }
-        
+
         // Prepare ContentValues
         val values = android.content.ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
@@ -702,23 +553,21 @@ suspend fun writeFileToStandardFolder(fileName: String, data: ByteArray, folderN
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
         }
-        
+
         // Insert new file into MediaStore
         val newUri = context.contentResolver.insert(collection, values)
         if (newUri == null) {
             Logger.e("LocalStorageClient", "Failed to create file in MediaStore")
             return@withContext false
         }
-        
-        Logger.d("LocalStorageClient", "Created file URI: $newUri")
-        
+
         // Write data to the file
         try {
             context.contentResolver.openOutputStream(newUri)?.use { output ->
                 output.write(data)
                 output.flush()
             }
-            
+
             // Mark file as ready (not pending)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val readyValues = android.content.ContentValues().apply {
@@ -726,17 +575,16 @@ suspend fun writeFileToStandardFolder(fileName: String, data: ByteArray, folderN
                 }
                 context.contentResolver.update(newUri, readyValues, null, null)
             }
-            
-            Logger.d("LocalStorageClient", "File written successfully to standard folder")
+
             return@withContext true
-            
+
         } catch (e: Exception) {
             // If write failed, delete the created file
             context.contentResolver.delete(newUri, null, null)
             Logger.e("LocalStorageClient", "Failed to write data, file deleted", e)
             return@withContext false
         }
-        
+
     } catch (e: Exception) {
         Logger.e("LocalStorageClient", "Error writing file to standard folder", e)
         return@withContext false

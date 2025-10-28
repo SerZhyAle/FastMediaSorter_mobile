@@ -906,37 +906,21 @@ class SlideshowActivity : LocaleActivity() {
             // Determine if current media is video
             // For local mode, get actual filename from MediaStore before type detection
             val actualFileName = if (isLocalMode) {
-                Logger.d(TAG, "loadCurrentMedia() - LOCAL MODE: Getting file info for $mediaUrl")
                 try {
                     val fileInfo = localStorageClient?.getFileInfo(Uri.parse(mediaUrl))
-                    Logger.d(TAG, "loadCurrentMedia() - LocalStorageClient returned: name=${fileInfo?.name}, size=${fileInfo?.size}")
                     fileInfo?.name ?: mediaUrl.substringAfterLast('/')
                 } catch (e: Exception) {
                     Logger.w(TAG, "Failed to get file info for $mediaUrl, using URI: ${e.message}")
                     mediaUrl.substringAfterLast('/')
                 }
             } else {
-                Logger.d(TAG, "loadCurrentMedia() - SMB MODE: Using URI filename")
                 mediaUrl.substringAfterLast('/')
             }
-            
+
             val fileName = mediaUrl.substringAfterLast('/')
             val extension = actualFileName.substringAfterLast('.', "").lowercase()
             isCurrentMediaVideo = MediaUtils.isVideo(actualFileName)
-            
-            Logger.d(TAG, "======================================")
-            Logger.d(TAG, "loadCurrentMedia() - File Analysis:")
-            Logger.d(TAG, "  File: $fileName")
-            Logger.d(TAG, "  Actual filename: $actualFileName")
-            Logger.d(TAG, "  Extension: .$extension")
-            Logger.d(TAG, "  Full URL: $mediaUrl")
-            Logger.d(TAG, "  isVideo (MediaUtils): $isCurrentMediaVideo")
-            Logger.d(TAG, "  Video extensions: ${MediaUtils.getVideoExtensions()}")
-            Logger.d(TAG, "  Image extensions: ${MediaUtils.getImageExtensions()}")
-            Logger.d(TAG, "  Current index: $currentIndex")
-            Logger.d(TAG, "  isPaused: $isPaused")
-            Logger.d(TAG, "======================================")
-            
+
             // Update rotation areas based on media type
             updateRotationAreas()
             
@@ -996,18 +980,13 @@ class SlideshowActivity : LocaleActivity() {
     
     private suspend fun loadImage(imageUrl: String, actualFileName: String) {
         try {
-            Logger.d(TAG, ">>> loadImage() ENTRY - ${imageUrl.substringAfterLast('/')}")
-            Logger.d(TAG, "  Current UI state at entry:")
-            Logger.d(TAG, "    imageView.visibility = ${binding.imageView.visibility}")
-            Logger.d(TAG, "    playerView.visibility = ${binding.playerView.visibility}")
-            Logger.d(TAG, "    videoLoadingLayout.visibility = ${binding.videoLoadingLayout.visibility}")
-            Logger.d(TAG, "    isCurrentMediaVideo = $isCurrentMediaVideo")
-            
+            Logger.d(TAG, "Loading image: ${imageUrl.substringAfterLast('/')}")
+
             // Always hide video loading indicator when switching to image
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                 binding.videoLoadingLayout.visibility = View.GONE
             }
-            
+
             // Check blacklist BEFORE attempting to load
             if (blacklistedFiles.contains(imageUrl)) {
                 Logger.w(TAG, "Attempted to load blacklisted image: ${imageUrl.substringAfterLast('/')}, skipping")
@@ -1164,31 +1143,12 @@ class SlideshowActivity : LocaleActivity() {
             try {
                 val fileName = actualFileName
                 val extension = actualFileName.substringAfterLast('.', "").lowercase()
-                
-                Logger.d(TAG, ">>> loadVideo() ENTRY >>>")
-                Logger.d(TAG, "  Requested file: $fileName")
-                Logger.d(TAG, "  Extension: .$extension")
-                Logger.d(TAG, "  Full URL: $videoUrl")
-                Logger.d(TAG, "  Current index: $currentIndex")
-                Logger.d(TAG, "  isCurrentMediaVideo flag: $isCurrentMediaVideo")
-                Logger.d(TAG, "  Current UI state at entry:")
-                Logger.d(TAG, "    imageView.visibility = ${binding.imageView.visibility}")
-                Logger.d(TAG, "    playerView.visibility = ${binding.playerView.visibility}")
-                Logger.d(TAG, "    videoLoadingLayout.visibility = ${binding.videoLoadingLayout.visibility}")
-                
+
+                Logger.d(TAG, "Loading video: $fileName")
+
                 // CRITICAL: Verify this is actually a video file
                 if (!MediaUtils.isVideo(actualFileName)) {
-                    Logger.e(TAG, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                    Logger.e(TAG, "!!! CRITICAL ERROR - NON-VIDEO IN loadVideo() !!!")
-                    Logger.e(TAG, "  File: $fileName")
-                    Logger.e(TAG, "  Extension: .$extension")
-                    Logger.e(TAG, "  Expected video extensions: ${MediaUtils.getVideoExtensions()}")
-                    Logger.e(TAG, "  currentIndex: $currentIndex")
-                    Logger.e(TAG, "  isCurrentMediaVideo flag: $isCurrentMediaVideo")
-                    Logger.e(TAG, "  Full URL: $videoUrl")
-                    Logger.e(TAG, "  This indicates race condition or detection bug")
-                    Logger.e(TAG, "  File will be BLACKLISTED")
-                    Logger.e(TAG, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    Logger.e(TAG, "Non-video file in loadVideo(): $fileName")
                     // Treat as corrupted and skip
                     blacklistedFiles.add(videoUrl)
                     binding.videoLoadingLayout.visibility = View.GONE
@@ -1197,10 +1157,7 @@ class SlideshowActivity : LocaleActivity() {
                     }
                     return@withContext
                 }
-                
-                Logger.d(TAG, "  ✓ File type validated as video - proceeding")
-                Logger.d(TAG, "<<< loadVideo() continuing >>>")
-                
+
                 // Check blacklist BEFORE attempting to load
                 if (blacklistedFiles.contains(videoUrl)) {
                     Logger.w(TAG, "Attempted to load blacklisted video: ${videoUrl.substringAfterLast('/')}, skipping")
@@ -1225,25 +1182,16 @@ class SlideshowActivity : LocaleActivity() {
                 
                 // Start timeout watchdog - will forcefully skip if video doesn't load
                 videoTimeoutJob = lifecycleScope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                    val fileName = videoUrl.substringAfterLast('/')
-                    Logger.d(TAG, "⏱ Timeout watchdog started for $fileName (${VIDEO_LOAD_TIMEOUT_MS}ms)")
                     delay(VIDEO_LOAD_TIMEOUT_MS)
-                    
+
                     // Timeout fired - check if we're still waiting for this video
                     if (!blacklistedFiles.contains(videoUrl)) {
-                        Logger.e(TAG, "⏱⏱⏱ VIDEO LOAD TIMEOUT FIRED ⏱⏱⏱")
-                        Logger.e(TAG, "  File: $fileName")
-                        Logger.e(TAG, "  URL: $videoUrl")
-                        Logger.e(TAG, "  Time elapsed: ${VIDEO_LOAD_TIMEOUT_MS}ms")
-                        Logger.e(TAG, "  waitingForVideoEnd: $waitingForVideoEnd")
-                        Logger.e(TAG, "  isPaused: $isPaused")
-                        Logger.e(TAG, "  FORCING SKIP TO NEXT MEDIA")
-                        
+                        Logger.e(TAG, "Video load timeout for ${videoUrl.substringAfterLast('/')}")
                         // Force cleanup regardless of player state
                         binding.videoLoadingLayout.visibility = View.GONE
                         waitingForVideoEnd = false
                         blacklistedFiles.add(videoUrl)
-                        
+
                         // Stop player to interrupt any ongoing operations
                         try {
                             exoPlayer?.stop()
@@ -1251,12 +1199,12 @@ class SlideshowActivity : LocaleActivity() {
                         } catch (e: Exception) {
                             Logger.e(TAG, "Error stopping player during timeout", e)
                         }
-                        
+
                         if (!isPaused) {
                             skipToNextImage()
                         }
                     } else {
-                        Logger.d(TAG, "⏱ Timeout fired but file already blacklisted: $fileName")
+                        Logger.d(TAG, "Timeout fired but file already blacklisted: ${videoUrl.substringAfterLast('/')}")
                     }
                 }
                 
@@ -1351,23 +1299,11 @@ class SlideshowActivity : LocaleActivity() {
         val currentFile = if (images.isNotEmpty() && currentIndex < images.size) {
             images[currentIndex]
         } else "Unknown"
-        
+
         val fileName = currentFile.substringAfterLast('/')
         val extension = currentFile.substringAfterLast('.', "").lowercase()
-        
-        Logger.e(TAG, "===========================================")
-        Logger.e(TAG, ">>> showVideoErrorDialog() CALLED >>>")
-        Logger.e(TAG, "  Timestamp: ${System.currentTimeMillis()}")
-        Logger.e(TAG, "  Current index: $currentIndex")
-        Logger.e(TAG, "  File: $fileName")
-        Logger.e(TAG, "  Extension: .$extension")
-        Logger.e(TAG, "  Full path: $currentFile")
-        Logger.e(TAG, "  Error type: ${error.javaClass.simpleName}")
-        Logger.e(TAG, "  Error code: ${error.errorCode}")
-        Logger.e(TAG, "  Error message: ${error.message ?: "No message"}")
-        Logger.e(TAG, "  isCurrentMediaVideo flag: $isCurrentMediaVideo")
-        Logger.e(TAG, "  isPaused: $isPaused")
-        Logger.e(TAG, "===========================================")
+
+        Logger.e(TAG, "Video playback error: $fileName, code: ${error.errorCode}, message: ${error.message}")
         
         val errorDetails = StringBuilder()
         errorDetails.append("=== VIDEO PLAYBACK ERROR ===\n")
