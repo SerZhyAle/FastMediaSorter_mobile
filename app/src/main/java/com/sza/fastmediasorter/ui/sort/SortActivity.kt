@@ -443,6 +443,14 @@ class SortActivity : LocaleActivity() {
         binding.buttonsRow1.visibility = if (showCopy) View.VISIBLE else View.GONE
         // Always show second row when copy is enabled (small buttons just change text size)
         binding.buttonsRow2.visibility = if (showCopy) View.VISIBLE else View.GONE
+        
+        // Adjust label text size for small buttons mode
+        if (useSmallButtons) {
+            binding.copyToLabel.textSize = 10f  // Smaller text for labels
+        } else {
+            binding.copyToLabel.textSize = 12f  // Default text size
+        }
+        
         Logger.d("SortActivity", "📋 Copy section: ${if (showCopy) "VISIBLE" else "GONE"} (allowCopy=$allowCopy, hasDestinations=$hasDestinations, useSmallButtons=$useSmallButtons)")
         
         // Hide/show move section (only if we have destinations)
@@ -451,6 +459,14 @@ class SortActivity : LocaleActivity() {
         binding.moveButtonsRow1.visibility = if (showMove) View.VISIBLE else View.GONE
         // Always show second row when move is enabled (small buttons just change text size)
         binding.moveButtonsRow2.visibility = if (showMove) View.VISIBLE else View.GONE
+        
+        // Adjust label text size for small buttons mode
+        if (useSmallButtons) {
+            binding.moveToLabel.textSize = 10f  // Smaller text for labels
+        } else {
+            binding.moveToLabel.textSize = 12f  // Default text size
+        }
+        
         Logger.d("SortActivity", "➡️ Move section: ${if (showMove) "VISIBLE" else "GONE"} (allowMove=$allowMove, hasDestinations=$hasDestinations, sourceHasWritePermission=$sourceHasWritePermission, useSmallButtons=$useSmallButtons)")
         
         // Hide/show delete button
@@ -551,6 +567,15 @@ class SortActivity : LocaleActivity() {
                 params.height = compactHeight
                 button.layoutParams = params
             }
+            
+            // Apply compact height to delete and rename buttons
+            val deleteParams = binding.deleteButton.layoutParams
+            deleteParams.height = compactHeight
+            binding.deleteButton.layoutParams = deleteParams
+            
+            val renameParams = binding.renameButton.layoutParams
+            renameParams.height = compactHeight
+            binding.renameButton.layoutParams = renameParams
         }
     }
     
