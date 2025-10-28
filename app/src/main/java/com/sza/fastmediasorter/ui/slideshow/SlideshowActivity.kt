@@ -1003,23 +1003,66 @@ class SlideshowActivity : LocaleActivity() {
             }
             
             imageData?.let { data ->
-                val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size)
-                if (bitmap != null) {
-                    currentBitmap = bitmap
-                    binding.imageView.setImageBitmap(bitmap)
-                    binding.imageView.rotation = 0f // Reset rotation for new image
-                    binding.videoLoadingLayout.visibility = View.GONE
-                    
-                    // Reset error counter on successful load
-                    consecutiveErrors = 0
-                    
-                    // Save last session state
-                    saveSessonState()
-                } else {
-                    handleMediaError(imageUrl, "Image Decode", "Failed to decode bitmap")
-                    // Skip to next media - blacklist will prevent reload
-                    if (!isPaused) {
-                        skipToNextImage()
+                val isGif = imageUrl.lowercase().endsWith(".gif")
+                
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    if (isGif) {
+                        // Use Glide for GIF animations
+                        Glide.with(this@SlideshowActivity)
+                            .load(data)
+                            .error(com.sza.fastmediasorter.R.drawable.error_placeholder)
+                            .listener(object : com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable> {
+                                override fun onLoadFailed(
+                                    e: com.bumptech.glide.load.engine.GlideException?,
+                                    model: Any?,
+                                    target: com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable>,
+                                    isFirstResource: Boolean
+                                ): Boolean {
+                                    Logger.e(TAG, "Failed to load GIF: ${e?.message}", e)
+                                    lifecycleScope.launch {
+                                        handleMediaError(imageUrl, "GIF Load", e?.message ?: "Glide load failed")
+                                        if (!isPaused) {
+                                            skipToNextImage()
+                                        }
+                                    }
+                                    return false
+                                }
+                                
+                                override fun onResourceReady(
+                                    resource: android.graphics.drawable.Drawable,
+                                    model: Any,
+                                    target: com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable>?,
+                                    dataSource: com.bumptech.glide.load.DataSource,
+                                    isFirstResource: Boolean
+                                ): Boolean {
+                                    consecutiveErrors = 0
+                                    binding.videoLoadingLayout.visibility = View.GONE
+                                    saveSessonState()
+                                    return false
+                                }
+                            })
+                            .into(binding.imageView)
+                    } else {
+                        // Use BitmapFactory for static images (JPEG, PNG, etc.)
+                        val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size)
+                        if (bitmap != null) {
+                            currentBitmap = bitmap
+                            binding.imageView.setImageBitmap(bitmap)
+                            binding.imageView.rotation = 0f // Reset rotation for new image
+                            binding.videoLoadingLayout.visibility = View.GONE
+                            
+                            // Reset error counter on successful load
+                            consecutiveErrors = 0
+                            
+                            // Save last session state
+                            saveSessonState()
+                        } else {
+                            handleMediaError(imageUrl, "Image Decode", "Failed to decode bitmap")
+                            // Skip to next media - blacklist will prevent reload
+                            if (!isPaused) {
+                                skipToNextImage()
+                            }
+                        }
                     }
                 }
             } ?: run {
