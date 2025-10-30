@@ -9,6 +9,6 @@ import org.junit.runners.Suite
 @Suite.SuiteClasses(
     MainActivityTest::class,
     SettingsActivityTest::class,
-    LanguageTest::class
+    LanguageTest::class,
 )
 class AndroidTestSuite

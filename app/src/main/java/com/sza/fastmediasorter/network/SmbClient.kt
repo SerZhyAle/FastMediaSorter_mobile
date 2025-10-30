@@ -12,15 +12,24 @@ import java.util.*
 
 class SmbClient {
     private var context: CIFSContext? = null
-    
+
     fun getContext(): CIFSContext? = context
-    
-    private fun buildFullDiagnostic(e: Exception?, serverAddress: String, folderPath: String): String {
+
+    private fun buildFullDiagnostic(
+        e: Exception?,
+        serverAddress: String,
+        folderPath: String,
+    ): String {
         val diagnostic = StringBuilder()
 
         // Header
         diagnostic.append("=== SMB CONNECTION TEST DIAGNOSTIC ===\n")
-        diagnostic.append("Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}\n")
+        diagnostic.append(
+            "Date: ${java.text.SimpleDateFormat(
+                "yyyy-MM-dd HH:mm:ss",
+                java.util.Locale.US,
+            ).format(java.util.Date())}\n",
+        )
         diagnostic.append("Server: $serverAddress\n")
         diagnostic.append("Folder: $folderPath\n\n")
 
@@ -127,7 +136,7 @@ class SmbClient {
                         diagnostic.append("• Guest access disabled\n")
                     }
                     errorMessage.contains("network name cannot be found", ignoreCase = true) ||
-                    errorMessage.contains("network path was not found", ignoreCase = true) -> {
+                        errorMessage.contains("network path was not found", ignoreCase = true) -> {
                         diagnostic.append("\nAdditional Analysis: Network path not found\n")
                         diagnostic.append("Common causes:\n")
                         diagnostic.append("• Server name/IP incorrect\n")
@@ -151,8 +160,8 @@ class SmbClient {
                         diagnostic.append("• Server rejecting connections\n")
                     }
                     errorMessage.contains("algorithm", ignoreCase = true) ||
-                    errorMessage.contains("MD4", ignoreCase = true) ||
-                    errorMessage.contains("provider", ignoreCase = true) -> {
+                        errorMessage.contains("MD4", ignoreCase = true) ||
+                        errorMessage.contains("provider", ignoreCase = true) -> {
                         diagnostic.append("\nAdditional Analysis: Security/Algorithm error\n")
                         diagnostic.append("This indicates MD4 or cryptographic provider issues\n")
                     }
@@ -206,14 +215,15 @@ class SmbClient {
                 diagnostic.append("  • Verify library version compatibility\n")
             }
             diagnostic.append("\n")
-
         } catch (provEx: Exception) {
             diagnostic.append("Error checking security providers: ${provEx.message}\n\n")
         }
 
         // System information
         diagnostic.append("=== SYSTEM INFORMATION ===\n")
-        diagnostic.append("Android Version: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n")
+        diagnostic.append(
+            "Android Version: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n",
+        )
         diagnostic.append("Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n")
         diagnostic.append("JVM: ${System.getProperty("java.vm.name")} ${System.getProperty("java.vm.version")}\n")
         diagnostic.append("Java Version: ${System.getProperty("java.version")}\n\n")
@@ -241,33 +251,41 @@ class SmbClient {
 
         return diagnostic.toString()
     }
-    
-    suspend fun connect(@Suppress("UNUSED_PARAMETER") serverAddress: String, username: String, password: String): Boolean {
+
+    suspend fun connect(
+        @Suppress("UNUSED_PARAMETER") serverAddress: String,
+        username: String,
+        password: String,
+    ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
                 // Ensure BouncyCastle provider is available
                 try {
                     java.security.Security.getProvider("BC") ?: run {
-                        val bcProvider = Class.forName("org.bouncycastle.jce.provider.BouncyCastleProvider")
-                            .getDeclaredConstructor().newInstance() as java.security.Provider
+                        val bcProvider =
+                            Class
+                                .forName("org.bouncycastle.jce.provider.BouncyCastleProvider")
+                                .getDeclaredConstructor()
+                                .newInstance() as java.security.Provider
                         java.security.Security.addProvider(bcProvider)
                         Logger.d("SmbClient", "BouncyCastle provider added")
                     }
                 } catch (e: Exception) {
                     Logger.e("SmbClient", "Failed to ensure BC provider", e)
                 }
-                
-                val props = Properties().apply {
-                    setProperty("jcifs.smb.client.minVersion", "SMB202")
-                    setProperty("jcifs.smb.client.maxVersion", "SMB311")
-                    setProperty("jcifs.resolveOrder", "DNS")
-                    setProperty("jcifs.smb.client.responseTimeout", "3000")
-                    setProperty("jcifs.smb.client.connTimeout", "3000")
-                }
-                
+
+                val props =
+                    Properties().apply {
+                        setProperty("jcifs.smb.client.minVersion", "SMB202")
+                        setProperty("jcifs.smb.client.maxVersion", "SMB311")
+                        setProperty("jcifs.resolveOrder", "DNS")
+                        setProperty("jcifs.smb.client.responseTimeout", "3000")
+                        setProperty("jcifs.smb.client.connTimeout", "3000")
+                    }
+
                 val config = PropertyConfiguration(props)
                 val baseContext = BaseContext(config)
-                
+
                 // Clear existing context before creating new one to prevent resource leaks
                 context?.let {
                     try {
@@ -277,14 +295,15 @@ class SmbClient {
                     }
                 }
                 context = null
-                
-                context = if (username.isNotEmpty() && password.isNotEmpty()) {
-                    val auth = NtlmPasswordAuthenticator(null, username, password)
-                    baseContext.withCredentials(auth)
-                } else {
-                    baseContext.withAnonymousCredentials()
-                }
-                
+
+                context =
+                    if (username.isNotEmpty() && password.isNotEmpty()) {
+                        val auth = NtlmPasswordAuthenticator(null, username, password)
+                        baseContext.withCredentials(auth)
+                    } else {
+                        baseContext.withAnonymousCredentials()
+                    }
+
                 true
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -292,7 +311,7 @@ class SmbClient {
             }
         }
     }
-    
+
     suspend fun listShares(serverAddress: String): List<String> {
         return withContext(Dispatchers.IO) {
             try {
@@ -300,13 +319,13 @@ class SmbClient {
                     Logger.e("SmbClient", "Not connected to server")
                     return@withContext emptyList()
                 }
-                
+
                 val serverUrl = "smb://$serverAddress/"
                 Logger.d("SmbClient", "Listing shares from: $serverUrl")
-                
+
                 val serverFile = SmbFile(serverUrl, context)
                 val shares = mutableListOf<String>()
-                
+
                 serverFile.listFiles()?.forEach { share ->
                     if (share.isDirectory) {
                         val shareName = share.name.trimEnd('/')
@@ -323,7 +342,7 @@ class SmbClient {
                         }
                     }
                 }
-                
+
                 Logger.d("SmbClient", "Total accessible shares found: ${shares.size}")
                 shares
             } catch (e: Exception) {
@@ -332,23 +351,26 @@ class SmbClient {
             }
         }
     }
-    
+
     data class ImageFilesResult(
         val files: List<String>,
         val errorMessage: String? = null,
-        val warningMessage: String? = null
+        val warningMessage: String? = null,
     )
-    
+
     suspend fun getImageFiles(
-        serverAddress: String, 
+        serverAddress: String,
         folderPath: String,
         isVideoEnabled: Boolean = false,
-        maxVideoSizeMb: Int = 100
+        maxVideoSizeMb: Int = 100,
     ): ImageFilesResult {
         return withContext(Dispatchers.IO) {
             try {
-                Logger.d("SmbClient", "getImageFiles - server: $serverAddress, folder: $folderPath, videoEnabled: $isVideoEnabled")
-                
+                Logger.d(
+                    "SmbClient",
+                    "getImageFiles - server: $serverAddress, folder: $folderPath, videoEnabled: $isVideoEnabled",
+                )
+
                 // Diagnostic check for BC provider and MD4 availability BEFORE SMB operations
                 val bcDiagnostic = StringBuilder()
                 try {
@@ -356,7 +378,7 @@ class SmbClient {
                     bcDiagnostic.append("Security Providers: ${providers.size}\n")
                     providers.forEach { p -> bcDiagnostic.append("${p.name} v${p.version}; ") }
                     bcDiagnostic.append("\n")
-                    
+
                     val bcProvider = java.security.Security.getProvider("BC")
                     if (bcProvider != null) {
                         bcDiagnostic.append("BC Provider: FOUND\n")
@@ -373,71 +395,84 @@ class SmbClient {
                     bcDiagnostic.append("Diagnostic error: ${diagEx.message}\n")
                 }
                 Logger.d("SmbClient", "Pre-SMB diagnostic:\n$bcDiagnostic")
-                
+
                 if (context == null) {
                     val msg = "Not connected to server. Please check connection settings.\n\n$bcDiagnostic"
                     Logger.e("SmbClient", msg)
                     return@withContext ImageFilesResult(emptyList(), msg)
                 }
-                
-                val cleanServer = serverAddress.trim()
-                    .removePrefix("smb://")
-                    .removePrefix("\\\\")
-                    .replace("\\", "/")
-                
-                val cleanFolder = folderPath.trim()
-                    .removePrefix("/")
-                    .removePrefix("\\")
-                    .replace("\\", "/")
-                
+
+                val cleanServer =
+                    serverAddress
+                        .trim()
+                        .removePrefix("smb://")
+                        .removePrefix("\\\\")
+                        .replace("\\", "/")
+
+                val cleanFolder =
+                    folderPath
+                        .trim()
+                        .removePrefix("/")
+                        .removePrefix("\\")
+                        .replace("\\", "/")
+
                 val smbUrl = "smb://$cleanServer/$cleanFolder/"
                 Logger.d("SmbClient", "Final SMB URL: $smbUrl")
-                
+
                 val smbFile = SmbFile(smbUrl, context)
-                
+
                 Logger.d("SmbClient", "Checking SMB path...")
-                
+
                 if (!smbFile.exists()) {
                     val msg = "Path not found: smb://$cleanServer/$cleanFolder/\n\nCheck:\n• Server IP correct?\n• Folder name correct?\n• Network connection?"
                     Logger.e("SmbClient", msg)
                     return@withContext ImageFilesResult(emptyList(), msg)
                 }
-                
+
                 if (!smbFile.isDirectory()) {
                     val msg = "Path is not a folder: smb://$cleanServer/$cleanFolder/"
                     Logger.e("SmbClient", msg)
                     return@withContext ImageFilesResult(emptyList(), msg)
                 }
-                
+
                 val mediaFiles = mutableListOf<String>()
                 val maxVideoSizeBytes = maxVideoSizeMb * 1024L * 1024L
-                
+
                 val startListTime = System.currentTimeMillis()
                 Logger.d("SmbClient", "⏱️ START: Listing directory contents...")
                 val files = smbFile.listFiles()
                 val listDuration = System.currentTimeMillis() - startListTime
-                Logger.d("SmbClient", "⏱️ DONE: Directory listing took ${listDuration}ms. Found ${files?.size ?: 0} files")
-                
+                Logger.d(
+                    "SmbClient",
+                    "⏱️ DONE: Directory listing took ${listDuration}ms. Found ${files?.size ?: 0} files",
+                )
+
                 val startProcessTime = System.currentTimeMillis()
                 var imageCount = 0
                 var videoCount = 0
                 var skippedAvi = 0
                 var skippedLargeVideo = 0
                 var skippedOther = 0
-                
+
                 files?.forEachIndexed { index, file ->
                     if (file.isFile()) {
                         val filename = file.name
-                        
+
                         // Log progress every 100 files
                         if (index % 100 == 0 && index > 0) {
                             val elapsed = System.currentTimeMillis() - startProcessTime
                             val rate = index.toFloat() / elapsed * 1000
                             Logger.d("SmbClient", "⏱️ Progress: $index/${files.size} files (${rate.toInt()} files/sec)")
                         }
-                        
+
                         // Check if it's an image
-                        if (com.sza.fastmediasorter.utils.MediaUtils.isImage(filename)) {
+                        if (com
+                                .sza
+                                .fastmediasorter
+                                .utils
+                                .MediaUtils
+                                .isImage(filename)
+                        ) {
                             mediaFiles.add(file.url.toString())
                             imageCount++
                             if (imageCount <= 10) {
@@ -445,7 +480,14 @@ class SmbClient {
                             }
                         }
                         // Check if it's a video and video is enabled
-                        else if (isVideoEnabled && com.sza.fastmediasorter.utils.MediaUtils.isVideo(filename)) {
+                        else if (isVideoEnabled &&
+                            com
+                                .sza
+                                .fastmediasorter
+                                .utils
+                                .MediaUtils
+                                .isVideo(filename)
+                        ) {
                             // Skip AVI format - incompatible with jCIFS-ng SMB streaming
                             val extension = filename.substringAfterLast('.', "").lowercase()
                             if (extension == "avi") {
@@ -456,7 +498,7 @@ class SmbClient {
                             } else {
                                 val fileSize = file.length()
                                 val fileSizeMb = fileSize / (1024 * 1024)
-                                
+
                                 if (fileSize <= maxVideoSizeBytes) {
                                     mediaFiles.add(file.url.toString())
                                     videoCount++
@@ -466,7 +508,10 @@ class SmbClient {
                                 } else {
                                     skippedLargeVideo++
                                     if (skippedLargeVideo <= 5) {
-                                        Logger.d("SmbClient", "Skipped video (too large): $filename (${fileSizeMb}MB > ${maxVideoSizeMb}MB)")
+                                        Logger.d(
+                                            "SmbClient",
+                                            "Skipped video (too large): $filename (${fileSizeMb}MB > ${maxVideoSizeMb}MB)",
+                                        )
                                     }
                                 }
                             }
@@ -475,32 +520,36 @@ class SmbClient {
                         }
                     }
                 }
-                
+
                 val processDuration = System.currentTimeMillis() - startProcessTime
                 val totalDuration = listDuration + processDuration
-                
+
                 Logger.d("SmbClient", "⏱️ SUMMARY:")
                 Logger.d("SmbClient", "  - Directory listing: ${listDuration}ms")
                 Logger.d("SmbClient", "  - File processing: ${processDuration}ms")
-                Logger.d("SmbClient", "  - Total time: ${totalDuration}ms (${totalDuration/1000.0}s)")
+                Logger.d("SmbClient", "  - Total time: ${totalDuration}ms (${totalDuration / 1000.0}s)")
                 Logger.d("SmbClient", "  - Total files scanned: ${files?.size ?: 0}")
                 Logger.d("SmbClient", "  - Images found: $imageCount")
                 Logger.d("SmbClient", "  - Videos found: $videoCount")
                 Logger.d("SmbClient", "  - Skipped (AVI): $skippedAvi")
                 Logger.d("SmbClient", "  - Skipped (too large): $skippedLargeVideo")
                 Logger.d("SmbClient", "  - Skipped (other): $skippedOther")
-                Logger.d("SmbClient", "  - Processing rate: ${if (processDuration > 0) (files?.size ?: 0).toFloat() / processDuration * 1000 else 0} files/sec")
-                
+                Logger.d(
+                    "SmbClient",
+                    "  - Processing rate: ${if (processDuration > 0) (files?.size ?: 0).toFloat() / processDuration * 1000 else 0} files/sec",
+                )
+
                 if (mediaFiles.isEmpty()) {
-                    val formats = if (isVideoEnabled) {
-                        "JPG, PNG, GIF, BMP, WEBP, MP4, MKV, MOV, WEBM, 3GP"
-                    } else {
-                        "JPG, PNG, GIF, BMP, WEBP"
-                    }
+                    val formats =
+                        if (isVideoEnabled) {
+                            "JPG, PNG, GIF, BMP, WEBP, MP4, MKV, MOV, WEBM, 3GP"
+                        } else {
+                            "JPG, PNG, GIF, BMP, WEBP"
+                        }
                     val msg = "No media files found in: smb://$cleanServer/$cleanFolder/\n\nSupported formats: $formats"
                     return@withContext ImageFilesResult(emptyList(), null, msg)
                 }
-                
+
                 ImageFilesResult(mediaFiles.sorted())
             } catch (e: java.net.UnknownHostException) {
                 val msg = "Cannot reach server: $serverAddress\n\nCheck:\n• Server IP correct?\n• Same WiFi network?\n• Server running?"
@@ -514,52 +563,58 @@ class SmbClient {
                 val errorMessage = e.message ?: "Unknown SMB error"
                 val ntStatus = e.ntStatus
 
-                val msg = when (ntStatus) {
-                    -1073741790 -> // STATUS_ACCESS_DENIED (0xC0000022)
-                        "Access denied to: smb://$serverAddress/$folderPath/\n\nThis usually means:\n• Username/password is incorrect\n• Account has insufficient permissions\n• Share permissions are too restrictive\n\nTry:\n• Double-check credentials\n• Use different user account\n• Contact server administrator"
-                    -1073741788 -> // STATUS_OBJECT_NAME_NOT_FOUND (0xC0000034)
-                        "Share not found: smb://$serverAddress/$folderPath/\n\nThis usually means:\n• Share name is misspelled\n• Share is not enabled on server\n• Server address is incorrect\n\nTry:\n• Check share name in server settings\n• Access share from another device first\n• Verify server IP/name"
-                    -1073741782 -> // STATUS_OBJECT_PATH_NOT_FOUND (0xC000003A)
-                        "Folder not found: smb://$serverAddress/$folderPath/\n\nThis usually means:\n• Folder path is incorrect\n• Folder doesn't exist on server\n• Path separators are wrong\n\nTry:\n• Check folder exists on server\n• Use forward slashes (/) not backslashes (\\)\n• Verify path from share root"
-                    -1073741724 -> // STATUS_ACCOUNT_LOCKED_OUT (0xC000023C)
-                        "Account locked: The user account is locked out\n\nThis usually means:\n• Too many failed login attempts\n• Account policy locked the account\n\nTry:\n• Wait for automatic unlock\n• Contact server administrator\n• Use different account"
-                    -1073741715 -> // STATUS_LOGON_FAILURE (0xC000006D)
-                        "Authentication failed: Invalid username or password\n\nThis usually means:\n• Username/password is wrong\n• Caps Lock might be on\n• Domain name missing (try DOMAIN\\username)\n\nTry:\n• Verify credentials carefully\n• Try domain\\username format\n• Reset password if expired"
-                    -1073741714 -> // STATUS_ACCOUNT_RESTRICTION (0xC000006E)
-                        "Account restrictions: Login not allowed\n\nThis usually means:\n• Account has login time restrictions\n• Account disabled for remote access\n• Account restricted to certain computers\n\nTry:\n• Check account login hours\n• Contact server administrator\n• Use different account"
-                    -1073741711 -> // STATUS_PASSWORD_EXPIRED (0xC0000071)
-                        "Password expired: Password needs to be changed\n\nThis usually means:\n• Password expired per policy\n• Account requires password change\n\nTry:\n• Change password on server\n• Contact server administrator"
-                    -1073741485 -> // STATUS_TIME_DIFFERENCE_AT_DC (0xC0000133)
-                        "Time synchronization error: Device time differs too much\n\nThis usually means:\n• Android device time is wrong\n• Server time is wrong\n• Timezone difference too large\n\nTry:\n• Sync Android time automatically\n• Check server time settings\n• Adjust timezone if needed"
-                    else -> when {
-                        errorMessage.contains("Access is denied", ignoreCase = true) ->
-                            "Access denied to: smb://$serverAddress/$folderPath/\n\nCheck:\n• Username/password correct?\n• Folder permissions?\n• Share enabled?\n• Try different credentials"
-                        errorMessage.contains("does not exist", ignoreCase = true) ->
-                            "Path not found: smb://$serverAddress/$folderPath/\n\nCheck:\n• Folder path correct?\n• Share name correct?\n• Server running?"
-                        errorMessage.contains("timed out", ignoreCase = true) ->
-                            "Connection timeout\n\nCheck:\n• Server reachable?\n• Firewall blocking SMB?\n• Same network?\n• Try different network"
-                        errorMessage.contains("Connection refused", ignoreCase = true) ->
-                            "Connection refused\n\nCheck:\n• SMB enabled on server?\n• Firewall settings?\n• Port 445 open?\n• Server accepting connections?"
-                        errorMessage.contains("algorithm", ignoreCase = true) ||
-                        errorMessage.contains("MD4", ignoreCase = true) ||
-                        errorMessage.contains("provider", ignoreCase = true) -> {
-                            val diagnostic = buildFullDiagnostic(e, serverAddress, folderPath)
-                            "SECURITY ERROR (MD4/Algorithm issue):\n\n$diagnostic"
-                        }
-                        errorMessage.contains("network name cannot be found", ignoreCase = true) ||
-                        errorMessage.contains("network path was not found", ignoreCase = true) ->
-                            "Network path not found\n\nCheck:\n• Server name/IP correct?\n• Server powered on?\n• Same WiFi network?\n• Firewall blocking SMB?"
-                        errorMessage.contains("bad network name", ignoreCase = true) ->
-                            "Bad network name\n\nCheck:\n• Server address format?\n• DNS resolution working?\n• Try IP address instead of name?"
-                        errorMessage.contains("logon failure", ignoreCase = true) ->
-                            "Logon failure\n\nCheck:\n• Username format (DOMAIN\\user)?\n• Password correct?\n• Account active?\n• Try different credentials"
-                        else -> {
-                            val diagnostic = buildFullDiagnostic(e, serverAddress, folderPath)
-                            "SMB Error: ${errorMessage}\n\nDetailed diagnostic:\n$diagnostic"
-                        }
+                val msg =
+                    when (ntStatus) {
+                        -1073741790 -> // STATUS_ACCESS_DENIED (0xC0000022)
+                            "Access denied to: smb://$serverAddress/$folderPath/\n\nThis usually means:\n• Username/password is incorrect\n• Account has insufficient permissions\n• Share permissions are too restrictive\n\nTry:\n• Double-check credentials\n• Use different user account\n• Contact server administrator"
+                        -1073741788 -> // STATUS_OBJECT_NAME_NOT_FOUND (0xC0000034)
+                            "Share not found: smb://$serverAddress/$folderPath/\n\nThis usually means:\n• Share name is misspelled\n• Share is not enabled on server\n• Server address is incorrect\n\nTry:\n• Check share name in server settings\n• Access share from another device first\n• Verify server IP/name"
+                        -1073741782 -> // STATUS_OBJECT_PATH_NOT_FOUND (0xC000003A)
+                            "Folder not found: smb://$serverAddress/$folderPath/\n\nThis usually means:\n• Folder path is incorrect\n• Folder doesn't exist on server\n• Path separators are wrong\n\nTry:\n• Check folder exists on server\n• Use forward slashes (/) not backslashes (\\)\n• Verify path from share root"
+                        -1073741724 -> // STATUS_ACCOUNT_LOCKED_OUT (0xC000023C)
+                            "Account locked: The user account is locked out\n\nThis usually means:\n• Too many failed login attempts\n• Account policy locked the account\n\nTry:\n• Wait for automatic unlock\n• Contact server administrator\n• Use different account"
+                        -1073741715 -> // STATUS_LOGON_FAILURE (0xC000006D)
+                            "Authentication failed: Invalid username or password\n\nThis usually means:\n• Username/password is wrong\n• Caps Lock might be on\n• Domain name missing (try DOMAIN\\username)\n\nTry:\n• Verify credentials carefully\n• Try domain\\username format\n• Reset password if expired"
+                        -1073741714 -> // STATUS_ACCOUNT_RESTRICTION (0xC000006E)
+                            "Account restrictions: Login not allowed\n\nThis usually means:\n• Account has login time restrictions\n• Account disabled for remote access\n• Account restricted to certain computers\n\nTry:\n• Check account login hours\n• Contact server administrator\n• Use different account"
+                        -1073741711 -> // STATUS_PASSWORD_EXPIRED (0xC0000071)
+                            "Password expired: Password needs to be changed\n\nThis usually means:\n• Password expired per policy\n• Account requires password change\n\nTry:\n• Change password on server\n• Contact server administrator"
+                        -1073741485 -> // STATUS_TIME_DIFFERENCE_AT_DC (0xC0000133)
+                            "Time synchronization error: Device time differs too much\n\nThis usually means:\n• Android device time is wrong\n• Server time is wrong\n• Timezone difference too large\n\nTry:\n• Sync Android time automatically\n• Check server time settings\n• Adjust timezone if needed"
+                        else ->
+                            when {
+                                errorMessage.contains("Access is denied", ignoreCase = true) ->
+                                    "Access denied to: smb://$serverAddress/$folderPath/\n\nCheck:\n• Username/password correct?\n• Folder permissions?\n• Share enabled?\n• Try different credentials"
+                                errorMessage.contains("does not exist", ignoreCase = true) ->
+                                    "Path not found: smb://$serverAddress/$folderPath/\n\nCheck:\n• Folder path correct?\n• Share name correct?\n• Server running?"
+                                errorMessage.contains("timed out", ignoreCase = true) ->
+                                    "Connection timeout\n\nCheck:\n• Server reachable?\n• Firewall blocking SMB?\n• Same network?\n• Try different network"
+                                errorMessage.contains("Connection refused", ignoreCase = true) ->
+                                    "Connection refused\n\nCheck:\n• SMB enabled on server?\n• Firewall settings?\n• Port 445 open?\n• Server accepting connections?"
+                                errorMessage.contains("algorithm", ignoreCase = true) ||
+                                    errorMessage.contains("MD4", ignoreCase = true) ||
+                                    errorMessage.contains("provider", ignoreCase = true) -> {
+                                    val diagnostic = buildFullDiagnostic(e, serverAddress, folderPath)
+                                    "SECURITY ERROR (MD4/Algorithm issue):\n\n$diagnostic"
+                                }
+                                errorMessage.contains("network name cannot be found", ignoreCase = true) ||
+                                    errorMessage.contains("network path was not found", ignoreCase = true) ->
+                                    "Network path not found\n\nCheck:\n• Server name/IP correct?\n• Server powered on?\n• Same WiFi network?\n• Firewall blocking SMB?"
+                                errorMessage.contains("bad network name", ignoreCase = true) ->
+                                    "Bad network name\n\nCheck:\n• Server address format?\n• DNS resolution working?\n• Try IP address instead of name?"
+                                errorMessage.contains("logon failure", ignoreCase = true) ->
+                                    "Logon failure\n\nCheck:\n• Username format (DOMAIN\\user)?\n• Password correct?\n• Account active?\n• Try different credentials"
+                                else -> {
+                                    val diagnostic = buildFullDiagnostic(e, serverAddress, folderPath)
+                                    "SMB Error: ${errorMessage}\n\nDetailed diagnostic:\n$diagnostic"
+                                }
+                            }
                     }
-                }
-                Logger.e("SmbClient", "SmbException details: ${e.message} (NT Status: 0x${ntStatus.toString(16).uppercase()})", e)
+                Logger.e(
+                    "SmbClient",
+                    "SmbException details: ${e.message} (NT Status: 0x${ntStatus.toString(16).uppercase()})",
+                    e,
+                )
                 e.printStackTrace()
                 ImageFilesResult(emptyList(), msg)
             } catch (e: java.net.SocketTimeoutException) {
@@ -568,31 +623,33 @@ class SmbClient {
                 ImageFilesResult(emptyList(), msg)
             } catch (e: Exception) {
                 // For any exception, check if it's security-related and provide diagnostic
-                val msg = if (e is java.security.NoSuchAlgorithmException || 
-                             e.message?.contains("algorithm", ignoreCase = true) == true ||
-                             e.message?.contains("provider", ignoreCase = true) == true ||
-                             e.message?.contains("MD4", ignoreCase = true) == true) {
-                    buildFullDiagnostic(e, serverAddress, folderPath)
-                } else {
-                    "Error: ${e.javaClass.simpleName}\n${e.message ?: "Unknown error"}\n\nFull details logged"
-                }
-                
+                val msg =
+                    if (e is java.security.NoSuchAlgorithmException ||
+                        e.message?.contains("algorithm", ignoreCase = true) == true ||
+                        e.message?.contains("provider", ignoreCase = true) == true ||
+                        e.message?.contains("MD4", ignoreCase = true) == true
+                    ) {
+                        buildFullDiagnostic(e, serverAddress, folderPath)
+                    } else {
+                        "Error: ${e.javaClass.simpleName}\n${e.message ?: "Unknown error"}\n\nFull details logged"
+                    }
+
                 Logger.e("SmbClient", "Error in getImageFiles: ${e.message}", e)
                 e.printStackTrace()
                 ImageFilesResult(emptyList(), msg)
             }
         }
     }
-    
+
     suspend fun downloadImage(imageUrl: String): ByteArray? {
         return withContext(Dispatchers.IO) {
             try {
                 val smbFile = SmbFile(imageUrl, context)
-                
+
                 if (!smbFile.exists() || !smbFile.isFile()) {
                     return@withContext null
                 }
-                
+
                 smbFile.inputStream.use { it.readBytes() }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -600,26 +657,26 @@ class SmbClient {
             }
         }
     }
-    
+
     data class FileInfo(
         val name: String,
         val sizeKB: Long,
-        val modifiedDate: Long
+        val modifiedDate: Long,
     )
-    
+
     suspend fun getFileInfo(imageUrl: String): FileInfo? {
         return withContext(Dispatchers.IO) {
             try {
                 val smbFile = SmbFile(imageUrl, context)
-                
+
                 if (!smbFile.exists() || !smbFile.isFile()) {
                     return@withContext null
                 }
-                
+
                 FileInfo(
                     name = smbFile.name,
                     sizeKB = smbFile.length() / 1024,
-                    modifiedDate = smbFile.lastModified()
+                    modifiedDate = smbFile.lastModified(),
                 )
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -627,65 +684,116 @@ class SmbClient {
             }
         }
     }
-    
+
     sealed class CopyResult {
         object Success : CopyResult()
+
         object AlreadyExists : CopyResult()
+
         object SameFolder : CopyResult()
-        data class NetworkError(val message: String) : CopyResult()
-        data class SecurityError(val message: String) : CopyResult()
-        data class UnknownError(val message: String) : CopyResult()
+
+        data class NetworkError(
+            val message: String,
+        ) : CopyResult()
+
+        data class SecurityError(
+            val message: String,
+        ) : CopyResult()
+
+        data class UnknownError(
+            val message: String,
+        ) : CopyResult()
     }
-    
+
     sealed class MoveResult {
         object Success : MoveResult()
+
         object PendingUserConfirmation : MoveResult()
+
         object AlreadyExists : MoveResult()
+
         object SameFolder : MoveResult()
-        data class NetworkError(val message: String) : MoveResult()
-        data class SecurityError(val message: String) : MoveResult()
-        data class DeleteError(val message: String) : MoveResult()
-        data class UnknownError(val message: String) : MoveResult()
+
+        data class NetworkError(
+            val message: String,
+        ) : MoveResult()
+
+        data class SecurityError(
+            val message: String,
+        ) : MoveResult()
+
+        data class DeleteError(
+            val message: String,
+        ) : MoveResult()
+
+        data class UnknownError(
+            val message: String,
+        ) : MoveResult()
     }
-    
+
     sealed class DeleteResult {
         object Success : DeleteResult()
+
         object FileNotFound : DeleteResult()
-        data class SecurityError(val message: String) : DeleteResult()
-        data class NetworkError(val message: String) : DeleteResult()
-        data class UnknownError(val message: String) : DeleteResult()
+
+        data class SecurityError(
+            val message: String,
+        ) : DeleteResult()
+
+        data class NetworkError(
+            val message: String,
+        ) : DeleteResult()
+
+        data class UnknownError(
+            val message: String,
+        ) : DeleteResult()
     }
-    
+
     sealed class RenameResult {
         object Success : RenameResult()
+
         object SourceNotFound : RenameResult()
+
         object TargetExists : RenameResult()
-        data class SecurityError(val message: String) : RenameResult()
-        data class NetworkError(val message: String) : RenameResult()
-        data class UnknownError(val message: String) : RenameResult()
+
+        data class SecurityError(
+            val message: String,
+        ) : RenameResult()
+
+        data class NetworkError(
+            val message: String,
+        ) : RenameResult()
+
+        data class UnknownError(
+            val message: String,
+        ) : RenameResult()
     }
-    
+
     suspend fun writeFile(
         targetServer: String,
         targetFolder: String,
         fileName: String,
-        data: ByteArray
+        data: ByteArray,
     ): CopyResult {
         return withContext(Dispatchers.IO) {
             try {
-                val cleanTargetServer = targetServer.trim()
-                    .removePrefix("smb://")
-                    .removePrefix("\\\\")
-                    .replace("\\", "/")
-                
-                val cleanTargetFolder = targetFolder.trim()
-                    .removePrefix("/")
-                    .removePrefix("\\")
-                    .replace("\\", "/")
-                
+                val cleanTargetServer =
+                    targetServer
+                        .trim()
+                        .removePrefix("smb://")
+                        .removePrefix("\\\\")
+                        .replace("\\", "/")
+
+                val cleanTargetFolder =
+                    targetFolder
+                        .trim()
+                        .removePrefix("/")
+                        .removePrefix("\\")
+                        .replace("\\", "/")
+
                 val targetUrl = "smb://$cleanTargetServer/$cleanTargetFolder/"
                 val targetDir = SmbFile(targetUrl, context)
-                
+
                 if (!targetDir.exists()) {
                     try {
                         targetDir.mkdirs()
@@ -697,17 +805,17 @@ class SmbClient {
                         return@withContext CopyResult.SecurityError("Cannot create target folder: ${e.message}")
                     }
                 }
-                
+
                 val targetFile = SmbFile(targetDir, fileName)
-                
+
                 if (targetFile.exists()) {
                     return@withContext CopyResult.AlreadyExists
                 }
-                
+
                 targetFile.openOutputStream().use { output ->
                     output.write(data)
                 }
-                
+
                 CopyResult.Success
             } catch (e: jcifs.smb.SmbAuthException) {
                 CopyResult.SecurityError("Authentication failed: ${e.message}")
@@ -725,39 +833,43 @@ class SmbClient {
             }
         }
     }
-    
+
     suspend fun copyFile(
         sourceUrl: String,
         targetServer: String,
-        targetFolder: String
+        targetFolder: String,
     ): CopyResult {
         return withContext(Dispatchers.IO) {
             try {
                 val sourceFile = SmbFile(sourceUrl, context)
-                
+
                 if (!sourceFile.exists() || !sourceFile.isFile()) {
                     return@withContext CopyResult.NetworkError("Source file not found")
                 }
-                
+
                 // Build target URL
-                val cleanTargetServer = targetServer.trim()
-                    .removePrefix("smb://")
-                    .removePrefix("\\\\")
-                    .replace("\\", "/")
-                
-                val cleanTargetFolder = targetFolder.trim()
-                    .removePrefix("/")
-                    .removePrefix("\\")
-                    .replace("\\", "/")
-                
+                val cleanTargetServer =
+                    targetServer
+                        .trim()
+                        .removePrefix("smb://")
+                        .removePrefix("\\\\")
+                        .replace("\\", "/")
+
+                val cleanTargetFolder =
+                    targetFolder
+                        .trim()
+                        .removePrefix("/")
+                        .removePrefix("\\")
+                        .replace("\\", "/")
+
                 val targetUrl = "smb://$cleanTargetServer/$cleanTargetFolder/"
                 val targetDir = SmbFile(targetUrl, context)
-                
+
                 // Check if same folder
                 if (sourceFile.parent == targetDir.path) {
                     return@withContext CopyResult.SameFolder
                 }
-                
+
                 // Create target directory if not exists
                 if (!targetDir.exists()) {
                     try {
@@ -768,14 +880,14 @@ class SmbClient {
                         return@withContext CopyResult.SecurityError("Cannot create target folder: ${e.message}")
                     }
                 }
-                
+
                 val targetFile = SmbFile(targetUrl + sourceFile.name, context)
-                
+
                 // Check if file already exists
                 if (targetFile.exists()) {
                     return@withContext CopyResult.AlreadyExists
                 }
-                
+
                 // Copy file
                 try {
                     sourceFile.inputStream.use { input ->
@@ -795,46 +907,49 @@ class SmbClient {
                 } catch (e: Exception) {
                     CopyResult.UnknownError(e.message ?: "Unknown error occurred")
                 }
-                
             } catch (e: Exception) {
                 e.printStackTrace()
                 CopyResult.UnknownError(e.message ?: "Unexpected error")
             }
         }
     }
-    
+
     suspend fun moveFile(
         sourceUrl: String,
         targetServer: String,
-        targetFolder: String
+        targetFolder: String,
     ): MoveResult {
         return withContext(Dispatchers.IO) {
             try {
                 val sourceFile = SmbFile(sourceUrl, context)
-                
+
                 if (!sourceFile.exists() || !sourceFile.isFile()) {
                     return@withContext MoveResult.NetworkError("Source file not found")
                 }
-                
+
                 // Build target URL
-                val cleanTargetServer = targetServer.trim()
-                    .removePrefix("smb://")
-                    .removePrefix("\\\\")
-                    .replace("\\", "/")
-                
-                val cleanTargetFolder = targetFolder.trim()
-                    .removePrefix("/")
-                    .removePrefix("\\")
-                    .replace("\\", "/")
-                
+                val cleanTargetServer =
+                    targetServer
+                        .trim()
+                        .removePrefix("smb://")
+                        .removePrefix("\\\\")
+                        .replace("\\", "/")
+
+                val cleanTargetFolder =
+                    targetFolder
+                        .trim()
+                        .removePrefix("/")
+                        .removePrefix("\\")
+                        .replace("\\", "/")
+
                 val targetUrl = "smb://$cleanTargetServer/$cleanTargetFolder/"
                 val targetDir = SmbFile(targetUrl, context)
-                
+
                 // Check if same folder
                 if (sourceFile.parent == targetDir.path) {
                     return@withContext MoveResult.SameFolder
                 }
-                
+
                 // Create target directory if not exists
                 if (!targetDir.exists()) {
                     try {
@@ -845,14 +960,14 @@ class SmbClient {
                         return@withContext MoveResult.SecurityError("Cannot create target folder: ${e.message}")
                     }
                 }
-                
+
                 val targetFile = SmbFile(targetUrl + sourceFile.name, context)
-                
+
                 // Check if file already exists
                 if (targetFile.exists()) {
                     return@withContext MoveResult.AlreadyExists
                 }
-                
+
                 // Copy file first
                 try {
                     sourceFile.inputStream.use { input ->
@@ -871,7 +986,7 @@ class SmbClient {
                 } catch (e: Exception) {
                     return@withContext MoveResult.UnknownError(e.message ?: "Copy failed")
                 }
-                
+
                 // Delete source file after successful copy
                 try {
                     sourceFile.delete()
@@ -881,25 +996,25 @@ class SmbClient {
                 } catch (e: Exception) {
                     MoveResult.DeleteError("Cannot delete source file: ${e.message}")
                 }
-                
             } catch (e: Exception) {
                 e.printStackTrace()
                 MoveResult.UnknownError(e.message ?: "Unexpected error")
             }
         }
     }
-    
+
     suspend fun deleteFile(fileUrl: String): DeleteResult {
         return withContext(Dispatchers.IO) {
             try {
-                val currentContext = context ?: return@withContext DeleteResult.UnknownError("SMB context not initialized")
-                
+                val currentContext =
+                    context ?: return@withContext DeleteResult.UnknownError("SMB context not initialized")
+
                 val smbFile = SmbFile(fileUrl, currentContext)
-                
+
                 if (!smbFile.exists()) {
                     return@withContext DeleteResult.FileNotFound
                 }
-                
+
                 smbFile.delete()
                 DeleteResult.Success
             } catch (e: jcifs.smb.SmbAuthException) {
@@ -918,23 +1033,27 @@ class SmbClient {
             }
         }
     }
-    
-    suspend fun renameFile(oldUrl: String, newUrl: String): RenameResult {
+
+    suspend fun renameFile(
+        oldUrl: String,
+        newUrl: String,
+    ): RenameResult {
         return withContext(Dispatchers.IO) {
             try {
-                val currentContext = context ?: return@withContext RenameResult.UnknownError("SMB context not initialized")
-                
+                val currentContext =
+                    context ?: return@withContext RenameResult.UnknownError("SMB context not initialized")
+
                 val oldFile = SmbFile(oldUrl, currentContext)
                 val newFile = SmbFile(newUrl, currentContext)
-                
+
                 if (!oldFile.exists()) {
                     return@withContext RenameResult.SourceNotFound
                 }
-                
+
                 if (newFile.exists()) {
                     return@withContext RenameResult.TargetExists
                 }
-                
+
                 oldFile.renameTo(newFile)
                 RenameResult.Success
             } catch (e: jcifs.smb.SmbAuthException) {
@@ -953,7 +1072,7 @@ class SmbClient {
             }
         }
     }
-    
+
     suspend fun fileExists(fileUrl: String): Boolean {
         return withContext(Dispatchers.IO) {
             try {
@@ -966,37 +1085,41 @@ class SmbClient {
             }
         }
     }
-    
+
     /**
      * Checks if the folder has write permissions by attempting to create and delete a test file.
      * Returns true if folder allows write operations, false otherwise.
      */
-    suspend fun checkWritePermission(serverAddress: String, folderPath: String): Boolean {
+    suspend fun checkWritePermission(
+        serverAddress: String,
+        folderPath: String,
+    ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
                 if (context == null) {
                     Logger.w("SmbClient", "Context is null during write permission check")
                     return@withContext false
                 }
-                
+
                 val baseUrl = "smb://$serverAddress"
-                val folderUrl = if (folderPath.startsWith("/")) {
-                    "$baseUrl$folderPath"
-                } else {
-                    "$baseUrl/$folderPath"
-                }
-                
+                val folderUrl =
+                    if (folderPath.startsWith("/")) {
+                        "$baseUrl$folderPath"
+                    } else {
+                        "$baseUrl/$folderPath"
+                    }
+
                 // Ensure folder URL ends with /
                 val normalizedFolderUrl = if (!folderUrl.endsWith("/")) "$folderUrl/" else folderUrl
-                
+
                 // Create test file name with timestamp to avoid conflicts
                 val testFileName = ".fms_write_test_${System.currentTimeMillis()}.tmp"
                 val testFileUrl = "$normalizedFolderUrl$testFileName"
-                
+
                 Logger.d("SmbClient", "Testing write permission: $testFileUrl")
-                
+
                 val testFile = SmbFile(testFileUrl, context)
-                
+
                 // Test 1: Try to create the test file
                 try {
                     testFile.createNewFile()
@@ -1005,7 +1128,7 @@ class SmbClient {
                     Logger.w("SmbClient", "Failed to create test file: ${e.message}")
                     return@withContext false
                 }
-                
+
                 // Test 2: Try to write some data to verify write access
                 try {
                     testFile.outputStream.use { output ->
@@ -1023,7 +1146,7 @@ class SmbClient {
                     }
                     return@withContext false
                 }
-                
+
                 // Test 3: Try to delete the test file
                 try {
                     testFile.delete()
@@ -1034,14 +1157,13 @@ class SmbClient {
                     // File exists but cannot be deleted - limited write permission
                     return@withContext false
                 }
-                
             } catch (e: Exception) {
                 Logger.w("SmbClient", "Write permission check failed", e)
                 return@withContext false
             }
         }
     }
-    
+
     /**
      * Clears the SMB context and credentials from memory.
      * Should be called after completing operations to minimize the time

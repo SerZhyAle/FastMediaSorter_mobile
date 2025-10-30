@@ -11,27 +11,26 @@ object ErrorDialogHelper {
         context: Context,
         title: String,
         message: String,
-        onDismiss: (() -> Unit)? = null
+        onDismiss: (() -> Unit)? = null,
     ): AlertDialog? {
         if (context is android.app.Activity && context.isFinishing) {
             return null
         }
-        
-        return AlertDialog.Builder(context)
+
+        return AlertDialog
+            .Builder(context)
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton("OK") { dialog, _ ->
                 dialog.dismiss()
                 onDismiss?.invoke()
-            }
-            .setNeutralButton("Copy") { _, _ ->
+            }.setNeutralButton("Copy") { _, _ ->
                 copyToClipboard(context, message)
                 onDismiss?.invoke()
-            }
-            .setCancelable(onDismiss == null)
+            }.setCancelable(onDismiss == null)
             .show()
     }
-    
+
     fun showErrorWithCopyAndActions(
         context: Context,
         title: String,
@@ -42,47 +41,51 @@ object ErrorDialogHelper {
         onPositive: (() -> Unit)? = null,
         onNegative: (() -> Unit)? = null,
         onNeutral: (() -> Unit)? = null,
-        cancelable: Boolean = true
+        cancelable: Boolean = true,
     ): AlertDialog? {
         if (context is android.app.Activity && context.isFinishing) {
             return null
         }
-        
-        val builder = AlertDialog.Builder(context)
-            .setTitle(title)
-            .setMessage(message)
-            .setPositiveButton(positiveText) { dialog, _ ->
-                dialog.dismiss()
-                onPositive?.invoke()
-            }
-            .setCancelable(cancelable)
-        
+
+        val builder =
+            AlertDialog
+                .Builder(context)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(positiveText) { dialog, _ ->
+                    dialog.dismiss()
+                    onPositive?.invoke()
+                }.setCancelable(cancelable)
+
         negativeText?.let {
             builder.setNegativeButton(it) { dialog, _ ->
                 dialog.dismiss()
                 onNegative?.invoke()
             }
         }
-        
+
         neutralText?.let {
             builder.setNeutralButton(it) { dialog, _ ->
                 dialog.dismiss()
                 onNeutral?.invoke()
             }
         }
-        
+
         val dialog = builder.show()
-        
+
         // Override the positive button to also copy
         dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnLongClickListener {
             copyToClipboard(context, message)
             true
         }
-        
+
         return dialog
     }
-    
-    private fun copyToClipboard(context: Context, text: String) {
+
+    private fun copyToClipboard(
+        context: Context,
+        text: String,
+    ) {
         try {
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = ClipData.newPlainText("Error Message", text)

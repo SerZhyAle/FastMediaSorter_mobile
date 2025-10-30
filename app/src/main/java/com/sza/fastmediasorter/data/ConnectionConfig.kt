@@ -20,5 +20,5 @@ data class ConnectionConfig(
     val localUri: String? = null,
     val localDisplayName: String? = null,
     val lastSlideshowIndex: Int = 0,
-    val writePermission: Boolean = false
+    val writePermission: Boolean = false,
 )
