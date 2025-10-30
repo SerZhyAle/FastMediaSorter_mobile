@@ -40,7 +40,8 @@ class LocalStorageClientTest(
                 folderUri = folderUri,
                 isVideoEnabled = true,
                 maxVideoSizeMb = 100,
-                batchSize = 50, // Маленькие батчи для лучшей отзывчивости
+                batchSize = 50,
+                // Маленькие батчи для лучшей отзывчивости
                 progressCallback =
                     object : LocalStorageClient.ScanProgressCallback {
                         override fun onProgress(
@@ -145,7 +146,8 @@ class LocalStorageClientTest(
                 launch(Dispatchers.IO) {
                     localStorageClient.getImageFiles(
                         folderUri = folderUri,
-                        batchSize = 25, // Очень маленькие батчи
+                        batchSize = 25,
+                        // Очень маленькие батчи
                         progressCallback =
                             object : LocalStorageClient.ScanProgressCallback {
                                 override fun onProgress(

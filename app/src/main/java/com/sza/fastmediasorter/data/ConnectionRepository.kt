@@ -134,7 +134,7 @@ class ConnectionRepository(
                 type = "LOCAL_CUSTOM",
                 localUri = folderUri,
                 localDisplayName = folderName,
-                writePermission = true, // Local custom folders have write permission
+                writePermission = true,
             )
         return dao.insertConfig(config)
     }
@@ -161,7 +161,7 @@ class ConnectionRepository(
                         type = "LOCAL_STANDARD",
                         localUri = "",
                         localDisplayName = folderName,
-                        writePermission = true, // Standard local folders always have write permission
+                        writePermission = true,
                     )
                 val newId = dao.insertConfig(config)
                 addedIds.add(newId)

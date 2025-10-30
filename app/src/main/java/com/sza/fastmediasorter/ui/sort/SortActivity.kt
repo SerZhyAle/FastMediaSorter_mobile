@@ -98,7 +98,7 @@ class SortActivity : LocaleActivity() {
 
     private val errorLog = mutableListOf<MediaError>()
     private var consecutiveErrors = 0
-    private val MAX_CONSECUTIVE_ERRORS = 5
+    private val maxConsecutiveErrors = 5
 
     // Android 11+ permission handling for file operations
     private var pendingDeleteUri: Uri? = null
@@ -641,16 +641,26 @@ class SortActivity : LocaleActivity() {
         // Color shades for buttons
         val colors =
             listOf(
-                android.graphics.Color.parseColor("#5C6BC0"), // Indigo
-                android.graphics.Color.parseColor("#42A5F5"), // Blue
-                android.graphics.Color.parseColor("#26C6DA"), // Cyan
-                android.graphics.Color.parseColor("#66BB6A"), // Green
-                android.graphics.Color.parseColor("#9CCC65"), // Light Green
-                android.graphics.Color.parseColor("#FFCA28"), // Amber
-                android.graphics.Color.parseColor("#FFA726"), // Orange
-                android.graphics.Color.parseColor("#EF5350"), // Red
-                android.graphics.Color.parseColor("#AB47BC"), // Purple
-                android.graphics.Color.parseColor("#EC407A"), // Pink
+                android.graphics.Color.parseColor("#5C6BC0"),
+                // Indigo
+                android.graphics.Color.parseColor("#42A5F5"),
+                // Blue
+                android.graphics.Color.parseColor("#26C6DA"),
+                // Cyan
+                android.graphics.Color.parseColor("#66BB6A"),
+                // Green
+                android.graphics.Color.parseColor("#9CCC65"),
+                // Light Green
+                android.graphics.Color.parseColor("#FFCA28"),
+                // Amber
+                android.graphics.Color.parseColor("#FFA726"),
+                // Orange
+                android.graphics.Color.parseColor("#EF5350"),
+                // Red
+                android.graphics.Color.parseColor("#AB47BC"),
+                // Purple
+                android.graphics.Color.parseColor("#EC407A"),
+                // Pink
             )
 
         // Hide all buttons first
@@ -1642,7 +1652,8 @@ class SortActivity : LocaleActivity() {
                                     bucketName = bucketName,
                                     isVideoEnabled = isVideoEnabled,
                                     maxVideoSizeMb = maxVideoSizeMb,
-                                    batchSize = 50, // Process in smaller batches for better responsiveness
+                                    batchSize = 50,
+                                    // Process in smaller batches for better responsiveness
                                     progressCallback =
                                         if (showProgress) {
                                             object : LocalStorageClient.ScanProgressCallback {
@@ -3556,13 +3567,13 @@ class SortActivity : LocaleActivity() {
         consecutiveErrors++
 
         lifecycleScope.launch(Dispatchers.Main) {
-            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            if (consecutiveErrors >= maxConsecutiveErrors) {
                 showErrorReportDialog()
             } else {
                 Toast
                     .makeText(
                         this@SortActivity,
-                        "⚠ $errorType error ($consecutiveErrors/${MAX_CONSECUTIVE_ERRORS})",
+                        "⚠ $errorType error ($consecutiveErrors/${maxConsecutiveErrors})",
                         Toast.LENGTH_SHORT,
                     ).show()
             }

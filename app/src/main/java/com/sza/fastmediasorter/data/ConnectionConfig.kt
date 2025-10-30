@@ -3,6 +3,11 @@ package com.sza.fastmediasorter.data
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+/**
+ * Room entity representing a connection configuration for media sources.
+ * Stores settings for both SMB network connections and local storage folders.
+ * Used for managing slideshow intervals, authentication, and folder paths.
+ */
 @Entity(tableName = "connection_configs")
 data class ConnectionConfig(
     @PrimaryKey(autoGenerate = true)

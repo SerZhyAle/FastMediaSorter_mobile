@@ -23,6 +23,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
+/**
+ * MainActivity is the primary entry point of the FastMediaSorter application.
+ * It provides a tabbed interface for accessing local and network media folders,
+ * with controls for starting slideshows and sorting operations.
+ *
+ * Key features:
+ * - Tabbed navigation between local folders and network connections
+ * - Slideshow interval configuration
+ * - Permission handling for media access
+ * - First launch welcome flow integration
+ * - Session auto-resume functionality
+ *
+ * The activity manages the main application state and coordinates between
+ * different fragments and activities for media browsing and organization.
+ */
 class MainActivity : LocaleActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var preferenceManager: PreferenceManager
@@ -48,6 +63,13 @@ class MainActivity : LocaleActivity() {
             }
         }
 
+    /**
+     * Called when the activity is first created.
+     * Initializes the UI components, sets up ViewPager with tabs, configures click listeners,
+     * handles first launch welcome flow, and attempts to auto-resume previous sessions.
+     *
+     * @param savedInstanceState Bundle containing the activity's previously saved state, or null if none exists
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -118,6 +140,11 @@ class MainActivity : LocaleActivity() {
         tryAutoResumeSession()
     }
 
+    /**
+     * Sets up the ViewPager with tab navigation for local folders and network connections.
+     * Configures the adapter, tab layout mediator, and fragment callbacks for handling
+     * folder selection and double-click events.
+     */
     private fun setupViewPager() {
         val adapter = MainPagerAdapter(this)
         binding.viewPager.adapter = adapter
@@ -154,6 +181,12 @@ class MainActivity : LocaleActivity() {
         updateButtonsState()
     }
 
+    /**
+     * Retrieves the slideshow interval value from the input field.
+     * Validates that the value is within the acceptable range (1-300 seconds).
+     *
+     * @return The interval value if valid, null otherwise
+     */
     private fun getIntervalFromInput(): Int? {
         return binding
             .intervalInput
@@ -163,6 +196,13 @@ class MainActivity : LocaleActivity() {
             ?.takeIf { it in 1..300 }
     }
 
+    /**
+     * Updates the slideshow interval for a specific connection configuration.
+     * Retrieves the current configuration from the database and updates it if the interval has changed.
+     *
+     * @param configId The ID of the connection configuration to update
+     * @return The updated ConnectionConfig if changes were made, null if config not found
+     */
     private suspend fun updateConfigInterval(configId: Long): ConnectionConfig? {
         // Fetch config from database
         val config = viewModel.getConfigById(configId) ?: return null
@@ -640,8 +680,8 @@ class MainActivity : LocaleActivity() {
         /**
          * Sets up click listeners for all interactive UI elements in the main activity.
          * Configures listeners for interval input, slideshow button, sort button, and settings button.
+         * Save interval on text change.
          */
-// Save interval on text change
         binding.intervalInput.addTextChangedListener(
             object : android.text.TextWatcher {
                 override fun beforeTextChanged(
@@ -700,15 +740,18 @@ class MainActivity : LocaleActivity() {
                         } else {
                             Toast
                                 .makeText(
-                                    this@MainActivity, "Please add sort destinations in Settings or enable deletion",
-                                    Toast
-                                        .LENGTH_LONG,
+                                    this@MainActivity,
+                                    "Please add sort destinations in Settings or enable deletion",
+                                    Toast.LENGTH_LONG,
                                 ).show()
                         }
                     } else {
                         Toast
-                            .makeText(this@MainActivity, getString(R.string.select_connection_first), Toast.LENGTH_SHORT)
-                            .show()
+                            .makeText(
+                                this@MainActivity,
+                                getString(R.string.select_connection_first),
+                                Toast.LENGTH_SHORT,
+                            ).show()
                     }
                 }
             } ?: run {

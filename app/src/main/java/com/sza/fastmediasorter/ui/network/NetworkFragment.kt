@@ -622,7 +622,8 @@ class NetworkFragment : Fragment() {
                                 interval = 10,
                                 lastUsed = System.currentTimeMillis(),
                                 type = "SMB",
-                                writePermission = true, // SMB folders have write permission
+                                writePermission = true,
+                                // SMB folders have write permission
                             )
                         viewModel.insertConfigAndGetId(config)
                         addedCount++
@@ -691,7 +692,8 @@ class NetworkFragment : Fragment() {
                         interval = 10,
                         lastUsed = System.currentTimeMillis(),
                         type = "SMB",
-                        writePermission = true, // SMB folders have write permission
+                        writePermission = true,
+                        // SMB folders have write permission
                     )
                 val newId = viewModel.insertConfigAndGetId(config)
                 savedConfig = config.copy(id = newId)

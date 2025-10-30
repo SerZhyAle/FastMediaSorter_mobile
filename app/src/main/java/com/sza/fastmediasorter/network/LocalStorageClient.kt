@@ -18,6 +18,14 @@ data class LocalImageInfo(
     val dateModified: Long,
 )
 
+/**
+ * Client for accessing local storage media files using dual access patterns.
+ * Supports both MediaStore API for standard Android folders and Storage Access Framework
+ * for user-selected custom folders. Provides efficient file scanning with progress callbacks
+ * and supports images and videos with size filtering.
+ *
+ * @property context Android context for accessing content resolver and file operations
+ */
 class LocalStorageClient(
     private val context: Context,
 ) {

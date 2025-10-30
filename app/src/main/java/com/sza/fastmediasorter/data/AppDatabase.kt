@@ -13,7 +13,7 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         @Volatile
-        private var INSTANCE: AppDatabase? = null
+        private var instance: AppDatabase? = null
 
         /**
          * Migration from version 2 to 3: Add support for local storage
@@ -70,7 +70,7 @@ abstract class AppDatabase : RoomDatabase() {
             )
 
         fun getDatabase(context: Context): AppDatabase =
-            INSTANCE ?: synchronized(this) {
+            instance ?: synchronized(this) {
                 val instance =
                     Room
                         .databaseBuilder(
@@ -83,7 +83,7 @@ abstract class AppDatabase : RoomDatabase() {
                         // If migration is missing, app will crash with clear error message
                         // forcing developers to add proper migration
                         .build()
-                INSTANCE = instance
+                this.instance = instance
                 instance
             }
     }

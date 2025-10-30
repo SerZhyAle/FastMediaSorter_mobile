@@ -4,10 +4,28 @@ import com.sza.fastmediasorter.utils.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/**
+ * Repository class responsible for managing image and media file operations over SMB connections.
+ * Provides a clean interface for loading media files from network shares, handling authentication,
+ * and managing connection lifecycle.
+ *
+ * This repository abstracts the complexity of SMB protocol interactions and provides
+ * coroutine-based asynchronous operations for media file access.
+ *
+ * @property smbClient The SMB client instance used for network operations
+ * @property preferenceManager Manager for accessing user preferences and connection settings
+ */
 class ImageRepository(
     val smbClient: SmbClient,
     private val preferenceManager: PreferenceManager,
 ) {
+    /**
+     * Loads a list of image and video files from the configured SMB share.
+     * Handles connection establishment, authentication, and file enumeration.
+     * Supports filtering by file type and size limits for videos.
+     *
+     * @return Result containing the list of file paths on success, or an exception on failure
+     */
     suspend fun loadImages(): Result<List<String>> {
         return withContext(Dispatchers.IO) {
             try {
@@ -54,10 +72,26 @@ class ImageRepository(
         }
     }
 
+    /**
+     * Downloads the content of a specific image file from the SMB share.
+     *
+     * @param imageUrl The SMB URL of the image file to download
+     * @return The image data as ByteArray, or null if download failed
+     */
     suspend fun downloadImage(imageUrl: String): ByteArray? = smbClient.downloadImage(imageUrl)
 
+    /**
+     * Retrieves the current SMB context for advanced operations.
+     * The context contains authentication and connection information.
+     *
+     * @return The CIFSContext if available, null otherwise
+     */
     fun getSmbContext(): jcifs.CIFSContext? = smbClient.getContext()
 
+    /**
+     * Clears stored credentials and disconnects from the SMB server.
+     * Should be called when switching connections or on logout.
+     */
     fun clearCredentials() {
         smbClient.disconnect()
     }

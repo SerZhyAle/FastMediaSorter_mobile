@@ -16,7 +16,9 @@ import java.io.IOException
  */
 class SmbDataSource(
     private val smbClient: SmbClient,
-) : BaseDataSource(/* isNetwork = */ true) {
+) : BaseDataSource(
+    true,
+) {
     private var smbFile: SmbFile? = null
     private var smbRandomAccessFile: SmbRandomAccessFile? = null
     private var uri: Uri? = null

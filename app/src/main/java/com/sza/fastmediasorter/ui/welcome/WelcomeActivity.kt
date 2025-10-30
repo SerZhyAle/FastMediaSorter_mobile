@@ -1,18 +1,13 @@
 // Package declaration for the welcome UI components
 package com.sza.fastmediasorter.ui.welcome
 
-// Android framework imports for basic activity functionality
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
-
-// AndroidX imports for modern Android development
 import androidx.core.content.ContextCompat
 import androidx.viewpager2.widget.ViewPager2
-
-// Application-specific imports
 import com.sza.fastmediasorter.MainActivity
 import com.sza.fastmediasorter.R
 import com.sza.fastmediasorter.databinding.ActivityWelcomeBinding
@@ -46,7 +41,7 @@ class WelcomeActivity : LocaleActivity() {
         listOf(
             // Page 1: Introduction and importance of setup
             WelcomePage(
-                icon = "👋", // Welcome emoji
+                icon = "👋",
                 title = "Welcome to FastMediaSorter!",
                 description = "Before you start, let's configure the app properly",
                 features =
@@ -59,7 +54,7 @@ class WelcomeActivity : LocaleActivity() {
             ),
             // Page 2: Settings overview
             WelcomePage(
-                icon = "⚙️", // Settings gear emoji
+                icon = "⚙️",
                 title = "STEP 1: Open Settings",
                 description = "All configuration happens in Settings tab",
                 features =
@@ -72,7 +67,7 @@ class WelcomeActivity : LocaleActivity() {
             ),
             // Page 3: Network connection setup
             WelcomePage(
-                icon = "🌐", // Network globe emoji
+                icon = "🌐",
                 title = "STEP 2: Add Network Connection",
                 description = "Connect to your NAS or network share",
                 features =
@@ -86,7 +81,7 @@ class WelcomeActivity : LocaleActivity() {
             ),
             // Page 4: Sort destinations configuration
             WelcomePage(
-                icon = "🎯", // Target emoji
+                icon = "🎯",
                 title = "STEP 3: Configure Destinations",
                 description = "Set up folders for sorting photos",
                 features =
@@ -100,7 +95,7 @@ class WelcomeActivity : LocaleActivity() {
             ),
             // Page 5: Local folders access (optional)
             WelcomePage(
-                icon = "📱", // Mobile phone emoji
+                icon = "📱",
                 title = "STEP 4 (Optional): Local Folders",
                 description = "Access device photos - optional if using network",
                 features =
@@ -113,7 +108,7 @@ class WelcomeActivity : LocaleActivity() {
             ),
             // Page 6: Setup completion
             WelcomePage(
-                icon = "✅", // Check mark emoji
+                icon = "✅",
                 title = "Setup Complete!",
                 description = "Now you can use the app",
                 features =
@@ -126,7 +121,7 @@ class WelcomeActivity : LocaleActivity() {
             ),
             // Page 7: Final checklist
             WelcomePage(
-                icon = "🚀", // Rocket emoji
+                icon = "🚀",
                 title = "Quick Start Checklist",
                 description = "Did you complete these steps?",
                 features =

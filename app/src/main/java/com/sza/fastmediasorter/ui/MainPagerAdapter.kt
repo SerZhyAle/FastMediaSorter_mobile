@@ -1,12 +1,9 @@
 // Package declaration for the main UI components
 package com.sza.fastmediasorter.ui
 
-// AndroidX imports for fragment management and ViewPager2
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
-
-// Application-specific imports for the fragments managed by this adapter
 import com.sza.fastmediasorter.ui.local.LocalFoldersFragment
 import com.sza.fastmediasorter.ui.network.NetworkFragment
 

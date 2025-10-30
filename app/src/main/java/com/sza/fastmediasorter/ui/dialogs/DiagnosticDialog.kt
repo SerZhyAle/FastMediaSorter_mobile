@@ -10,6 +10,11 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import com.sza.fastmediasorter.R
 
+/**
+ * Utility class for displaying diagnostic information dialogs.
+ * Shows detailed error messages, connection diagnostics, and system information
+ * with copy-to-clipboard functionality for sharing diagnostic data.
+ */
 class DiagnosticDialog {
     companion object {
         fun show(

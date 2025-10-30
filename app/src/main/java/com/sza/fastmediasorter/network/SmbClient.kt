@@ -10,6 +10,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.*
 
+/**
+ * SMB/CIFS client for network file operations.
+ * Provides connection management, authentication, file listing, and data transfer
+ * capabilities for accessing remote SMB shares. Uses jcifs-ng library for SMB protocol implementation.
+ */
 class SmbClient {
     private var context: CIFSContext? = null
 
@@ -478,9 +483,8 @@ class SmbClient {
                             if (imageCount <= 10) {
                                 Logger.d("SmbClient", "Added image: $filename")
                             }
-                        }
-                        // Check if it's a video and video is enabled
-                        else if (isVideoEnabled &&
+                            // Check if it's a video and video is enabled
+                        } else if (isVideoEnabled &&
                             com
                                 .sza
                                 .fastmediasorter
