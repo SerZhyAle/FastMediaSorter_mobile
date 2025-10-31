@@ -46,7 +46,6 @@ FastMediaSorter Mobile is a modern Android application for viewing and sorting m
 ### Security and Storage
 - **EncryptedSharedPreferences:** Encrypted settings storage
 - **Android Keystore:** Secure key storage
-- **Biometric authentication:** Biometric authentication
 - **Runtime permissions:** Dynamic permission management
 
 ## User Scenarios
@@ -186,19 +185,9 @@ FastMediaSorter Mobile is a modern Android application for viewing and sorting m
 - **Huawei AppGallery:** Huawei platform
 - **Enterprise distribution:** Enterprise distribution
 
-### CI/CD Integration
-- **GitHub Actions:** Automated pipelines
-- **Artifact management:** Artifact management
-- **Release automation:** Release automation
-- **Quality gates:** Quality control
 
 ## Monitoring and Maintenance
 
-### Analytics
-- **Firebase Analytics:** User behavior
-- **Crash reporting:** Error reports
-- **Performance monitoring:** Performance monitoring
-- **User feedback:** Feedback
 
 ### Technical Maintenance
 - **Database maintenance:** DB maintenance
