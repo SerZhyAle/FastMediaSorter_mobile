@@ -1,22 +1,18 @@
 package com.sza.fastmediasorter.ui.settings
 
-import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.*
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.rule.ActivityTestRule
 import com.sza.fastmediasorter.R
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.Before
-import androidx.test.rule.ActivityTestRule
-import org.junit.Rule
 
 @RunWith(AndroidJUnit4::class)
 class SettingsActivityTest {
-
     @get:Rule
     val activityRule = ActivityTestRule(SettingsActivity::class.java)
 

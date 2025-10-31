@@ -15,9 +15,10 @@ import java.io.IOException
  * Allows video playback without downloading entire file
  */
 class SmbDataSource(
-    private val smbClient: SmbClient
-) : BaseDataSource(/* isNetwork = */ true) {
-    
+    private val smbClient: SmbClient,
+) : BaseDataSource(
+    true,
+) {
     private var smbFile: SmbFile? = null
     private var smbRandomAccessFile: SmbRandomAccessFile? = null
     private var uri: Uri? = null
@@ -28,48 +29,51 @@ class SmbDataSource(
         try {
             uri = dataSpec.uri
             val smbUrl = uri.toString()
-            
+
             Logger.d("SmbDataSource", "Opening SMB file: $smbUrl")
-            
+
             // Create SMB file instance
             smbFile = SmbFile(smbUrl, smbClient.getContext())
-            
+
             if (smbFile?.exists() != true) {
                 throw IOException("SMB file not found: $smbUrl")
             }
-            
+
             if (!smbFile!!.canRead()) {
                 throw IOException("Cannot read SMB file: $smbUrl")
             }
-            
+
             // Open random access for seeking
             smbRandomAccessFile = SmbRandomAccessFile(smbFile, "r")
-            
+
             val fileLength = smbFile!!.length()
-            
+
             // Handle range request (for seeking)
             val position = dataSpec.position
             if (position > 0) {
                 smbRandomAccessFile?.seek(position)
             }
-            
-            bytesRemaining = if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
-                dataSpec.length
-            } else {
-                fileLength - position
-            }
-            
+
+            bytesRemaining =
+                if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
+                    dataSpec.length
+                } else {
+                    fileLength - position
+                }
+
             opened = true
             transferStarted(dataSpec)
-            
-            Logger.d("SmbDataSource", "Opened: position=$position, bytesRemaining=$bytesRemaining, fileLength=$fileLength")
-            
+
+            Logger.d(
+                "SmbDataSource",
+                "Opened: position=$position, bytesRemaining=$bytesRemaining, fileLength=$fileLength",
+            )
+
             return if (bytesRemaining == C.LENGTH_UNSET.toLong()) {
                 fileLength
             } else {
                 bytesRemaining
             }
-            
         } catch (e: Exception) {
             Logger.e("SmbDataSource", "Error opening SMB file", e)
             throw IOException("Failed to open SMB file: ${e.message}", e)
@@ -77,52 +81,57 @@ class SmbDataSource(
     }
 
     private var totalBytesRead = 0L
-    
-    override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+
+    override fun read(
+        buffer: ByteArray,
+        offset: Int,
+        length: Int,
+    ): Int {
         if (length == 0) {
             return 0
         }
-        
+
         if (bytesRemaining == 0L) {
             return C.RESULT_END_OF_INPUT
         }
-        
+
         try {
-            val bytesToRead = if (bytesRemaining == C.LENGTH_UNSET.toLong()) {
-                length
-            } else {
-                minOf(bytesRemaining, length.toLong()).toInt()
-            }
-            
+            val bytesToRead =
+                if (bytesRemaining == C.LENGTH_UNSET.toLong()) {
+                    length
+                } else {
+                    minOf(bytesRemaining, length.toLong()).toInt()
+                }
+
             val bytesRead = smbRandomAccessFile?.read(buffer, offset, bytesToRead) ?: C.RESULT_END_OF_INPUT
-            
+
             if (bytesRead > 0) {
                 totalBytesRead += bytesRead
                 if (totalBytesRead <= 10000 || totalBytesRead % 100000 == 0L) {
-                    Logger.e("SmbDataSource", "READ: requested=$bytesToRead actual=$bytesRead total=$totalBytesRead remaining=$bytesRemaining file=${uri?.lastPathSegment}")
+                    Logger.e(
+                        "SmbDataSource",
+                        "READ: requested=$bytesToRead actual=$bytesRead total=$totalBytesRead remaining=$bytesRemaining file=${uri?.lastPathSegment}",
+                    )
                 }
-                
+
                 if (bytesRemaining != C.LENGTH_UNSET.toLong()) {
                     bytesRemaining -= bytesRead.toLong()
                 }
                 bytesTransferred(bytesRead)
             }
-            
+
             return bytesRead
-            
         } catch (e: Exception) {
             Logger.e("SmbDataSource", "Error reading from SMB file", e)
             throw IOException("Failed to read from SMB file: ${e.message}", e)
         }
     }
 
-    override fun getUri(): Uri? {
-        return uri
-    }
+    override fun getUri(): Uri? = uri
 
     override fun close() {
         uri = null
-        
+
         try {
             smbRandomAccessFile?.close()
         } catch (e: Exception) {
@@ -130,14 +139,14 @@ class SmbDataSource(
         } finally {
             smbRandomAccessFile = null
         }
-        
+
         smbFile = null
-        
+
         if (opened) {
             opened = false
             transferEnded()
         }
-        
+
         Logger.d("SmbDataSource", "Closed SMB data source")
     }
 }
@@ -146,11 +155,7 @@ class SmbDataSource(
  * Factory for creating SmbDataSource instances
  */
 class SmbDataSourceFactory(
-    private val smbClient: SmbClient
+    private val smbClient: SmbClient,
 ) : DataSource.Factory {
-    
-    override fun createDataSource(): DataSource {
-        return SmbDataSource(smbClient)
-    }
+    override fun createDataSource(): DataSource = SmbDataSource(smbClient)
 }
-
