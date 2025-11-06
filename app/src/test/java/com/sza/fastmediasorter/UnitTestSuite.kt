@@ -8,6 +8,6 @@ import org.junit.runners.Suite
 @RunWith(Suite::class)
 @Suite.SuiteClasses(
     PreferenceManagerTest::class,
-    MediaUtilsTest::class
+    MediaUtilsTest::class,
 )
 class UnitTestSuite

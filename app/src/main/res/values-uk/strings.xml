@@ -6,7 +6,7 @@
     <string name="sort">Сорт..</string>
     <string name="settings">Налаштування</string>
     <string name="server_address">Адреса сервера</string>
-    <string name="folder_address">Адреса папки (наприклад, 192.168.1.100\\photos або SERVER\\photos)</string>
+    <string name="folder_address">Адреса папки (наприклад, 192.168.1.100\\photos)</string>
     <string name="username">Ім\'я користувача</string>
     <string name="password">Пароль</string>
     <string name="folder_path">Шлях до папки</string>
@@ -24,7 +24,7 @@
     <string name="connection_saved">Підключення збережено</string>
     <string name="connection_deleted">Підключення видалено</string>
     <string name="back">Назад</string>
-    <string name="footer_text">sza@ukr.net v251019</string>
+    <string name="footer_text">sza@ukr.net v251028</string>
     <string name="touch_zones_title">Сенсорні зони керування</string>
     <string name="touch_zones_description">Діаграма, що показує сенсорні зони в режимі слайд-шоу</string>
     <string name="touch_zones_hint">Торкайтеся відповідних областей під час слайд-шоу для керування відтворенням</string>
@@ -79,6 +79,7 @@
     <string name="allow_to_delete">Дозволити видалення</string>
     <string name="request_user_for_deletion">Запитувати підтвердження видалення</string>
     <string name="allow_renaming">Дозволити перейменування</string>
+    <string name="use_small_buttons">Використовувати маленькі кнопки</string>
     <string name="slideshow_settings">Налаштування слайд-шоу</string>
     <string name="show_controls">Показувати елементи керування</string>
     <string name="general_settings">Загальні налаштування</string>
